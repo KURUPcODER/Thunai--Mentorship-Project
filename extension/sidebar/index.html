@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="ml">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Thunai (തുണ) — Malayalam AI Accessibility Assistant</title>
+  
+  <!-- Preconnect to Google Fonts for zero layout shift -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Malayalam:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="app-container">
+    <!-- Persistent Top Navigation (Rendered conditionally by app.js) -->
+    <div id="nav-root"></div>
+
+    <!-- Active View Panel Container -->
+    <main id="view-root" role="main" aria-live="polite"></main>
+  </div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
