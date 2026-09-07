@@ -3,7 +3,7 @@
  * Provides bilingual page translation, text simplification toggle, and audio bridge with i18n support.
  */
 
-import { translateText, mockTranslations } from '../../services/translateService.js';
+import { translateText } from '../../services/translateService.js';
 import { getT } from '../i18n.js';
 
 export function renderTranslateView(container, state, setState, onNavigate) {
@@ -11,8 +11,13 @@ export function renderTranslateView(container, state, setState, onNavigate) {
   let hasTranslated = state.hasTranslated || false;
   let isSimplified = state.isSimplified || false;
   let translatedData = state.translatedData || null;
+  let translateError = state.translateError || '';
   const currentLang = state.currentLang || 'ml';
   const t = getT(currentLang);
+
+  const escapeHTML = (value) => String(value || '').replace(/[&<>"']/g, (character) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  })[character]);
 
   function render() {
     container.innerHTML = `
@@ -53,7 +58,7 @@ export function renderTranslateView(container, state, setState, onNavigate) {
           <div class="output-card-header">
             <div class="output-header-left">
               <span class="output-badge">${isSimplified ? t.simplifiedBadge : t.fullBadge}</span>
-              ${hasTranslated ? `<span class="word-count-badge">${isSimplified ? '35 words' : '52 words'}</span>` : ''}
+              ${hasTranslated ? `<span class="word-count-badge">${isSimplified ? (translatedData?.simplified || '').split(/\s+/).filter(Boolean).length : translatedData?.wordCount || 0} words</span>` : ''}
             </div>
 
             <!-- Inline Simplify Toggle Switch -->
@@ -80,8 +85,12 @@ export function renderTranslateView(container, state, setState, onNavigate) {
               </div>
             ` : hasTranslated ? `
               <p class="translated-text-content ${isSimplified ? 'simplified-mode' : ''}" lang="ml">
-                ${isSimplified ? mockTranslations.simplifiedMalayalam : mockTranslations.fullMalayalam}
+                ${escapeHTML(isSimplified ? translatedData?.simplified : translatedData?.translated)}
               </p>
+            ` : translateError ? `
+              <div class="placeholder-state" role="alert">
+                <p class="placeholder-text-en">${escapeHTML(translateError)}</p>
+              </div>
             ` : `
               <div class="placeholder-state">
                 <div class="placeholder-icon-wrap">
@@ -128,7 +137,8 @@ export function renderTranslateView(container, state, setState, onNavigate) {
     if (translateBtn) {
       translateBtn.addEventListener('click', async () => {
         isTranslating = true;
-        setState({ isTranslating: true });
+        translateError = '';
+        setState({ isTranslating: true, translateError: '' });
         render();
 
         try {
@@ -137,14 +147,17 @@ export function renderTranslateView(container, state, setState, onNavigate) {
             ? segments.map(s => s.text).filter(Boolean).join('\n\n')
             : '';
           const res = await translateText(sourceText);
+          if (!res?.success || !res.translated || !res.simplified) throw new Error('No translated text was returned.');
           isTranslating = false;
           hasTranslated = true;
           translatedData = res;
-          setState({ isTranslating: false, hasTranslated: true, translatedData: res });
+          setState({ isTranslating: false, hasTranslated: true, translatedData: res, translateError: '' });
           render();
         } catch (e) {
           isTranslating = false;
-          setState({ isTranslating: false });
+          hasTranslated = false;
+          translateError = e?.userMessage || e?.message || 'Translation could not be completed. Please try again.';
+          setState({ isTranslating: false, hasTranslated: false, translatedData: null, translateError });
           render();
         }
       });
@@ -169,7 +182,7 @@ export function renderTranslateView(container, state, setState, onNavigate) {
     const copyBtn = container.querySelector('#btn-copy-translation');
     if (copyBtn) {
       copyBtn.addEventListener('click', () => {
-        const textToCopy = isSimplified ? mockTranslations.simplifiedMalayalam : mockTranslations.fullMalayalam;
+        const textToCopy = isSimplified ? translatedData?.simplified : translatedData?.translated;
         navigator.clipboard?.writeText(textToCopy);
         const label = copyBtn.querySelector('#copy-label');
         if (label) {
