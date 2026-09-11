@@ -796,58 +796,45 @@
       }
     });
 
-    // If no broken elements were naturally found, add standard portal safeguard
-    if (brokenElements.length === 0) {
-      const firstInteractive = document.querySelector('button, input, a') || document.body;
-      const brkId = `brk-1`;
-      firstInteractive.setAttribute('data-thunai-broken', brkId);
-      brokenElements.push({
-        id: brkId,
-        selector: `[data-thunai-broken="${brkId}"]`,
-        tag: firstInteractive.tagName.toLowerCase(),
-        text: (firstInteractive.innerText || '').slice(0, 30) || 'Submit / Action Element',
-        reason: 'Missing explicit aria-label and accessible focus ring',
-        failureSummary: 'Element requires enhanced touch/click target area and contrast focus ring'
+    // ARIA violation entry only if broken elements actually exist
+    if (brokenElements.length > 0) {
+      const interactiveTarget = document.querySelector('[data-thunai-broken]') || document.body;
+      wcagViolations.push({
+        id: `viol-${violIdx++}`,
+        type: 'missing-aria-label',
+        category: 'aria',
+        severity: 'minor',
+        message: 'Interactive widgets must provide accessible names and ARIA roles',
+        malayalamRule: 'ബട്ടണുകൾക്കും ഇൻപുട്ടുകൾക്കും വ്യക്തമായ ലേബൽ നൽകണം',
+        selector: '[data-thunai-broken]',
+        failureSummary: 'Interactive elements require explicit accessible labels and valid focus indicators'
+      });
+
+      categories[4].count = brokenElements.length;
+      categories[4].issues.push({
+        id: "issue-live-aria",
+        category: "aria",
+        severity: "MINOR",
+        severityClass: "minor",
+        ruleTitle: "ARIA roles & accessible button names must be provided",
+        malayalamRule: "ബട്ടണുകൾക്കും ഇൻപുട്ടുകൾക്കും വ്യക്തമായ ലേബൽ നൽകണം",
+        description: "Ensure interactive elements have accessible names and correct ARIA role assignments.",
+        affectedCount: brokenElements.length,
+        selector: '[data-thunai-broken]',
+        codeSnippet: `<${interactiveTarget.tagName.toLowerCase()} />`,
+        failureSummary: "Interactive element requires explicit accessible label for screen readers",
+        hasAiSuggestion: true,
+        aiFixType: "ARIA ROLE FIX",
+        aiSuggestion: {
+          type: "ARIA_FIX",
+          currentVal: 'role="button"',
+          suggestedVal: 'aria-label="പ്രവർത്തന ബട്ടൺ" role="button"',
+          codePreview: `<button aria-label="പ്രവർത്തന ബട്ടൺ">...</button>`,
+          confidence: "99% (WAI-ARIA 1.2 Specs)",
+          approved: false
+        }
       });
     }
-
-    // ARIA violation entry
-    const interactiveTarget = document.querySelector('[data-thunai-broken]') || document.body;
-    wcagViolations.push({
-      id: `viol-${violIdx++}`,
-      type: 'missing-aria-label',
-      category: 'aria',
-      severity: 'minor',
-      message: 'Interactive widgets must provide accessible names and ARIA roles',
-      malayalamRule: 'ബട്ടണുകൾക്കും ഇൻപുട്ടുകൾക്കും വ്യക്തമായ ലേബൽ നൽകണം',
-      selector: '[data-thunai-broken]',
-      failureSummary: 'Interactive elements require explicit accessible labels and valid focus indicators'
-    });
-
-    categories[4].count = 1;
-    categories[4].issues.push({
-      id: "issue-live-aria",
-      category: "aria",
-      severity: "MINOR",
-      severityClass: "minor",
-      ruleTitle: "ARIA roles & accessible button names must be provided",
-      malayalamRule: "ബട്ടണുകൾക്കും ഇൻപുട്ടുകൾക്കും വ്യക്തമായ ലേബൽ നൽകണം",
-      description: "Ensure interactive elements have accessible names and correct ARIA role assignments.",
-      affectedCount: brokenElements.length,
-      selector: '[data-thunai-broken]',
-      codeSnippet: `<${interactiveTarget.tagName.toLowerCase()} />`,
-      failureSummary: "Interactive element requires explicit accessible label for screen readers",
-      hasAiSuggestion: true,
-      aiFixType: "ARIA ROLE FIX",
-      aiSuggestion: {
-        type: "ARIA_FIX",
-        currentVal: 'role="button"',
-        suggestedVal: 'aria-label="പ്രവർത്തന ബട്ടൺ" role="button"',
-        codePreview: `<button aria-label="പ്രവർത്തന ബട്ടൺ">...</button>`,
-        confidence: "99% (WAI-ARIA 1.2 Specs)",
-        approved: false
-      }
-    });
 
     // Compute stats
     let criticalCount = 0;
@@ -1165,6 +1152,20 @@
       ];
       canAutoFix = true;
       fixType = 'inject_label';
+    } else {
+      barrierType = 'functional';
+      titleMl = 'പ്രവർത്തനക്ഷമം (Working Normally)';
+      titleEn = 'Element Working Normally';
+      reasonMl = 'ഈ ഘടകത്തിൽ തടസ്സങ്ങളോ തകരാറുകളോ കണ്ടെത്തിയില്ല. ഇത് സാധാരണ പോലെ പ്രവർത്തിക്കുന്നുണ്ട്.';
+      reasonEn = 'No interaction barriers detected for this element. It is accessible and functioning properly.';
+      stepsMl = [
+        '1️⃣ ഈ ഘടകം സാധാരണ രീതിയിൽ ഉപയോഗിക്കാവുന്നതാണ്.'
+      ];
+      stepsEn = [
+        '1. You can interact with or click this element directly.'
+      ];
+      canAutoFix = false;
+      fixType = 'none';
     }
 
     // Generate unique selector
@@ -1178,7 +1179,7 @@
     return {
       id: `diag-item-${Date.now()}`,
       tag: tag,
-      text: text.slice(0, 40) || 'Unnamed element',
+      text: text.slice(0, 40) || 'Interactive element',
       selector: selector,
       barrierType: barrierType,
       title: titleMl,
@@ -1190,7 +1191,7 @@
       stepsEn: stepsEn,
       canAutoFix: canAutoFix,
       fixType: fixType,
-      severity: isDisabled || isCovered ? 'CRITICAL' : 'SERIOUS'
+      severity: isDisabled || isCovered ? 'CRITICAL' : (barrierType === 'functional' ? 'INFO' : 'SERIOUS')
     };
   }
 
@@ -1320,6 +1321,66 @@
     }
 
     return { success: false, reason: 'Unknown fix type' };
+  }
+
+  /**
+   * Live Page Interaction Barrier Analysis for Currently Opened Webpage
+   * Scans the real DOM for:
+   * 1. Disabled buttons or buttons inside forms with unfilled required inputs
+   * 2. Dead or empty anchor links (href="#" or href="")
+   * 3. Unlabelled form controls
+   * 4. Overlapping invisible overlays intercepting clicks
+   * Returns empty array if no issues found on the current page.
+   */
+  function diagnoseLivePageBarriers() {
+    const barriers = [];
+    const seenSelectors = new Set();
+
+    // 1. Check for disabled buttons or buttons with missing required inputs
+    const allButtons = Array.from(document.querySelectorAll('button, input[type="submit"], input[type="button"], [role="button"]'));
+    allButtons.forEach(btn => {
+      const diag = diagnoseElementDOM(btn);
+      if (diag && (diag.barrierType === 'disabled_button' || diag.barrierType === 'missing_required_fields' || diag.barrierType === 'overlay_blocked')) {
+        if (!seenSelectors.has(diag.selector)) {
+          seenSelectors.add(diag.selector);
+          barriers.push(diag);
+        }
+      }
+    });
+
+    // 2. Check for dead or empty links
+    const deadLinks = Array.from(document.querySelectorAll('a[href="#"], a[href=""], a:not([href]), a[href^="javascript:void"]'));
+    deadLinks.forEach(link => {
+      const diag = diagnoseElementDOM(link);
+      if (diag && diag.barrierType === 'dead_link') {
+        if (!seenSelectors.has(diag.selector) && barriers.length < 5) {
+          seenSelectors.add(diag.selector);
+          barriers.push(diag);
+        }
+      }
+    });
+
+    // 3. Check for unlabelled inputs
+    const unlabelledInputs = Array.from(document.querySelectorAll('input:not([type="hidden"]), select, textarea')).filter(inp => {
+      const id = inp.id;
+      const hasLabel = id ? document.querySelector(`label[for="${id}"]`) : inp.closest('label');
+      const hasAria = inp.getAttribute('aria-label') || inp.getAttribute('aria-labelledby');
+      return !hasLabel && !hasAria && !inp.getAttribute('title');
+    });
+
+    unlabelledInputs.forEach(inp => {
+      const diag = diagnoseElementDOM(inp);
+      if (diag && !seenSelectors.has(diag.selector) && barriers.length < 5) {
+        seenSelectors.add(diag.selector);
+        barriers.push(diag);
+      }
+    });
+
+    return {
+      success: true,
+      barriers: barriers,
+      totalIssues: barriers.length
+    };
   }
 
   function toggleHeatmap(show) {
@@ -1522,6 +1583,9 @@
       } else if (message.action === 'STOP_ELEMENT_PICKER') {
         stopElementPicker();
         sendResponse({ success: true });
+      } else if (message.action === 'DIAGNOSE_LIVE_PAGE') {
+        const result = diagnoseLivePageBarriers();
+        sendResponse(result);
       } else if (message.action === 'TRY_AUTO_FIX') {
         const result = tryAutoFixElement(message.selector, message.fixType);
         sendResponse(result);
@@ -1547,6 +1611,7 @@
     clearSearchHighlights,
     extractRealPageContent,
     scanLivePageDOM,
+    diagnoseLivePageBarriers,
     inspectElement,
     inspectElementWithPointer,
     clearActivePointer,

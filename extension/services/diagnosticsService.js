@@ -89,94 +89,28 @@ class DiagnosticsService {
   }
 
   /**
-   * Universal Barrier Diagnosis from Scanned Report & Active DOM
+   * Universal Barrier Diagnosis from Currently Opened Webpage & Scanned Report
+   * Queries the live DOM directly for interaction obstacles.
+   * Returns empty array [] if no issues are found.
    */
   async getPageBarriers(scanReport) {
-    const rawBroken = (scanReport && scanReport.brokenElements && scanReport.brokenElements.length > 0)
-      ? scanReport.brokenElements
-      : [];
-
-    if (rawBroken.length > 0) {
-      return rawBroken.map((item, idx) => this.normalizeBarrierItem(item, idx));
+    // 1. Direct live analysis on the currently opened webpage via content-script
+    try {
+      const liveRes = await browserCompat.sendMessageToActiveTab({ action: 'DIAGNOSE_LIVE_PAGE' });
+      if (liveRes && liveRes.success && Array.isArray(liveRes.barriers)) {
+        return liveRes.barriers.map((item, idx) => this.normalizeBarrierItem(item, idx));
+      }
+    } catch (e) {
+      console.warn("[Thunai DiagnosticsService] Live page direct diagnosis notice:", e);
     }
 
-    // Default universal portal barriers for demonstration & fallback
-    return [
-      {
-        id: "barrier-1",
-        selector: "button[type='submit'], button.submit-btn, button#submit",
-        tag: "button",
-        text: "അപേക്ഷ സമർപ്പിക്കുക (Submit Application)",
-        severity: "CRITICAL",
-        barrierType: "disabled_button",
-        title: "നിഷ്ക്രിയമായ സമർപ്പിക്കൽ ബട്ടൺ (Disabled Submit Button)",
-        titleEn: "Disabled Submit Button",
-        reason: "നിർബന്ധിത വിവരങ്ങൾ (ഉദാഹരണത്തിന്: പേര്, രജിസ്ട്രേഷൻ നമ്പർ) പൂർണ്ണമായി പൂരിപ്പിക്കാത്തതിനാലോ 'I Agree' ചെക്ക്ബോക്സ് ടിക്ക് ചെയ്യാത്തതിനാലോ ബട്ടൺ ക്ലിക്ക് ചെയ്യാനാകുന്നില്ല.",
-        reasonEn: "The submit button is locked because mandatory input fields or agreement checkboxes are currently empty.",
-        solution: "മുകളിലെ എല്ലാ ഫീൽഡുകളും പൂരിപ്പിച്ച ശേഷം വീണ്ടും സമർപ്പിക്കുക.",
-        solutionEn: "Fill in the required inputs marked with an asterisk (*) and tick the declaration checkbox.",
-        steps: [
-          "1️⃣ മുകളിലെ നിർബന്ധിത കോളങ്ങൾ (ആപ്ലിക്കേഷൻ നമ്പർ, ഫോൺ നമ്പർ) പൂരിപ്പിക്കുക.",
-          "2️⃣ നിബന്ധനകൾ അംഗീകരിക്കുന്ന ചെക്ക്ബോക്സ് ഉണ്ടെങ്കിൽ ടിക്ക് ചെയ്യുക.",
-          "3️⃣ ശേഷം ഈ ബട്ടൺ അമർത്തുക."
-        ],
-        stepsEn: [
-          "1. Complete the mandatory fields above (Application No, Phone).",
-          "2. Check the declaration / terms checkbox.",
-          "3. Then click this submit button."
-        ],
-        canAutoFix: true,
-        fixType: "focus_missing_field"
-      },
-      {
-        id: "barrier-2",
-        selector: "a[href='#'], a.dead-link",
-        tag: "a",
-        text: "അറിയിപ്പുകൾ / സേവനങ്ങൾ (Notice Board Link)",
-        severity: "SERIOUS",
-        barrierType: "dead_link",
-        title: "പ്രവർത്തനരഹിതമായ ലിങ്ക് (Dead / Empty Link)",
-        titleEn: "Unlinked / Dead Menu Anchor",
-        reason: "ഈ ലിങ്കിൽ ശരിയായ വെബ്‌സൈറ്റ് വിലാസമില്ല (href='#'), അതിനാൽ ക്ലിക്ക് ചെയ്താലും പുതിയ പേജ് തുറക്കില്ല.",
-        reasonEn: "This navigation link has no destination URL set (href='#'), making clicks non-functional.",
-        solution: "മെയിൻ മെനുവിൽ നിന്നോ സെർച്ച് ബാറിൽ നിന്നോ നേരിട്ടുള്ള ലിങ്ക് തിരഞ്ഞെടുക്കുക.",
-        solutionEn: "Use the top header menu or page search bar to find this section.",
-        steps: [
-          "1️⃣ പേജിന്റെ മുകളിലെ മെയിൻ മെനു നോക്കുക.",
-          "2️⃣ തുണയിലെ 'Find in Page' ഉപയോഗിച്ച് ഈ വാക്ക് തിരയുക."
-        ],
-        stepsEn: [
-          "1. Check the main navigation header at the top.",
-          "2. Use Thunai 'Find in Page' to jump directly to this topic."
-        ],
-        canAutoFix: false,
-        fixType: "none"
-      },
-      {
-        id: "barrier-3",
-        selector: "div.modal-backdrop, div.overlay-container",
-        tag: "div",
-        text: "അദൃശ്യമായ പോപ്പപ്പ് പാളി (Overlay Layer)",
-        severity: "CRITICAL",
-        barrierType: "overlay_blocked",
-        title: "ക്ലിക്ക് തടസ്സപ്പെടുത്തുന്ന അദൃശ്യ പാളി (Click-Intercepting Overlay)",
-        titleEn: "Invisible Backdrop Intercepting Clicks",
-        reason: "ഒരു അദൃശ്യമായ പോപ്പപ്പ് പാളി പേജിന്റെ മുകളിലുള്ളതിനാൽ മറ്റ് ബട്ടണുകളിൽ ക്ലിക്ക് ചെയ്യുമ്പോൾ പ്രതികരണമില്ല.",
-        reasonEn: "An invisible modal backdrop or floating banner is blocking clicks from reaching form elements.",
-        solution: "പോപ്പപ്പുകൾ ക്ലോസ് ചെയ്യുക അല്ലെങ്കിൽ തുണ ഓട്ടോ-ഫിക്സ് ഉപയോഗിക്കുക.",
-        solutionEn: "Dismiss the popup notice or use Thunai Quick Fix to remove the blocking layer.",
-        steps: [
-          "1️⃣ തുറന്നിരിക്കുന്ന ഏതെങ്കിലും അറിയിപ്പ് വിൻഡോയിലെ ✕ അമർത്തുക.",
-          "2️⃣ അല്ലെങ്കിൽ 'ഓട്ടോ-ഫിക്സ്' അമർത്തി തടസ്സം നേരിട്ട് നീക്കുക."
-        ],
-        stepsEn: [
-          "1. Click the close (✕) button on any notification banner.",
-          "2. Or click 'Try Quick Fix' to automatically remove the obstacle."
-        ],
-        canAutoFix: true,
-        fixType: "remove_overlay"
-      }
-    ];
+    // 2. If scanReport has brokenElements, use them
+    if (scanReport && Array.isArray(scanReport.brokenElements)) {
+      return scanReport.brokenElements.map((item, idx) => this.normalizeBarrierItem(item, idx));
+    }
+
+    // 3. Return clean empty array (NO ISSUES FOUND)
+    return [];
   }
 
   normalizeBarrierItem(item, idx) {
@@ -303,8 +237,8 @@ class DiagnosticsService {
     const wordCount = pageContext.wordCount || 350;
     const isGovPortal = /kerala\.gov|gov\.in|e-grantz|portal|service/i.test(pageUrl + ' ' + pageTitle);
 
-    // 1. Check if question is asking why an element or button does not work
-    const isWhyNotWorking = /why|work|click|disabled|broken|not working|എന്തുകൊണ്ട്|ക്ലിക്ക്|പ്രവർത്തിക്കുന്നില്ല|തടസ്സം|ബട്ടൺ/i.test(q);
+    // 1. Check if question is asking why an element or button does not work or if issues exist
+    const isWhyNotWorking = /why|work|click|disabled|broken|not working|issue|issues|problem|error|fault|എന്തുകൊണ്ട്|ക്ലിക്ക്|പ്രവർത്തിക്കുന്നില്ല|തടസ്സം|ബട്ടൺ|പ്രശ്ന|തകരാറ/i.test(q);
     
     // 2. Check if question is asking how to fill or submit a form
     const isHowToSubmit = /submit|form|apply|application|fill|രജിസ്ട്രേഷൻ|അപേക്ഷ|സമർപ്പിക്കുക|പൂരിപ്പിക്കുക/i.test(q);
@@ -320,31 +254,41 @@ class DiagnosticsService {
     let suggestedActions = [];
     let followUps = [];
 
-    if (activeElement && isWhyNotWorking) {
-      answerMl = `ഈ ഘടകം (${activeElement.text || activeElement.tag}) പ്രവർത്തിക്കാത്തതിന്റെ പ്രധാന കാരണം: ${activeElement.reason}\n\nപരിഹരിക്കാൻ താഴെ പറയുന്ന കാര്യങ്ങൾ ചെയ്യുക:\n${activeElement.steps ? activeElement.steps.join('\n') : 'വിവരങ്ങൾ പൂർത്തിയാക്കി വീണ്ടും ക്ലിക്ക് ചെയ്യുക.'}`;
-      answerEn = `The reason this element (${activeElement.text || activeElement.tag}) is not working: ${activeElement.reasonEn || activeElement.reason}\n\nTo resolve this:\n${activeElement.stepsEn ? activeElement.stepsEn.join('\n') : 'Complete the required information and try again.'}`;
-      
-      suggestedActions.push({
-        label: isEn ? '👉 Point on Page' : '👉 പേജിൽ കാണിക്കുക',
-        action: 'POINT_TO_ELEMENT',
-        selector: activeElement.selector,
-        title: activeElement.title,
-        reason: activeElement.reason,
-        fix: activeElement.solution
-      });
-
-      if (activeElement.canAutoFix) {
+    if (isWhyNotWorking) {
+      if (activeElement) {
+        answerMl = `ഈ ഘടകം (${activeElement.text || activeElement.tag}) പ്രവർത്തിക്കാത്തതിന്റെ പ്രധാന കാരണം: ${activeElement.reason}\n\nപരിഹരിക്കാൻ താഴെ പറയുന്ന കാര്യങ്ങൾ ചെയ്യുക:\n${activeElement.steps ? activeElement.steps.join('\n') : 'വിവരങ്ങൾ പൂർത്തിയാക്കി വീണ്ടും ക്ലിക്ക് ചെയ്യുക.'}`;
+        answerEn = `The reason this element (${activeElement.text || activeElement.tag}) is not working: ${activeElement.reasonEn || activeElement.reason}\n\nTo resolve this:\n${activeElement.stepsEn ? activeElement.stepsEn.join('\n') : 'Complete the required information and try again.'}`;
+        
         suggestedActions.push({
-          label: isEn ? '⚡ Try Quick Fix' : '⚡ ഓട്ടോ-ഫിക്സ് ചെയ്യുക',
-          action: 'EXECUTE_AUTO_FIX',
+          label: isEn ? '👉 Point on Page' : '👉 പേജിൽ കാണിക്കുക',
+          action: 'POINT_TO_ELEMENT',
           selector: activeElement.selector,
-          fixType: activeElement.fixType
+          title: activeElement.title,
+          reason: activeElement.reason,
+          fix: activeElement.solution
         });
-      }
 
-      followUps = isEn
-        ? ['How do I fill the remaining form fields?', 'What else is required on this page?']
-        : ['ബാക്കി വിവരങ്ങൾ എങ്ങനെ പൂരിപ്പിക്കണം?', 'ഈ പേജിലെ മറ്റ് പ്രധാന കാര്യങ്ങൾ എന്തൊക്കെയാണ്?'];
+        if (activeElement.canAutoFix) {
+          suggestedActions.push({
+            label: isEn ? '⚡ Try Quick Fix' : '⚡ ഓട്ടോ-ഫിക്സ് ചെയ്യുക',
+            action: 'EXECUTE_AUTO_FIX',
+            selector: activeElement.selector,
+            fixType: activeElement.fixType
+          });
+        }
+
+        followUps = isEn
+          ? ['How do I fill the remaining form fields?', 'What else is required on this page?']
+          : ['ബാക്കി വിവരങ്ങൾ എങ്ങനെ പൂരിപ്പിക്കണം?', 'ഈ പേജിലെ മറ്റ് പ്രധാന കാര്യങ്ങൾ എന്തൊക്കെയാണ്?'];
+      } else {
+        // No issues found condition
+        answerMl = `നിലവിലെ വെബ്‌പേജ് (${pageTitle}) പൂർണ്ണമായും വിശകലനം ചെയ്തതിൽ യാതൊരു പ്രവർത്തന തടസ്സങ്ങളോ ബട്ടൺ പ്രശ്നങ്ങളോ കണ്ടെത്തിയിട്ടില്ല (No Issues Found).\n\nപേജിലെ എല്ലാ ബട്ടണുകളും ലിങ്കുകളും ഫോമുകളും സാധാരണ രീതിയിൽ പ്രവർത്തിക്കുന്നുണ്ട്. എന്തെങ്കിലും പ്രത്യേക ബട്ടൺ പ്രവർത്തിക്കുന്നില്ലെന്ന് തോന്നുന്നുണ്ടെങ്കിൽ, 'Pick on Page' അമർത്തി ആ ഭാഗത്ത് നേരിട്ട് ക്ലിക്ക് ചെയ്യാവുന്നതാണ്.`;
+        answerEn = `The currently opened webpage (${pageTitle}) was analyzed and no broken elements or interaction barriers were found (No Issues Found).\n\nAll buttons, links, and forms are fully functional. If you suspect an element is not working as expected, click 'Pick on Page' to inspect it directly.`;
+
+        followUps = isEn
+          ? ['How to submit this form?', 'Summarize this webpage']
+          : ['ഈ ഫോം എങ്ങനെ പൂരിപ്പിക്കണം?', 'ഈ പേജിലെ വിവരങ്ങൾ ചുരുക്കി പറയുക'];
+      }
 
     } else if (isHowToSubmit) {
       answerMl = `ഈ പേജിൽ അപേക്ഷയോ ഫോമോ വിജയകരമായി സമർപ്പിക്കാൻ ലളിതമായ ഘട്ടങ്ങൾ:\n\n1️⃣ ചുവന്ന നക്ഷത്രമുള്ള (*) എല്ലാ കോളങ്ങളിലും നിങ്ങളുടെ കൃത്യമായ വിവരങ്ങൾ നൽകുക.\n2️⃣ അപ്‌ലോഡ് ചെയ്യേണ്ട സർട്ടിഫിക്കറ്റുകളോ രേഖകളോ ഉണ്ടെങ്കിൽ അവ ചേർക്കുക (സാധാരണയായി 2MB-യിൽ താഴെയുള്ള PDF അല്ലെങ്കിൽ JPG).\n3️⃣ നിബന്ധനകൾ വായിച്ച് 'സമ്മതം' (I Agree) എന്ന ബോക്സിൽ ടിക്ക് ചെയ്യുക.\n4️⃣ ശേഷം 'സമർപ്പിക്കുക' (Submit) ബട്ടൺ അമർത്തുക. എന്തെങ്കിലും തടസ്സമുണ്ടായാൽ തുണ നിങ്ങളെ കൃത്യമായി സഹായിക്കും.`;

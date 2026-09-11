@@ -163,6 +163,13 @@ export const translations = {
     diagAskChatBtn: '💬 സംശയം ചോദിക്കുക',
     diagRecheckBtn: 'പുനഃപരിശോധിക്കുക',
     diagPlatformBadge: 'യൂണിവേഴ്സൽ ക്രോസ്-പ്ലാറ്റ്‌ഫോം സപ്പോർട്ട്',
+    diagNoIssuesTitle: 'പ്രശ്നങ്ങളൊന്നും കണ്ടെത്തിയില്ല',
+    diagNoIssuesDesc: 'ഈ വെബ്‌പേജിൽ തടസ്സങ്ങളോ പ്രവർത്തന തകരാറുകളോ കണ്ടെത്തിയില്ല. എല്ലാ ബട്ടണുകളും ഫോമുകളും സാധാരണ രീതിയിൽ പ്രവർത്തിക്കുന്നുണ്ട്.',
+    diagNoIssuesCheck1: 'എല്ലാ ബട്ടണുകളും ലിങ്കുകളും സജീവമാണ്',
+    diagNoIssuesCheck2: 'തടസ്സപ്പെടുത്തുന്ന പോപ്പപ്പുകളോ അദൃശ്യ പാളികളോ ഇല്ല',
+    diagNoIssuesCheck3: 'ഫോം കോളങ്ങൾ പൂർണ്ണമായും ലഭ്യമാണ്',
+    diagNoIssuesPick: 'പ്രത്യേക ബട്ടൺ ചൂണ്ടിക്കാണിക്കുക',
+    diagNoIssuesAsk: 'സഹായിയോട് ചോദിക്കുക',
 
     // Webpage-Aware AI Chatbot
     chatHeading: 'വെബ്സഹായി ചാറ്റ്ബോട്ട്',
@@ -317,6 +324,13 @@ export const translations = {
     diagAskChatBtn: '💬 Ask Chatbot',
     diagRecheckBtn: 'Re-Check Page',
     diagPlatformBadge: 'Universal Cross-Platform Ready',
+    diagNoIssuesTitle: 'No Issues Found',
+    diagNoIssuesDesc: 'We analyzed this webpage and found no interactive barriers or broken elements. All buttons, links, and forms are functioning properly.',
+    diagNoIssuesCheck1: 'All buttons and links are interactive',
+    diagNoIssuesCheck2: 'No blocking overlays or modal backdrops',
+    diagNoIssuesCheck3: 'Form inputs and controls are accessible',
+    diagNoIssuesPick: 'Inspect Specific Button',
+    diagNoIssuesAsk: 'Ask AI Assistant',
 
     // Webpage-Aware AI Chatbot
     chatHeading: 'Webpage AI Assistant',

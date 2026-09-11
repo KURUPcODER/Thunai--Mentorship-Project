@@ -133,6 +133,12 @@ class BrowserCompat {
           if (script.stopElementPicker) script.stopElementPicker();
           return { success: true };
 
+        case 'DIAGNOSE_LIVE_PAGE':
+          if (script.diagnoseLivePageBarriers) {
+            return script.diagnoseLivePageBarriers();
+          }
+          return { success: true, barriers: [], totalIssues: 0 };
+
         case 'TRY_AUTO_FIX':
           if (script.tryAutoFixElement) {
             return script.tryAutoFixElement(message.selector, message.fixType);

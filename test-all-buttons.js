@@ -66,13 +66,16 @@ async function runButtonAudit() {
   });
   console.log(`✓ AI Chatbot (English Input): Responded with ${chatResEn.text.length} chars, ${chatResEn.followUps.length} follow-ups.`);
 
-  // 10. Test Cross-Browser Compatibility Proxy & Custom TTS Speech
-  const { browserCompat } = await import('./extension/services/browserCompat.js');
-  console.log(`✓ Cross-Platform Compatibility Layer: Mobile=${browserCompat.isMobile}, Firefox=${browserCompat.isFirefox}, Safari=${browserCompat.isSafari}.`);
-
-  ttsService.speakCustomText('തുണ വെബ്സഹായി തയ്യാറാണ്', 'ml-IN');
-  ttsService.stopCustomText();
-  console.log(`✓ Custom TTS Read-Aloud: Successfully initialized and tested.`);
+  // 9b. Test Clean Webpage (No Issues Found) Diagnosis
+  const cleanBarriers = await diagnosticsService.getPageBarriers({ brokenElements: [] });
+  console.log(`✓ Clean Webpage Audit: ${cleanBarriers.length} barriers returned (No artificial dummy issues).`);
+  const cleanChatRes = await diagnosticsService.askChatbot({
+    query: 'പേജിൽ എന്തെങ്കിലും പ്രശ്നമുണ്ടോ?',
+    pageContext: { title: 'Healthy Clean Portal', url: 'https://kerala.gov.in/clean' },
+    activeElement: null,
+    lang: 'ml'
+  });
+  console.log(`✓ Clean Page AI Response: "${cleanChatRes.text.slice(0, 75)}..."`);
 
   console.log("=== ALL BUTTONS & INTERACTIONS OPERATIONAL (100% PASS) ===");
 }

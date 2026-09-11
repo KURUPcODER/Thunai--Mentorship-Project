@@ -57,7 +57,9 @@ export function renderDiagnosticsView(container, state, setState, onNavigate) {
 
   async function loadBarriers() {
     barriers = await diagnosticsService.getPageBarriers(state.scanReport);
-    if (!activeInspectedItem && barriers.length > 0) {
+    if (barriers.length === 0) {
+      activeInspectedItem = null;
+    } else if (!activeInspectedItem) {
       activeInspectedItem = barriers[0];
     }
     render();
@@ -183,7 +185,7 @@ export function renderDiagnosticsView(container, state, setState, onNavigate) {
           <button class="diag-subtab-btn ${activeSubTab === 'inspector' ? 'active' : ''}" id="btn-subtab-inspect" role="tab" aria-selected="${activeSubTab === 'inspector'}">
             <span class="subtab-icon">🔍</span>
             <span class="subtab-title">${t.diagTabInspect}</span>
-            ${barriers.length > 0 ? `<span class="subtab-badge">${barriers.length}</span>` : ''}
+            ${barriers.length > 0 ? `<span class="subtab-badge">${barriers.length}</span>` : `<span class="subtab-badge-clean" title="${t.diagNoIssuesTitle}">✓</span>`}
           </button>
           
           <button class="diag-subtab-btn ${activeSubTab === 'chatbot' ? 'active' : ''}" id="btn-subtab-chat" role="tab" aria-selected="${activeSubTab === 'chatbot'}">
@@ -197,127 +199,179 @@ export function renderDiagnosticsView(container, state, setState, onNavigate) {
         ${activeSubTab === 'inspector' ? `
           <div class="diag-tab-content animate-fade-in" id="diag-subtab-panel-inspect">
             
-            <!-- Hero Interactive Pointer Action CTA -->
-            <div class="diag-hero-pointer-cta">
-              <button class="btn-hero-picker ${isPickingElement ? 'picking-active' : ''}" id="btn-trigger-picker" aria-label="${t.diagPickBtn}">
-                <div class="picker-icon-ring">
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                    <circle cx="12" cy="12" r="10"></circle>
-                    <circle cx="12" cy="12" r="6"></circle>
-                    <line x1="12" y1="2" x2="12" y2="4"></line>
-                    <line x1="12" y1="20" x2="12" y2="22"></line>
-                    <line x1="2" y1="12" x2="4" y2="12"></line>
-                    <line x1="20" y1="12" x2="22" y2="12"></line>
+            ${barriers.length === 0 && !activeInspectedItem ? `
+              <!-- CLEAN NO ISSUES FOUND STATE: Concise, uncluttered, reassuring -->
+              <div class="diag-no-issues-panel animate-fade-in" id="diag-no-issues-card">
+                <div class="no-issues-badge-icon">
+                  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10" stroke="#059669" fill="#ECFDF5"></circle>
+                    <polyline points="8 12 11 15 16 9"></polyline>
                   </svg>
                 </div>
-                <div class="picker-text-wrap">
-                  <div class="picker-title-main">${t.diagPickBtn}</div>
-                  <div class="picker-desc-sub">${t.diagPickHelp}</div>
-                </div>
-                <div class="picker-arrow-sign">👉</div>
-              </button>
-            </div>
 
-            <!-- Active Pointed / Inspected Element Spotlight Card -->
-            ${activeInspectedItem ? `
-              <div class="diag-active-spotlight-card">
-                <div class="spotlight-header-row">
-                  <span class="spotlight-pointer-badge">👉 ${isEn ? 'CURRENT FOCUS' : 'നിലവിലെ ശ്രദ്ധാകേന്ദ്രം'}</span>
-                  <span class="severity-pill severity-${(activeInspectedItem.severity || 'serious').toLowerCase()}">${activeInspectedItem.severity || 'SERIOUS'}</span>
-                </div>
+                <h3 class="no-issues-title">${t.diagNoIssuesTitle}</h3>
+                <p class="no-issues-desc">
+                  ${isEn 
+                    ? `We analyzed <strong>"${activePageTitle}"</strong>. All interactive buttons, links, and forms on this webpage are accessible and working normally.`
+                    : `<strong>"${activePageTitle}"</strong> എന്ന വെബ്‌പേജ് പൂർണ്ണമായും പരിശോധിച്ചു. ഈ പേജിലെ ബട്ടണുകളും ഫോമുകളും തടസ്സങ്ങളില്ലാതെ സാധാരണ രീതിയിൽ പ്രവർത്തിക്കുന്നു.`}
+                </p>
 
-                <div class="spotlight-element-tag">&lt;${activeInspectedItem.tag}&gt; ${activeInspectedItem.text || activeInspectedItem.selector}</div>
-
-                <div class="spotlight-section-box section-why">
-                  <div class="section-label-row">
-                    <span class="section-emoji">❓</span>
-                    <strong class="section-title">${t.diagWhyTitle}</strong>
+                <div class="no-issues-checklist">
+                  <div class="checklist-row">
+                    <span class="checklist-check">✅</span>
+                    <span class="checklist-label">${t.diagNoIssuesCheck1}</span>
                   </div>
-                  <p class="section-body-text">${isEn ? (activeInspectedItem.reasonEn || activeInspectedItem.reason) : activeInspectedItem.reason}</p>
-                </div>
-
-                <div class="spotlight-section-box section-solution">
-                  <div class="section-label-row">
-                    <span class="section-emoji">💡</span>
-                    <strong class="section-title">${t.diagFixTitle}</strong>
+                  <div class="checklist-row">
+                    <span class="checklist-check">✅</span>
+                    <span class="checklist-label">${t.diagNoIssuesCheck2}</span>
                   </div>
-                  <div class="section-steps-list">
-                    ${(isEn ? (activeInspectedItem.stepsEn || activeInspectedItem.steps) : activeInspectedItem.steps || [activeInspectedItem.solution]).map(step => `
-                      <div class="step-item-pill">${step}</div>
-                    `).join('')}
+                  <div class="checklist-row">
+                    <span class="checklist-check">✅</span>
+                    <span class="checklist-label">${t.diagNoIssuesCheck3}</span>
                   </div>
                 </div>
 
-                <!-- Primary Action Buttons for Active Element -->
-                <div class="spotlight-actions-toolbar">
-                  <button class="btn-spotlight-action btn-point-on-page" 
-                          data-selector="${activeInspectedItem.selector}"
-                          data-title="${activeInspectedItem.title}"
-                          data-reason="${activeInspectedItem.reason}"
-                          data-fix="${activeInspectedItem.solution || activeInspectedItem.fix}">
-                    <span class="btn-act-icon">👉</span>
-                    <span>${t.diagPointBtn}</span>
+                <!-- Focused Clean Action Buttons: Re-check, Point/Inspect, or Chatbot -->
+                <div class="no-issues-actions-group">
+                  <button class="btn-clean-action btn-clean-recheck" id="btn-recheck-clean" title="${t.diagRecheckBtn}">
+                    <span class="action-icon">🔄</span>
+                    <span>${t.diagRecheckBtn}</span>
                   </button>
-
-                  <button class="btn-spotlight-action btn-listen-explanation"
-                          data-text="${isEn ? (activeInspectedItem.reasonEn + '. ' + (activeInspectedItem.stepsEn ? activeInspectedItem.stepsEn.join('. ') : '')) : (activeInspectedItem.reason + '. ' + (activeInspectedItem.steps ? activeInspectedItem.steps.join('. ') : ''))}">
-                    <span class="btn-act-icon">${isSpeaking ? '⏹️' : '🔊'}</span>
-                    <span>${isSpeaking ? (isEn ? 'Stop' : 'നിർത്തുക') : t.diagListenBtn}</span>
+                  <button class="btn-clean-action btn-clean-pick" id="btn-trigger-picker-clean" title="${t.diagNoIssuesPick}">
+                    <span class="action-icon">🎯</span>
+                    <span>${t.diagNoIssuesPick}</span>
                   </button>
-
-                  ${activeInspectedItem.canAutoFix ? `
-                    <button class="btn-spotlight-action btn-autofix-diag"
-                            data-selector="${activeInspectedItem.selector}"
-                            data-type="${activeInspectedItem.fixType}">
-                      <span class="btn-act-icon">⚡</span>
-                      <span>${t.diagAutoFixBtn}</span>
-                    </button>
-                  ` : ''}
-
-                  <button class="btn-spotlight-action btn-ask-chatbot-focus"
-                          data-title="${activeInspectedItem.text || activeInspectedItem.title}">
-                    <span class="btn-act-icon">💬</span>
-                    <span>${t.diagAskChatBtn}</span>
+                  <button class="btn-clean-action btn-clean-chat" id="btn-goto-chat-clean" title="${t.diagNoIssuesAsk}">
+                    <span class="action-icon">💬</span>
+                    <span>${t.diagNoIssuesAsk}</span>
                   </button>
                 </div>
               </div>
-            ` : ''}
-
-            <!-- All Diagnosed Barriers List -->
-            <div class="diag-findings-container">
-              <div class="findings-header-strip">
-                <span class="findings-count-pill">${barriers.length} ${t.diagFound}</span>
-                <button class="btn-recheck-diag" id="btn-recheck-diag" title="Re-check page">
-                  <span>🔄</span>
-                  <span>${t.diagRecheckBtn}</span>
+            ` : `
+              <!-- Hero Interactive Pointer Action CTA -->
+              <div class="diag-hero-pointer-cta">
+                <button class="btn-hero-picker ${isPickingElement ? 'picking-active' : ''}" id="btn-trigger-picker" aria-label="${t.diagPickBtn}">
+                  <div class="picker-icon-ring">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                      <circle cx="12" cy="12" r="10"></circle>
+                      <circle cx="12" cy="12" r="6"></circle>
+                      <line x1="12" y1="2" x2="12" y2="4"></line>
+                      <line x1="12" y1="20" x2="12" y2="22"></line>
+                      <line x1="2" y1="12" x2="4" y2="12"></line>
+                      <line x1="20" y1="12" x2="22" y2="12"></line>
+                    </svg>
+                  </div>
+                  <div class="picker-text-wrap">
+                    <div class="picker-title-main">${t.diagPickBtn}</div>
+                    <div class="picker-desc-sub">${t.diagPickHelp}</div>
+                  </div>
+                  <div class="picker-arrow-sign">👉</div>
                 </button>
               </div>
 
-              <div class="barriers-cards-grid">
-                ${barriers.map((item, idx) => `
-                  <div class="barrier-item-card ${activeInspectedItem && activeInspectedItem.selector === item.selector ? 'item-selected' : ''}" data-idx="${idx}">
-                    <div class="barrier-card-top">
-                      <span class="severity-mini-badge tag-${item.severity.toLowerCase()}">${item.severity}</span>
-                      <span class="barrier-tag-name">&lt;${item.tag}&gt; ${item.selector}</span>
+              <!-- Active Pointed / Inspected Element Spotlight Card -->
+              ${activeInspectedItem ? `
+                <div class="diag-active-spotlight-card">
+                  <div class="spotlight-header-row">
+                    <span class="spotlight-pointer-badge">👉 ${isEn ? 'CURRENT FOCUS' : 'നിലവിലെ ശ്രദ്ധാകേന്ദ്രം'}</span>
+                    <span class="severity-pill severity-${(activeInspectedItem.severity || 'serious').toLowerCase()}">${activeInspectedItem.severity || 'SERIOUS'}</span>
+                  </div>
+
+                  <div class="spotlight-element-tag">&lt;${activeInspectedItem.tag}&gt; ${activeInspectedItem.text || activeInspectedItem.selector}</div>
+
+                  <div class="spotlight-section-box section-why">
+                    <div class="section-label-row">
+                      <span class="section-emoji">❓</span>
+                      <strong class="section-title">${t.diagWhyTitle}</strong>
                     </div>
+                    <p class="section-body-text">${isEn ? (activeInspectedItem.reasonEn || activeInspectedItem.reason) : activeInspectedItem.reason}</p>
+                  </div>
 
-                    <h3 class="barrier-card-title">${isEn ? (item.titleEn || item.title) : item.title}</h3>
-                    <p class="barrier-card-snippet">${item.text}</p>
-                    <p class="barrier-card-reason">${isEn ? (item.reasonEn || item.reason) : item.reason}</p>
-
-                    <div class="barrier-card-actions-row">
-                      <button class="btn-card-point" data-selector="${item.selector}" data-title="${item.title}" data-reason="${item.reason}" data-fix="${item.solution}">
-                        <span>👉</span>
-                        <span>${t.diagPointBtn}</span>
-                      </button>
-                      <button class="btn-card-select" data-idx="${idx}">
-                        <span>🔍 ${isEn ? 'View Reason' : 'വിശദമായി കാണുക'}</span>
-                      </button>
+                  <div class="spotlight-section-box section-solution">
+                    <div class="section-label-row">
+                      <span class="section-emoji">💡</span>
+                      <strong class="section-title">${t.diagFixTitle}</strong>
+                    </div>
+                    <div class="section-steps-list">
+                      ${(isEn ? (activeInspectedItem.stepsEn || activeInspectedItem.steps) : activeInspectedItem.steps || [activeInspectedItem.solution]).map(step => `
+                        <div class="step-item-pill">${step}</div>
+                      `).join('')}
                     </div>
                   </div>
-                `).join('')}
-              </div>
-            </div>
+
+                  <!-- Primary Action Buttons for Active Element -->
+                  <div class="spotlight-actions-toolbar">
+                    <button class="btn-spotlight-action btn-point-on-page" 
+                            data-selector="${activeInspectedItem.selector}"
+                            data-title="${activeInspectedItem.title}"
+                            data-reason="${activeInspectedItem.reason}"
+                            data-fix="${activeInspectedItem.solution || activeInspectedItem.fix}">
+                      <span class="btn-act-icon">👉</span>
+                      <span>${t.diagPointBtn}</span>
+                    </button>
+
+                    <button class="btn-spotlight-action btn-listen-explanation"
+                            data-text="${isEn ? (activeInspectedItem.reasonEn + '. ' + (activeInspectedItem.stepsEn ? activeInspectedItem.stepsEn.join('. ') : '')) : (activeInspectedItem.reason + '. ' + (activeInspectedItem.steps ? activeInspectedItem.steps.join('. ') : ''))}">
+                      <span class="btn-act-icon">${isSpeaking ? '⏹️' : '🔊'}</span>
+                      <span>${isSpeaking ? (isEn ? 'Stop' : 'നിർത്തുക') : t.diagListenBtn}</span>
+                    </button>
+
+                    ${activeInspectedItem.canAutoFix ? `
+                      <button class="btn-spotlight-action btn-autofix-diag"
+                              data-selector="${activeInspectedItem.selector}"
+                              data-type="${activeInspectedItem.fixType}">
+                        <span class="btn-act-icon">⚡</span>
+                        <span>${t.diagAutoFixBtn}</span>
+                      </button>
+                    ` : ''}
+
+                    <button class="btn-spotlight-action btn-ask-chatbot-focus"
+                            data-title="${activeInspectedItem.text || activeInspectedItem.title}">
+                      <span class="btn-act-icon">💬</span>
+                      <span>${t.diagAskChatBtn}</span>
+                    </button>
+                  </div>
+                </div>
+              ` : ''}
+
+              <!-- All Diagnosed Barriers List (Only shown when barriers exist) -->
+              ${barriers.length > 0 ? `
+                <div class="diag-findings-container">
+                  <div class="findings-header-strip">
+                    <span class="findings-count-pill">${barriers.length} ${t.diagFound}</span>
+                    <button class="btn-recheck-diag" id="btn-recheck-diag" title="Re-check page">
+                      <span>🔄</span>
+                      <span>${t.diagRecheckBtn}</span>
+                    </button>
+                  </div>
+
+                  <div class="barriers-cards-grid">
+                    ${barriers.map((item, idx) => `
+                      <div class="barrier-item-card ${activeInspectedItem && activeInspectedItem.selector === item.selector ? 'item-selected' : ''}" data-idx="${idx}">
+                        <div class="barrier-card-top">
+                          <span class="severity-mini-badge tag-${item.severity.toLowerCase()}">${item.severity}</span>
+                          <span class="barrier-tag-name">&lt;${item.tag}&gt; ${item.selector}</span>
+                        </div>
+
+                        <h3 class="barrier-card-title">${isEn ? (item.titleEn || item.title) : item.title}</h3>
+                        <p class="barrier-card-snippet">${item.text}</p>
+                        <p class="barrier-card-reason">${isEn ? (item.reasonEn || item.reason) : item.reason}</p>
+
+                        <div class="barrier-card-actions-row">
+                          <button class="btn-card-point" data-selector="${item.selector}" data-title="${item.title}" data-reason="${item.reason}" data-fix="${item.solution}">
+                            <span>👉</span>
+                            <span>${t.diagPointBtn}</span>
+                          </button>
+                          <button class="btn-card-select" data-idx="${idx}">
+                            <span>🔍 ${isEn ? 'View Reason' : 'വിശദമായി കാണുക'}</span>
+                          </button>
+                        </div>
+                      </div>
+                    `).join('')}
+                  </div>
+                </div>
+              ` : ''}
+            `}
 
           </div>
         ` : `
@@ -522,6 +576,35 @@ export function renderDiagnosticsView(container, state, setState, onNavigate) {
         const newReport = await scanPage();
         setState({ scanReport: newReport });
         await loadBarriers();
+      });
+    }
+
+    // 8b. Clean No Issues State Buttons
+    const cleanRecheckBtn = container.querySelector('#btn-recheck-clean');
+    if (cleanRecheckBtn) {
+      cleanRecheckBtn.addEventListener('click', async () => {
+        cleanRecheckBtn.classList.add('spinning');
+        const newReport = await scanPage();
+        setState({ scanReport: newReport });
+        await loadBarriers();
+      });
+    }
+
+    const cleanPickBtn = container.querySelector('#btn-trigger-picker-clean');
+    if (cleanPickBtn) {
+      cleanPickBtn.addEventListener('click', async () => {
+        isPickingElement = true;
+        render();
+        await diagnosticsService.startInPagePicker();
+      });
+    }
+
+    const cleanChatBtn = container.querySelector('#btn-goto-chat-clean');
+    if (cleanChatBtn) {
+      cleanChatBtn.addEventListener('click', () => {
+        activeSubTab = 'chatbot';
+        setState({ diagnosticsSubTab: 'chatbot' });
+        render();
       });
     }
 
