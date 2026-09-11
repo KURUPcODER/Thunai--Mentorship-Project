@@ -75,6 +75,137 @@
       gap: 6px !important;
     }
 
+    /* Animated Visual Spotlight Ring */
+    .thunai-pointer-spotlight {
+      position: absolute !important;
+      border: 3.5px solid #D97706 !important;
+      background: rgba(217, 119, 6, 0.15) !important;
+      box-shadow: 0 0 0 5px rgba(217, 119, 6, 0.35), 0 0 35px rgba(220, 38, 38, 0.55) !important;
+      border-radius: 8px !important;
+      pointer-events: none !important;
+      z-index: 2147483640 !important;
+      transition: all 0.25s ease !important;
+      animation: thunaiSpotlightPulse 1.6s infinite ease-in-out !important;
+    }
+
+    /* Rich Explainability Pointer Arrow Card */
+    .thunai-pointer-arrow-card {
+      position: absolute !important;
+      background: #0F172A !important;
+      color: #FFFFFF !important;
+      border: 2px solid #D97706 !important;
+      border-radius: 12px !important;
+      padding: 12px 16px !important;
+      font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Noto Sans Malayalam', sans-serif !important;
+      font-size: 13px !important;
+      box-shadow: 0 10px 32px rgba(0, 0, 0, 0.65) !important;
+      z-index: 2147483647 !important;
+      width: 320px !important;
+      max-width: 90vw !important;
+      pointer-events: auto !important;
+      animation: thunaiBounceIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+      line-height: 1.5 !important;
+    }
+
+    .thunai-pointer-arrow-indicator {
+      display: inline-flex !important;
+      align-items: center !important;
+      gap: 6px !important;
+      font-size: 13.5px !important;
+      font-weight: 800 !important;
+      color: #F59E0B !important;
+      margin-bottom: 5px !important;
+      animation: thunaiArrowBounce 0.9s infinite alternate ease-in-out !important;
+    }
+
+    .thunai-pointer-title {
+      font-size: 13.5px !important;
+      font-weight: 700 !important;
+      color: #F8FAFC !important;
+      margin-bottom: 4px !important;
+    }
+
+    .thunai-pointer-reason {
+      font-size: 12px !important;
+      color: #FCA5A5 !important;
+      background: rgba(220, 38, 38, 0.2) !important;
+      padding: 5px 8px !important;
+      border-radius: 6px !important;
+      border-left: 3px solid #DC2626 !important;
+      margin-bottom: 6px !important;
+    }
+
+    .thunai-pointer-fix {
+      font-size: 11.5px !important;
+      color: #FEF08A !important;
+      background: rgba(217, 119, 6, 0.2) !important;
+      padding: 4px 8px !important;
+      border-radius: 6px !important;
+      margin-bottom: 8px !important;
+    }
+
+    .thunai-pointer-actions {
+      display: flex !important;
+      align-items: center !important;
+      justify-content: space-between !important;
+      gap: 6px !important;
+    }
+
+    .thunai-pointer-btn-dismiss {
+      background: #334155 !important;
+      color: #F8FAFC !important;
+      border: 1px solid #475569 !important;
+      padding: 4px 10px !important;
+      border-radius: 6px !important;
+      font-size: 11px !important;
+      font-weight: 700 !important;
+      cursor: pointer !important;
+    }
+
+    .thunai-pointer-btn-dismiss:hover {
+      background: #475569 !important;
+    }
+
+    /* Live Element Picker Banner & Highlight */
+    .thunai-picker-banner {
+      position: fixed !important;
+      top: 16px !important;
+      left: 50% !important;
+      transform: translateX(-50%) !important;
+      background: #0F172A !important;
+      color: #FFFFFF !important;
+      border: 2px solid #D97706 !important;
+      padding: 10px 22px !important;
+      border-radius: 9999px !important;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.6) !important;
+      font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Noto Sans Malayalam', sans-serif !important;
+      font-size: 13px !important;
+      font-weight: 700 !important;
+      z-index: 2147483647 !important;
+      display: flex !important;
+      align-items: center !important;
+      gap: 14px !important;
+      cursor: default !important;
+    }
+
+    .thunai-picker-cancel-btn {
+      background: #DC2626 !important;
+      color: #FFFFFF !important;
+      border: none !important;
+      padding: 4px 10px !important;
+      border-radius: 9999px !important;
+      font-size: 11px !important;
+      font-weight: 700 !important;
+      cursor: pointer !important;
+    }
+
+    .thunai-picker-hover-highlight {
+      outline: 3.5px dashed #DC2626 !important;
+      outline-offset: 3px !important;
+      background-color: rgba(220, 38, 38, 0.12) !important;
+      cursor: crosshair !important;
+    }
+
     .thunai-heatmap-pin {
       position: absolute !important;
       width: 26px !important;
@@ -142,6 +273,18 @@
     @keyframes thunaiPulse {
       0%, 100% { box-shadow: 0 0 8px rgba(220, 38, 38, 0.4); }
       50% { box-shadow: 0 0 24px rgba(220, 38, 38, 0.85); }
+    }
+    @keyframes thunaiSpotlightPulse {
+      0%, 100% { box-shadow: 0 0 0 4px rgba(217, 119, 6, 0.3), 0 0 25px rgba(220, 38, 38, 0.45); }
+      50% { box-shadow: 0 0 0 7px rgba(217, 119, 6, 0.5), 0 0 40px rgba(220, 38, 38, 0.75); }
+    }
+    @keyframes thunaiArrowBounce {
+      0% { transform: translateY(0); }
+      100% { transform: translateY(-6px); }
+    }
+    @keyframes thunaiBounceIn {
+      0% { opacity: 0; transform: scale(0.92) translateY(8px); }
+      100% { opacity: 1; transform: scale(1) translateY(0); }
     }
     @keyframes thunaiMatchPop {
       0% { transform: scale(0.9); }
@@ -776,35 +919,407 @@
     };
   }
 
-  function inspectElement(selector, label = 'Thunai Inspection') {
-    if (activeOverlay && activeOverlay.parentNode) activeOverlay.parentNode.removeChild(activeOverlay);
+  // Active Pointer & Spotlight State
+  let activeSpotlightEl = null;
+  let activePointerCardEl = null;
+  let isPickerActive = false;
+  let pickerBannerEl = null;
+  let lastHoveredEl = null;
+
+  function clearActivePointer() {
+    if (activeSpotlightEl && activeSpotlightEl.parentNode) activeSpotlightEl.remove();
+    if (activePointerCardEl && activePointerCardEl.parentNode) activePointerCardEl.remove();
+    if (activeOverlay && activeOverlay.parentNode) activeOverlay.remove();
+    activeSpotlightEl = null;
+    activePointerCardEl = null;
     activeOverlay = null;
+  }
+
+  /**
+   * Visual Pointer pointing directly to broken / non-working area on the webpage
+   */
+  function inspectElementWithPointer(selectorOrEl, label = 'Thunai Inspection', reason = '', fix = '') {
+    clearActivePointer();
 
     let target = null;
-    try { target = selector ? document.querySelector(selector) : null; } catch(e) {}
-    if (!target) target = document.querySelector('img') || document.querySelector('h1') || document.body;
+    if (typeof selectorOrEl === 'string') {
+      try { target = selectorOrEl ? document.querySelector(selectorOrEl) : null; } catch (e) {}
+    } else if (selectorOrEl && selectorOrEl.nodeType === Node.ELEMENT_NODE) {
+      target = selectorOrEl;
+    }
+
+    if (!target) target = document.querySelector('button, input, a, img') || document.body;
     if (!target) return;
 
+    // Smooth scroll target to comfortable center
     target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
     const rect = target.getBoundingClientRect();
-    const overlay = document.createElement('div');
-    overlay.className = 'thunai-inspect-box';
-    overlay.style.top = `${rect.top + window.scrollY}px`;
-    overlay.style.left = `${rect.left + window.scrollX}px`;
-    overlay.style.width = `${Math.max(40, rect.width)}px`;
-    overlay.style.height = `${Math.max(24, rect.height)}px`;
+    const scrollX = window.scrollX || window.pageXOffset || 0;
+    const scrollY = window.scrollY || window.pageYOffset || 0;
 
-    const tooltip = document.createElement('div');
-    tooltip.className = 'thunai-inspect-tooltip';
-    tooltip.innerHTML = `<span>🔍</span> <span>${label}</span>`;
-    overlay.appendChild(tooltip);
+    // 1. Create Glowing Spotlight Ring around element
+    const spotlight = document.createElement('div');
+    spotlight.className = 'thunai-pointer-spotlight';
+    spotlight.style.top = `${rect.top + scrollY - 4}px`;
+    spotlight.style.left = `${rect.left + scrollX - 4}px`;
+    spotlight.style.width = `${Math.max(36, rect.width + 8)}px`;
+    spotlight.style.height = `${Math.max(26, rect.height + 8)}px`;
+    document.body.appendChild(spotlight);
+    activeSpotlightEl = spotlight;
 
-    document.body.appendChild(overlay);
-    activeOverlay = overlay;
+    // 2. Create Animated Pointing Arrow Card
+    const card = document.createElement('div');
+    card.className = 'thunai-pointer-arrow-card';
 
+    // Position Card above or below based on viewport headroom
+    const cardWidth = 320;
+    let cardLeft = Math.max(12, Math.min(window.innerWidth - cardWidth - 16, rect.left + scrollX));
+    let cardTop = rect.top + scrollY - 145;
+    let isBelow = false;
+
+    if (rect.top < 155) {
+      // Not enough room above, place below
+      cardTop = rect.bottom + scrollY + 14;
+      isBelow = true;
+    }
+
+    card.style.left = `${cardLeft}px`;
+    card.style.top = `${cardTop}px`;
+
+    const arrowIcon = isBelow ? '👆' : '👉';
+    const cleanLabel = label || target.tagName.toLowerCase();
+    const cleanReason = reason || 'ഈ ഘടകം ക്ലിക്ക് ചെയ്യാനാകാത്തവിധം തടസ്സപ്പെട്ടിരിക്കുന്നു (Element interaction barrier)';
+    const cleanFix = fix || 'ഫോം വിവരങ്ങൾ പൂർണ്ണമായി പൂരിപ്പിക്കുക അല്ലെങ്കിൽ തടസ്സം നീക്കുക (Check required fields or remove blocker)';
+
+    card.innerHTML = `
+      <div class="thunai-pointer-arrow-indicator">
+        <span>${arrowIcon}</span>
+        <span>ഇവിടെ ശ്രദ്ധിക്കുക (Look Here)</span>
+      </div>
+      <div class="thunai-pointer-title">&lt;${target.tagName.toLowerCase()}&gt; ${cleanLabel}</div>
+      <div class="thunai-pointer-reason">⚠️ ${cleanReason}</div>
+      <div class="thunai-pointer-fix">💡 ${cleanFix}</div>
+      <div class="thunai-pointer-actions">
+        <button class="thunai-pointer-btn-dismiss" id="thunai-btn-dismiss-pointer">✕ ശരി, മനസ്സിലായി (Dismiss)</button>
+      </div>
+    `;
+
+    document.body.appendChild(card);
+    activePointerCardEl = card;
+
+    const dismissBtn = card.querySelector('#thunai-btn-dismiss-pointer');
+    if (dismissBtn) {
+      dismissBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        clearActivePointer();
+      });
+    }
+
+    // Auto-dismiss after 15 seconds to avoid cluttering page
     setTimeout(() => {
-      if (activeOverlay === overlay) { overlay.remove(); activeOverlay = null; }
-    }, 6000);
+      if (activeSpotlightEl === spotlight) clearActivePointer();
+    }, 15000);
+  }
+
+  function inspectElement(selector, label = 'Thunai Inspection') {
+    inspectElementWithPointer(selector, label);
+  }
+
+  /**
+   * In-Depth DOM Failure Diagnostics for ANY element
+   */
+  function diagnoseElementDOM(el) {
+    if (!el || el.nodeType !== Node.ELEMENT_NODE) return null;
+
+    const tag = el.tagName.toLowerCase();
+    const text = (el.innerText || el.getAttribute('value') || el.getAttribute('placeholder') || el.getAttribute('title') || '').trim();
+    const rect = el.getBoundingClientRect();
+    const computed = window.getComputedStyle(el);
+
+    let barrierType = 'general';
+    let titleMl = 'പ്രവർത്തന തടസ്സം';
+    let titleEn = 'Interaction Barrier';
+    let reasonMl = 'ഈ ഘടകത്തിൽ ക്ലിക്ക് ചെയ്യുമ്പോൾ പ്രതീക്ഷിച്ച പ്രവർത്തനം നടക്കുന്നില്ല.';
+    let reasonEn = 'Clicking or interacting with this element does not trigger the expected response.';
+    let stepsMl = ['ഘടകം ശരിയായി ലോഡ് ചെയ്തിട്ടുണ്ടോ എന്ന് പരിശോധിക്കുക.', 'പേജ് റീഫ്രഷ് ചെയ്യുക.'];
+    let stepsEn = ['Ensure the element has finished loading.', 'Refresh the page if needed.'];
+    let canAutoFix = false;
+    let fixType = 'none';
+
+    // 1. Check if disabled or aria-disabled
+    const isDisabled = el.disabled || el.getAttribute('aria-disabled') === 'true' || computed.pointerEvents === 'none';
+    
+    // 2. Check if inside a form with empty required fields
+    const form = el.closest('form') || el.closest('[role="form"]');
+    let emptyRequired = [];
+    if (form) {
+      const inputs = Array.from(form.querySelectorAll('input:not([type="hidden"]), select, textarea'));
+      emptyRequired = inputs.filter(inp => {
+        const isReq = inp.hasAttribute('required') || inp.getAttribute('aria-required') === 'true' || (inp.placeholder && inp.placeholder.includes('*'));
+        return isReq && !inp.value.trim();
+      });
+    }
+
+    // 3. Check for overlapping backdrop or intercepting layer
+    let isCovered = false;
+    if (rect.width > 0 && rect.height > 0) {
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+      if (centerX >= 0 && centerY >= 0 && centerX < window.innerWidth && centerY < window.innerHeight) {
+        const topEl = document.elementFromPoint(centerX, centerY);
+        if (topEl && topEl !== el && !el.contains(topEl) && !topEl.contains(el)) {
+          isCovered = true;
+        }
+      }
+    }
+
+    // 4. Check for unlabelled inputs or empty links
+    const isLink = tag === 'a';
+    const isDeadLink = isLink && (!el.hasAttribute('href') || el.getAttribute('href') === '#' || el.getAttribute('href') === '' || el.getAttribute('href').startsWith('javascript:void'));
+    const isUnlabelled = (tag === 'input' || tag === 'button' || tag === 'select') && !text && !el.getAttribute('aria-label') && !el.getAttribute('id');
+
+    // Synthesize failure pattern
+    if (emptyRequired.length > 0 && (tag === 'button' || el.getAttribute('type') === 'submit' || isDisabled)) {
+      barrierType = 'missing_required_fields';
+      const firstMissing = emptyRequired[0];
+      const missingName = firstMissing.getAttribute('placeholder') || firstMissing.getAttribute('name') || 'അത്യാവശ്യ ഫീൽഡ് (Required Field)';
+      titleMl = 'പൂരിപ്പിക്കാത്ത നിർബന്ധിത ഫീൽഡുകൾ (Empty Required Fields)';
+      titleEn = 'Missing Required Form Inputs';
+      reasonMl = `ഫോമിലെ നിർബന്ധിത വിവരങ്ങൾ (${missingName}) പൂർത്തിയാക്കാത്തതിനാൽ ഈ ബട്ടൺ തടസ്സപ്പെട്ടിരിക്കുന്നു.`;
+      reasonEn = `The form has empty mandatory fields (e.g. "${missingName}"), preventing submission.`;
+      stepsMl = [
+        `1️⃣ മുകളിലെ നിർബന്ധിത വിവരങ്ങൾ (${missingName}) കൃത്യമായി ടൈപ്പ് ചെയ്യുക.`,
+        '2️⃣ നിബന്ധനകൾ അംഗീകരിക്കുന്ന ചെക്ക്ബോക്സ് ഉണ്ടെങ്കിൽ ടിക്ക് ചെയ്യുക.',
+        '3️⃣ ശേഷം വീണ്ടും ഈ ബട്ടൺ ക്ലിക്ക് ചെയ്യുക.'
+      ];
+      stepsEn = [
+        `1. Fill out the mandatory field "${missingName}".`,
+        '2. Check any required agreement/terms checkboxes.',
+        '3. Click this button again to submit.'
+      ];
+      canAutoFix = true;
+      fixType = 'focus_missing_field';
+    } else if (isCovered) {
+      barrierType = 'overlay_blocked';
+      titleMl = 'അദൃശ്യമായ പോപ്പപ്പ് തടസ്സം (Invisible Overlay Blocking Click)';
+      titleEn = 'Click Intercepted by Page Overlay';
+      reasonMl = 'പേജിന്റെ മുകളിലുള്ള വേറൊരു അദൃശ്യ പാളിയോ പോപ്പപ്പ് വിൻഡോയോ കാരണം നിങ്ങളുടെ ക്ലിക്ക് ഈ ഘടകത്തിൽ എത്തുന്നില്ല.';
+      reasonEn = 'An invisible backdrop, modal dialog, or floating banner is intercepting mouse clicks.';
+      stepsMl = [
+        '1️⃣ പേജിൽ തുറന്നിരിക്കുന്ന ഏതെങ്കിലും അറിയിപ്പോ പോപ്പപ്പോ ക്ലോസ് (✕) ചെയ്യുക.',
+        '2️⃣ അല്ലെങ്കിൽ ഞങ്ങളുടെ "ഓട്ടോ-ഫിക്സ്" ബട്ടൺ ഉപയോഗിച്ച് തടസ്സം നീക്കുക.'
+      ];
+      stepsEn = [
+        '1. Close any visible modal popup or notice banners on the page.',
+        '2. Use Thunai Quick Fix to dismiss the blocking layer.'
+      ];
+      canAutoFix = true;
+      fixType = 'remove_overlay';
+    } else if (isDisabled) {
+      barrierType = 'disabled_button';
+      titleMl = 'നിഷ്ക്രിയമായ ബട്ടൺ (Disabled Action Control)';
+      titleEn = 'Disabled Interactive Button';
+      reasonMl = 'വെബ്‌പേജ് ഈ ബട്ടൺ നിഷ്ക്രിയമാക്കി വെച്ചിരിക്കുകയാണ് (Disabled). ആവശ്യമായ വിവരങ്ങൾ നൽകിയാൽ മാത്രമേ ഇത് സജീവമാകൂ.';
+      reasonEn = 'The webpage has set this button to disabled state until form conditions are satisfied.';
+      stepsMl = [
+        '1️⃣ ഫോമിലെ എല്ലാ വിവരങ്ങളും കൃത്യമാണോ എന്ന് നോക്കുക.',
+        '2️⃣ "സമ്മതം" (I Agree) ചെക്ക്ബോക്സ് ഉണ്ടെങ്കിൽ ടിക്ക് ചെയ്യുക.',
+        '3️⃣ ക്ലിക്ക് തടസ്സം മാറ്റാൻ "ഓട്ടോ-ഫിക്സ്" ബട്ടൺ അമർത്താം.'
+      ];
+      stepsEn = [
+        '1. Verify that all preceding input fields contain valid values.',
+        '2. Check any mandatory declaration checkboxes.',
+        '3. Use Thunai Quick Fix to bypass the disabled state.'
+      ];
+      canAutoFix = true;
+      fixType = 'unblock_button';
+    } else if (isDeadLink) {
+      barrierType = 'dead_link';
+      titleMl = 'പ്രവർത്തനരഹിതമായ ലിങ്ക് (Dead or Void Link)';
+      titleEn = 'Empty / Dead Anchor Link';
+      reasonMl = 'ഈ ലിങ്കിൽ വെബ്‌സൈറ്റ് അഡ്രസ്സ് (URL) നൽകിയിട്ടില്ല (href="#"), അതിനാൽ ക്ലിക്ക് ചെയ്യുമ്പോൾ മറ്റൊരു പേജിലേക്ക് മാറില്ല.';
+      reasonEn = 'This link points to an empty hash href="#" and has no target destination configured.';
+      stepsMl = [
+        '1️⃣ മെയിൻ മെനുവിൽ നിന്നോ സെർച്ചിൽ നിന്നോ നേരിട്ടുള്ള പേജ് തിരഞ്ഞെടുക്കുക.',
+        '2️⃣ ബന്ധപ്പെട്ട ഓപ്ഷൻ മറ്റ് ലിങ്കുകളിൽ ഉണ്ടോ എന്ന് തിരയുക.'
+      ];
+      stepsEn = [
+        '1. Use main navigation or search to find the active section.',
+        '2. Check if the feature is available under another menu category.'
+      ];
+      canAutoFix = false;
+    } else if (isUnlabelled) {
+      barrierType = 'missing_label';
+      titleMl = 'പേരില്ലാത്ത ബട്ടൺ / ഫീൽഡ് (Unlabelled Control)';
+      titleEn = 'Missing Label or Accessibility Name';
+      reasonMl = 'ഈ ഘടകത്തിന് പേരോ വിവരങ്ങളോ എഴുതിയിട്ടില്ലാത്തതിനാൽ എന്ത് വിവരമാണ് നൽകേണ്ടതെന്ന് വ്യക്തമല്ല.';
+      reasonEn = 'The interactive element lacks descriptive text or aria-label attributes.';
+      stepsMl = [
+        '1️⃣ അടുത്തുള്ള വരികളിൽ നിന്നോ പശ്ചാത്തലത്തിൽ നിന്നോ ആവശ്യമായ വിവരങ്ങൾ മനസ്സിലാക്കുക.',
+        '2️⃣ ലേബൽ ചേർക്കാൻ "ഓട്ടോ-ഫിക്സ്" ഉപയോഗിക്കുക.'
+      ];
+      stepsEn = [
+        '1. Refer to surrounding text for instructions.',
+        '2. Apply Thunai Quick Fix to inject accessible label.'
+      ];
+      canAutoFix = true;
+      fixType = 'inject_label';
+    }
+
+    // Generate unique selector
+    let selector = tag;
+    if (el.id) selector = `#${el.id}`;
+    else if (el.className && typeof el.className === 'string') {
+      const cls = el.className.trim().split(/\s+/).filter(c => !c.startsWith('thunai-')).slice(0, 2).join('.');
+      if (cls) selector = `${tag}.${cls}`;
+    }
+
+    return {
+      id: `diag-item-${Date.now()}`,
+      tag: tag,
+      text: text.slice(0, 40) || 'Unnamed element',
+      selector: selector,
+      barrierType: barrierType,
+      title: titleMl,
+      titleEn: titleEn,
+      reason: reasonMl,
+      reasonEn: reasonEn,
+      fix: stepsMl.join(' '),
+      steps: stepsMl,
+      stepsEn: stepsEn,
+      canAutoFix: canAutoFix,
+      fixType: fixType,
+      severity: isDisabled || isCovered ? 'CRITICAL' : 'SERIOUS'
+    };
+  }
+
+  /**
+   * Interactive Element Picker (Hover & Click any element on webpage)
+   */
+  function startElementPicker(callback) {
+    if (isPickerActive) stopElementPicker();
+    isPickerActive = true;
+
+    // Create Banner
+    pickerBannerEl = document.createElement('div');
+    pickerBannerEl.className = 'thunai-picker-banner';
+    pickerBannerEl.innerHTML = `
+      <span>🎯 പരിശോധിക്കേണ്ട ബട്ടണിലോ ഭാഗത്തോ ക്ലിക്ക് ചെയ്യുക (Click on any element to diagnose)</span>
+      <button class="thunai-picker-cancel-btn" id="thunai-btn-cancel-picker">✕ റദ്ദാക്കുക (Cancel)</button>
+    `;
+    document.body.appendChild(pickerBannerEl);
+
+    const cancelBtn = pickerBannerEl.querySelector('#thunai-btn-cancel-picker');
+    if (cancelBtn) {
+      cancelBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        stopElementPicker();
+      });
+    }
+
+    function handlePickerHover(e) {
+      if (!isPickerActive) return;
+      const target = e.target;
+      if (!target || target.closest('.thunai-picker-banner') || target.closest('.thunai-pointer-arrow-card')) return;
+
+      if (lastHoveredEl && lastHoveredEl !== target) {
+        lastHoveredEl.classList.remove('thunai-picker-hover-highlight');
+      }
+      target.classList.add('thunai-picker-hover-highlight');
+      lastHoveredEl = target;
+    }
+
+    function handlePickerClick(e) {
+      if (!isPickerActive) return;
+      const target = e.target;
+      if (!target || target.closest('.thunai-picker-banner') || target.closest('.thunai-pointer-arrow-card')) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+
+      const diag = diagnoseElementDOM(target);
+      stopElementPicker();
+
+      // Show in-page pointer spotlight immediately
+      if (diag) {
+        inspectElementWithPointer(target, diag.title, diag.reason, diag.fix);
+      }
+
+      // Notify Sidebar
+      if (callback) callback(diag);
+
+      if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
+        chrome.runtime.sendMessage({
+          action: 'ELEMENT_PICKED_DIAGNOSIS',
+          elementInfo: diag
+        }).catch(() => {});
+      }
+    }
+
+    document.addEventListener('mouseover', handlePickerHover, true);
+    document.addEventListener('click', handlePickerClick, true);
+
+    // Save references for cleanup
+    window.__thunaiPickerCleanup = () => {
+      document.removeEventListener('mouseover', handlePickerHover, true);
+      document.removeEventListener('click', handlePickerClick, true);
+      if (lastHoveredEl) lastHoveredEl.classList.remove('thunai-picker-hover-highlight');
+      lastHoveredEl = null;
+      if (pickerBannerEl && pickerBannerEl.parentNode) pickerBannerEl.remove();
+      pickerBannerEl = null;
+      isPickerActive = false;
+    };
+  }
+
+  function stopElementPicker() {
+    if (window.__thunaiPickerCleanup) {
+      window.__thunaiPickerCleanup();
+      window.__thunaiPickerCleanup = null;
+    }
+    isPickerActive = false;
+  }
+
+  /**
+   * Universal Auto-Fix Dispatcher for Diagnosed Barriers
+   */
+  function tryAutoFixElement(selector, fixType) {
+    let target = null;
+    try { target = selector ? document.querySelector(selector) : null; } catch(e){}
+    if (!target) return { success: false, reason: 'Target not found' };
+
+    if (fixType === 'unblock_button' || target.hasAttribute('disabled')) {
+      target.removeAttribute('disabled');
+      target.style.pointerEvents = 'auto';
+      target.style.opacity = '1';
+      target.style.cursor = 'pointer';
+      target.focus();
+      inspectElementWithPointer(target, 'ബട്ടൺ സജീവമാക്കി!', 'ഈ ബട്ടൺ വിജയകരമായി അൺബ്ലോക്ക് ചെയ്തു (Unblocked)', 'ഇപ്പോൾ ക്ലിക്ക് ചെയ്തു നോക്കാം');
+      return { success: true, message: 'Button unblocked' };
+    }
+
+    if (fixType === 'focus_missing_field') {
+      const form = target.closest('form') || target.closest('[role="form"]') || document.body;
+      const missing = Array.from(form.querySelectorAll('input:not([type="hidden"]), select, textarea')).find(inp => !inp.value.trim());
+      if (missing) {
+        missing.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        missing.focus();
+        inspectElementWithPointer(missing, 'വിവരങ്ങൾ നൽകുക', 'ഈ നിർബന്ധിത ഫീൽഡ് പൂരിപ്പിക്കുക (Required Field)', 'ടൈപ്പ് ചെയ്ത് മുന്നോട്ട് പോകുക');
+        return { success: true, message: 'Focused missing input' };
+      }
+    }
+
+    if (fixType === 'remove_overlay') {
+      const overlays = Array.from(document.querySelectorAll('.modal, .backdrop, [class*="overlay"], [class*="backdrop"]'));
+      overlays.forEach(ov => {
+        ov.style.pointerEvents = 'none';
+        ov.style.display = 'none';
+      });
+      inspectElementWithPointer(target, 'തടസ്സം നീക്കി', 'അദൃശ്യ പാളി വിജയകരമായി ഒഴിവാക്കി', 'ഇനി ക്ലിക്ക് ചെയ്യാവുന്നതാണ്');
+      return { success: true, message: 'Overlay removed' };
+    }
+
+    return { success: false, reason: 'Unknown fix type' };
   }
 
   function toggleHeatmap(show) {
@@ -977,8 +1492,12 @@
     }
   }
 
-  if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
-    chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  const runtimeApi = (typeof browser !== 'undefined' && browser.runtime) 
+    ? browser.runtime 
+    : ((typeof chrome !== 'undefined' && chrome.runtime) ? chrome.runtime : null);
+
+  if (runtimeApi && runtimeApi.onMessage) {
+    runtimeApi.onMessage.addListener((message, sender, sendResponse) => {
       if (message.action === 'SEARCH_KEYWORD') {
         const matches = searchInPage(message.keyword);
         sendResponse({ success: true, matches });
@@ -994,9 +1513,18 @@
       } else if (message.action === 'SCAN_LIVE_DOM') {
         const report = scanLivePageDOM();
         sendResponse({ success: true, ...report, report });
-      } else if (message.action === 'INSPECT_ELEMENT') {
-        inspectElement(message.selector, message.label);
+      } else if (message.action === 'INSPECT_ELEMENT' || message.action === 'INSPECT_ELEMENT_WITH_POINTER') {
+        inspectElementWithPointer(message.selector, message.label, message.reason, message.fix);
         sendResponse({ success: true });
+      } else if (message.action === 'START_ELEMENT_PICKER') {
+        startElementPicker();
+        sendResponse({ success: true });
+      } else if (message.action === 'STOP_ELEMENT_PICKER') {
+        stopElementPicker();
+        sendResponse({ success: true });
+      } else if (message.action === 'TRY_AUTO_FIX') {
+        const result = tryAutoFixElement(message.selector, message.fixType);
+        sendResponse(result);
       } else if (message.action === 'TOGGLE_HEATMAP') {
         const state = toggleHeatmap(message.show);
         sendResponse({ success: true, isHeatmapActive: state });
@@ -1020,6 +1548,12 @@
     extractRealPageContent,
     scanLivePageDOM,
     inspectElement,
+    inspectElementWithPointer,
+    clearActivePointer,
+    startElementPicker,
+    stopElementPicker,
+    diagnoseElementDOM,
+    tryAutoFixElement,
     toggleHeatmap,
     highlightSegment,
     applyLiveFixToPage,

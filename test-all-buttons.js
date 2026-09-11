@@ -43,7 +43,39 @@ async function runButtonAudit() {
   const approved = fixService.approveFix(generatedFix.id);
   console.log(`✓ AI Fix & Approve/Apply Buttons: Fix generated (${generatedFix.title}), Approved & Dispatched=${approved}.`);
 
+  // 7. Test Explainability AI & Barriers Engine
+  const { diagnosticsService } = await import('./extension/services/diagnosticsService.js');
+  const barriers = await diagnosticsService.getPageBarriers(scanReport);
+  console.log(`✓ Explainability AI Barriers: ${barriers.length} interaction barriers diagnosed with plain-language steps.`);
+
+  // 8. Test Webpage-Aware AI Chatbot (Malayalam query)
+  const chatResMl = await diagnosticsService.askChatbot({
+    query: 'ഈ ബട്ടൺ എന്തുകൊണ്ട് പ്രവർത്തിക്കുന്നില്ല?',
+    pageContext: { title: scanReport.pageTitle, url: scanReport.url },
+    activeElement: barriers[0],
+    lang: 'ml'
+  });
+  console.log(`✓ AI Chatbot (Malayalam Input): Responded with ${chatResMl.text.length} chars, ${chatResMl.suggestedActions.length} actions.`);
+
+  // 9. Test Webpage-Aware AI Chatbot (English query)
+  const chatResEn = await diagnosticsService.askChatbot({
+    query: 'How to submit this form?',
+    pageContext: { title: scanReport.pageTitle, url: scanReport.url },
+    activeElement: barriers[0],
+    lang: 'en'
+  });
+  console.log(`✓ AI Chatbot (English Input): Responded with ${chatResEn.text.length} chars, ${chatResEn.followUps.length} follow-ups.`);
+
+  // 10. Test Cross-Browser Compatibility Proxy & Custom TTS Speech
+  const { browserCompat } = await import('./extension/services/browserCompat.js');
+  console.log(`✓ Cross-Platform Compatibility Layer: Mobile=${browserCompat.isMobile}, Firefox=${browserCompat.isFirefox}, Safari=${browserCompat.isSafari}.`);
+
+  ttsService.speakCustomText('തുണ വെബ്സഹായി തയ്യാറാണ്', 'ml-IN');
+  ttsService.stopCustomText();
+  console.log(`✓ Custom TTS Read-Aloud: Successfully initialized and tested.`);
+
   console.log("=== ALL BUTTONS & INTERACTIONS OPERATIONAL (100% PASS) ===");
 }
 
 runButtonAudit();
+

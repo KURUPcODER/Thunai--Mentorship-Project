@@ -238,12 +238,18 @@
           <p style="font-size: 13px; color: #475569; margin-bottom: 12px;">
             പൊതുജനങ്ങൾക്ക് സർട്ടിഫിക്കറ്റുകൾക്കായി ഓൺലൈൻ അപേക്ഷ (Application) സമർപ്പിക്കാം. അവസാന തീയതി (Date): 30 സെപ്റ്റംബർ. അപേക്ഷാ ഫീസ് (Fee): ₹50.
           </p>
-          <div style="display: flex; gap: 10px; align-items: center;">
-            <input type="text" placeholder="യൂസർനെയിം / ലോഗിൻ (Login ID)" style="padding: 6px 10px; border: 1px solid #CBD5E1; border-radius: 4px; font-size: 13px;">
-            <button style="background: #D97706; color: white; border: none; padding: 6px 14px; border-radius: 4px; font-weight: 700; cursor: pointer;">
-              അപേക്ഷ സമർപ്പിക്കുക (Submit Form)
-            </button>
-          </div>
+          <form onsubmit="return false;" style="display: flex; flex-direction: column; gap: 10px;">
+            <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+              <input type="text" id="applicant-reg-no" required placeholder="രജിസ്ട്രേഷൻ നമ്പർ / Reg No (*)" style="padding: 8px 10px; border: 1.5px solid #CBD5E1; border-radius: 6px; font-size: 13px; min-width: 220px; flex: 1;">
+              <button id="btn-portal-submit" disabled style="background: #94A3B8; color: white; border: none; padding: 8px 16px; border-radius: 6px; font-weight: 700; cursor: not-allowed;">
+                അപേക്ഷ സമർപ്പിക്കുക (Submit Application)
+              </button>
+            </div>
+            <div style="font-size: 12px; color: #DC2626; display: flex; align-items: center; gap: 5px;">
+              <span>⚠️</span>
+              <span>രജിസ്ട്രേഷൻ നമ്പർ നൽകാത്തതിനാൽ സബ്മിറ്റ് ബട്ടൺ നിഷ്ക്രിയമാക്കിയിരിക്കുന്നു (Disabled). 'Why doesn't this work?' ഉപയോഗിച്ച് പരിശോധിക്കാം.</span>
+            </div>
+          </form>
         </div>
 
         <div style="margin-top: 15px;">

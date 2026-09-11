@@ -143,14 +143,41 @@ export const translations = {
     langPref: 'ഭാഷാ മുൻഗണന:',
     resetBtn: 'യഥാർത്ഥ ക്രമീകരണങ്ങൾ പുനഃസ്ഥാപിക്കുക',
 
-    // Diagnostics Screen
+    // Diagnostics & Explainability AI Screen
     diagTitle: 'എന്തുകൊണ്ട് പ്രവർത്തിക്കുന്നില്ല?',
     diagSub: 'വെബ്‌സൈറ്റുകളിലെ ക്ലിക്ക് ചെയ്യാനാകാത്തതോ തകരാറിലായതോ ആയ ഘടകങ്ങൾ കണ്ടെത്തുക.',
-    runDiagBtn: 'പ്രശ്നപരിഹാരം ആരംഭിക്കുക',
-    diagnosingText: 'വിശകലനം ചെയ്യുന്നു...',
+    runDiagBtn: 'തത്സമയ പരിശോധന ആരംഭിക്കുക',
+    diagnosingText: 'DOM ഘടന വിശകലനം ചെയ്യുന്നു...',
     diagFound: 'ഇന്ററാക്ഷൻ തടസ്സങ്ങൾ കണ്ടെത്തി',
     diagIdle: 'പേജിലെ ബട്ടണുകൾ ക്ലിക്ക് ചെയ്യാനാകുന്നില്ലേ?',
-    diagIdleSub: 'തടസ്സങ്ങൾ വിശകലനം ചെയ്യാൻ മുകളിലെ ബട്ടൺ അമർത്തുക.'
+    diagIdleSub: 'തടസ്സങ്ങൾ വിശകലനം ചെയ്യാൻ മുകളിലെ ബട്ടൺ അമർത്തുക.',
+    diagTabInspect: '🔍 ഘടക പരിശോധന & കാരണങ്ങൾ',
+    diagTabChat: '💬 വെബ്സഹായി ചാറ്റ്ബോട്ട്',
+    diagPickBtn: '🎯 പേജിൽ നേരിട്ട് ചൂണ്ടിക്കാണിക്കുക (Pick on Page)',
+    diagPickHelp: 'പേജിലെ ഏതെങ്കിലും ബട്ടണിലോ ബോക്സിലോ ക്ലിക്ക് ചെയ്ത് തടസ്സം കണ്ടെത്തുക.',
+    diagWhyTitle: 'എന്തുകൊണ്ട് പ്രവർത്തിക്കുന്നില്ല? (Why it doesn\'t work):',
+    diagFixTitle: 'ചെയ്യേണ്ട പരിഹാരം (Recommended Solution):',
+    diagPointBtn: '👉 പേജിൽ കാണിക്കുക',
+    diagListenBtn: '🔊 കേൾക്കുക',
+    diagAutoFixBtn: '⚡ ഓട്ടോ-ഫിക്സ്',
+    diagAskChatBtn: '💬 സംശയം ചോദിക്കുക',
+    diagRecheckBtn: 'പുനഃപരിശോധിക്കുക',
+    diagPlatformBadge: 'യൂണിവേഴ്സൽ ക്രോസ്-പ്ലാറ്റ്‌ഫോം സപ്പോർട്ട്',
+
+    // Webpage-Aware AI Chatbot
+    chatHeading: 'വെബ്സഹായി ചാറ്റ്ബോട്ട്',
+    chatSub: 'ഈ വെബ്‌പേജിനെക്കുറിച്ചുള്ള ചോദ്യങ്ങൾക്ക് ലളിതമായ ഭാഷയിൽ ഉത്തരം നൽകുന്നു.',
+    chatPlaceholder: 'നിങ്ങളുടെ സംശയം ചോദിക്കുക (മലയാളം അല്ലെങ്കിൽ English)...',
+    chatSend: 'ചോദിക്കുക',
+    chatActivePage: 'നിരീക്ഷിക്കുന്ന പേജ്:',
+    chatQuickPrompts: 'വേഗത്തിൽ ചോദിക്കാവുന്ന ചോദ്യങ്ങൾ:',
+    chatQuickChip1: 'ഈ ബട്ടൺ എന്തുകൊണ്ട് ക്ലിക്ക് ആകുന്നില്ല?',
+    chatQuickChip2: 'ഈ ഫോം എങ്ങനെ പൂരിപ്പിക്കണം?',
+    chatQuickChip3: 'ഈ പേജിലെ വിവരങ്ങൾ ചുരുക്കി പറയുക',
+    chatQuickChip4: 'അപേക്ഷാ ഫീസോ തീയതിയോ ഉണ്ടോ?',
+    chatZoomLabel: 'അക്ഷര വലിപ്പം:',
+    chatListening: 'ശബ്ദം കേൾക്കുന്നു...',
+    chatVoiceListenBtn: 'ശബ്ദത്തിൽ കേൾക്കുക'
   },
 
   en: {
@@ -163,30 +190,8 @@ export const translations = {
     back: 'Back',
     online: 'ONLINE',
     quickDyslexia: '📖 Dyslexia Mode',
-
-    // Search Feature
+    quickListen: '🔊 Read Aloud',
     searchPlaceholder: 'Search keyword in page...',
-    searchTitle: 'Find in Page (Keyword Locator)',
-    searchSub: 'Locate any keyword across the scanned webpage in real time',
-    searchFound: 'Found:',
-    matchesText: 'matches',
-    noMatches: 'No matching content found for this keyword.',
-    searchHint: 'Type any keyword (e.g. application, fee, login, date, photo, form)',
-    listenMatch: 'Listen',
-    translateMatch: 'Translate',
-    inspectMatch: 'Locate',
-
-    // Tabs
-    tabTranslate: 'Translate',
-    tabTranslateSub: 'പരിഭാഷ',
-    tabListen: 'Listen',
-    tabListenSub: 'കേൾക്കുക',
-    tabScan: 'Scan',
-    tabScanSub: 'പരിശോധന',
-    tabSearch: 'Find',
-    tabSearchSub: 'തിരയുക',
-    tabSettings: 'Settings/Fix',
-    tabSettingsSub: 'ക്രമീകരണം',
 
     // Launcher Actions
     actionScanTitle: 'Scan Page',
@@ -292,14 +297,41 @@ export const translations = {
     langPref: 'Language Preference:',
     resetBtn: 'Reset to Defaults',
 
-    // Diagnostics Screen
+    // Diagnostics & Explainability AI Screen
     diagTitle: "Why Doesn't This Work?",
     diagSub: 'Diagnose broken, unclickable, or hidden elements on portals.',
-    runDiagBtn: 'Run Diagnostic',
+    runDiagBtn: 'Run Live Diagnostic',
     diagnosingText: 'Analyzing DOM structure...',
     diagFound: 'Interaction Issues Found',
     diagIdle: 'Buttons not clicking on this page?',
-    diagIdleSub: 'Click above to diagnose overlapping layers and hidden forms.'
+    diagIdleSub: 'Click above to diagnose overlapping layers and hidden forms.',
+    diagTabInspect: '🔍 Element Inspector & Reasons',
+    diagTabChat: '💬 Webpage AI Assistant',
+    diagPickBtn: '🎯 Pick Element on Page',
+    diagPickHelp: 'Click any button or section on the webpage to diagnose it.',
+    diagWhyTitle: "Why doesn't this work?",
+    diagFixTitle: 'Recommended Solution:',
+    diagPointBtn: '👉 Point on Page',
+    diagListenBtn: '🔊 Listen (TTS)',
+    diagAutoFixBtn: '⚡ Try Quick Fix',
+    diagAskChatBtn: '💬 Ask Chatbot',
+    diagRecheckBtn: 'Re-Check Page',
+    diagPlatformBadge: 'Universal Cross-Platform Ready',
+
+    // Webpage-Aware AI Chatbot
+    chatHeading: 'Webpage AI Assistant',
+    chatSub: 'Ask anything about this webpage in plain Malayalam or English.',
+    chatPlaceholder: 'Ask a question (Malayalam or English)...',
+    chatSend: 'Send',
+    chatActivePage: 'Active Page:',
+    chatQuickPrompts: 'Suggested Questions:',
+    chatQuickChip1: "Why won't this button click?",
+    chatQuickChip2: 'How to submit this form?',
+    chatQuickChip3: 'Summarize this webpage',
+    chatQuickChip4: 'What are the fees or dates?',
+    chatZoomLabel: 'Text Size:',
+    chatListening: 'Listening...',
+    chatVoiceListenBtn: 'Read Aloud'
   }
 };
 

@@ -196,6 +196,70 @@ class TTSService {
     this.notify();
     return this.getState();
   }
+
+  /**
+   * Universal Speech Synthesis for Explainability Diagnostics & Chatbot
+   */
+  speakCustomText(text, lang = 'ml-IN', onEnd = null) {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+      console.warn("[Thunai TTS] SpeechSynthesis API not supported in this environment");
+      return false;
+    }
+
+    try {
+      window.speechSynthesis.cancel();
+      if (!text || !text.trim()) return false;
+
+      // Clean speech text of emojis, markdown stars, hashtags, and symbols
+      const cleanText = text
+        .replace(/[*#_~`>]/g, '')
+        .replace(/[\u{1F300}-\u{1FAFF}]/gu, '') // Remove emojis
+        .replace(/\s+/g, ' ')
+        .trim();
+
+      const utterance = new SpeechSynthesisUtterance(cleanText);
+      utterance.rate = Math.max(0.8, Math.min(1.2, this.playbackSpeed * 0.95)); // Slightly calmer pace for elderly users
+      utterance.pitch = 1.0;
+
+      // Cross-platform voice selection (Chrome, Edge, Safari, Firefox, Android, iOS)
+      const voices = window.speechSynthesis.getVoices() || [];
+      let matchedVoice = null;
+
+      if (lang && lang.startsWith('ml')) {
+        matchedVoice = voices.find(v => (v.lang && v.lang.toLowerCase().includes('ml')) || v.name.toLowerCase().includes('malayalam'));
+        if (!matchedVoice) {
+          // Fallback to Indian English or regional voice
+          matchedVoice = voices.find(v => v.lang && v.lang.toLowerCase().includes('en-in'));
+        }
+      } else {
+        matchedVoice = voices.find(v => v.lang && v.lang.toLowerCase().includes('en'));
+      }
+
+      if (matchedVoice) {
+        utterance.voice = matchedVoice;
+        utterance.lang = matchedVoice.lang;
+      } else {
+        utterance.lang = lang;
+      }
+
+      if (onEnd) {
+        utterance.onend = () => onEnd();
+        utterance.onerror = () => onEnd();
+      }
+
+      window.speechSynthesis.speak(utterance);
+      return true;
+    } catch (err) {
+      console.warn("[Thunai TTS] Error playing custom speech:", err);
+      return false;
+    }
+  }
+
+  stopCustomText() {
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      try { window.speechSynthesis.cancel(); } catch(e){}
+    }
+  }
 }
 
 export const ttsService = new TTSService();
