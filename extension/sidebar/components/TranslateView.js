@@ -1,9 +1,11 @@
 /**
  * Translate View Component (Tab: 'translate')
- * Provides bilingual page translation, text simplification toggle, and audio bridge with i18n support.
+ * Provides bilingual page translation (English/Hindi -> Malayalam), text simplification toggle,
+ * audio playback bridge, and dynamic language detection with i18n support.
  */
 
 import { translateText } from '../../services/translateService.js';
+import { ttsService } from '../../services/ttsService.js';
 import { getT } from '../i18n.js';
 
 export function renderTranslateView(container, state, setState, onNavigate) {
@@ -19,6 +21,10 @@ export function renderTranslateView(container, state, setState, onNavigate) {
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
   })[character]);
 
+  const detectedLabelText = translatedData?.detectedLangLabel
+    ? (currentLang === 'ml' ? `കണ്ടെത്തിയത്: ${translatedData.detectedLangLabel}` : `Detected: ${translatedData.detectedLangLabelEn || translatedData.detectedLangLabel}`)
+    : t.detectedLabel;
+
   function render() {
     container.innerHTML = `
       <div class="view-panel translate-view animate-fade-in" id="panel-translate" role="tabpanel" aria-labelledby="tab-translate">
@@ -27,7 +33,7 @@ export function renderTranslateView(container, state, setState, onNavigate) {
         <div class="meta-strip">
           <div class="detected-lang-pill">
             <span class="dot-indicator"></span>
-            <span class="lang-text">${t.detectedLabel}</span>
+            <span class="lang-text">${detectedLabelText}</span>
           </div>
           <span class="domain-tag" title="${state.scanReport?.url || ''}">${state.scanReport?.meta?.title || 'Active Webpage'}</span>
         </div>
@@ -175,6 +181,20 @@ export function renderTranslateView(container, state, setState, onNavigate) {
     const quickListenBtn = container.querySelector('#btn-quick-listen');
     if (quickListenBtn) {
       quickListenBtn.addEventListener('click', () => {
+        const textToListen = isSimplified ? (translatedData?.simplified || translatedData?.translated) : (translatedData?.translated || translatedData?.simplified);
+        if (textToListen) {
+          const lines = textToListen.split('\n').map(s => s.trim()).filter(Boolean);
+          const ttsSegs = lines.map((sent, idx) => ({
+            id: `trans-seg-${idx}`,
+            type: 'PARAGRAPH',
+            tag: `പരിഭാഷ (${idx + 1})`,
+            malayalamText: sent,
+            englishText: sent,
+            selector: `[data-thunai-seg="seg-${idx}"]`,
+            durationMs: Math.max(3000, sent.length * 65)
+          }));
+          ttsService.loadSegments(ttsSegs);
+        }
         if (onNavigate) onNavigate('listen');
       });
     }

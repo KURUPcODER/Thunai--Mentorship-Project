@@ -272,40 +272,57 @@
 
   /**
    * 2. Live Page Extraction (Universal Readable Text Segmentation)
-   * Scans visible, readable text blocks (<p>, <h1>–<h6>, <li>, <article>, <section>)
-   * Filters out invisible/hidden elements and boilerplate (<script>, <style>, <noscript>, <svg>, <nav>, footer)
+   * Scans visible, readable text blocks across ANY website (news, govt portals, SPAs, docs, blogs)
+   * Filters out invisible/hidden elements, ads, boilerplate (<script>, <style>, <noscript>, <svg>, <nav>, header, footer)
    * Stamped with [data-thunai-seg="seg-index"]
    */
   function extractRealPageContent() {
     const pageTitle = document.title || 'Current Webpage';
     const rawUrl = window.location.href;
 
-    const mainEl = document.querySelector('main, article, #content, .content, #main') || document.body;
-    
-    // Find all candidate visible readable blocks
-    const candidateElements = Array.from(mainEl.querySelectorAll('h1, h2, h3, h4, h5, h6, p, li, article, section, blockquote'))
-      .filter(el => {
-        // Strip out boilerplate and navigation
-        if (el.closest('script, style, noscript, svg, nav, footer, .sidebar, #thunai-inpage-styles, .thunai-inspect-box')) {
-          return false;
+    // Filter selector for non-content boilerplate, navigation, ads, headers, and footers
+    const excludeSelector = 'header, nav, footer, aside, .nav, .navbar, .menu, .sidebar, .ad, .advertisement, .banner, .cookie-banner, .popup, .modal, script, style, noscript, svg, #thunai-inpage-styles, .thunai-inspect-box, [aria-hidden="true"]';
+
+    // Locate primary content containers across diverse webpage architectures
+    const mainContainer = document.querySelector('main, article, [role="main"], #main-content, #content, .content, .main-content, .post-content, .article-content, #root, #__next, #app') || document.body;
+
+    // Collect candidate content elements
+    let candidateNodes = Array.from(mainContainer.querySelectorAll('h1, h2, h3, h4, h5, h6, p, li, article, section, blockquote, dt, dd, td, th'));
+    if (candidateNodes.length === 0 && document.body) {
+      candidateNodes = Array.from(document.body.querySelectorAll('h1, h2, h3, h4, h5, h6, p, li, section, blockquote'));
+    }
+
+    const seenTexts = new Set();
+    const candidateElements = [];
+
+    for (const el of candidateNodes) {
+      if (candidateElements.length >= 60) break;
+
+      // Strip boilerplate & navigation
+      if (el.closest(excludeSelector)) continue;
+
+      // Filter out invisible / hidden elements
+      const rect = el.getBoundingClientRect();
+      if (rect.height === 0 || rect.width === 0) continue;
+
+      try {
+        const style = window.getComputedStyle(el);
+        if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') {
+          continue;
         }
+      } catch(e) {}
 
-        // Filter out invisible/hidden elements
-        const rect = el.getBoundingClientRect();
-        if (rect.height === 0 || rect.width === 0) return false;
-        
-        try {
-          const style = window.getComputedStyle(el);
-          if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') {
-            return false;
-          }
-        } catch(e) {}
+      const text = (el.innerText || '').trim();
+      // Skip empty or tiny icon/button labels, but keep headings and meaningful sentences
+      if (text.length < 10) continue;
 
-        const text = (el.innerText || '').trim();
-        // Ignore tiny labels or empty blocks
-        return text.length > 12;
-      })
-      .slice(0, 40);
+      // Avoid duplicate parent-child extractions
+      const normalizedText = text.replace(/\s+/g, ' ');
+      if (seenTexts.has(normalizedText)) continue;
+      seenTexts.add(normalizedText);
+
+      candidateElements.push(el);
+    }
 
     const segments = candidateElements.map((el, idx) => {
       const segId = `seg-${idx}`;
@@ -323,17 +340,17 @@
       };
     });
 
-    const fullOriginalText = segments.map(s => s.text).join('\n\n').slice(0, 4000);
+    const fullOriginalText = segments.map(s => s.text).join('\n\n').slice(0, 8000);
 
     return {
       title: pageTitle,
       url: rawUrl,
-      fullText: fullOriginalText || (document.body ? document.body.innerText.slice(0, 1500) : ''),
+      fullText: fullOriginalText || (document.body ? document.body.innerText.replace(/\s+/g, ' ').slice(0, 1500) : ''),
       segments: segments.length > 0 ? segments : [
         {
           id: 'seg-0',
           selector: 'body',
-          text: (document.body ? document.body.innerText.slice(0, 300) : '') || 'Webpage content extracted.',
+          text: (document.body ? document.body.innerText.replace(/\s+/g, ' ').slice(0, 300) : '') || 'Webpage content extracted.',
           mlText: '',
           type: 'PARAGRAPH',
           tag: pageTitle,
@@ -344,7 +361,7 @@
   }
 
   /**
-   * Helper: Stopwords list for English and Malayalam
+   * Helper: Stopwords list for English, Hindi, and Malayalam
    */
   const STOP_WORDS = new Set([
     // English
@@ -384,6 +401,10 @@
     'where', 'whether', 'which', 'while', 'who', 'whole', 'whose', 'why', 'will', 'with', 'within',
     'without', 'work', 'worked', 'working', 'works', 'would', 'year', 'years', 'yet', 'you', 'young',
     'younger', 'youngest', 'your', 'yours',
+    // Hindi
+    'और', 'का', 'के', 'की', 'है', 'हैं', 'से', 'में', 'को', 'पर', 'यह', 'वह', 'तो', 'भी', 'ही', 'किया',
+    'लिये', 'लिए', 'था', 'थे', 'थी', 'गया', 'गए', 'गई', 'होता', 'होती', 'होते', 'इस', 'उस', 'एक', 'ने',
+    'या', 'द्वारा', 'तक', 'साथ', 'बाद', 'पहले', 'सब', 'कुछ', 'अपने', 'अपनी', 'अपना',
     // Malayalam
     'എന്നാൽ', 'ആണ്', 'ഒരു', 'ഈ', 'ആയ', 'എന്ന്', 'കൂടി', 'മറ്റ്', 'ഉള്ള', 'ഈയൊരു',
     'അത്', 'ഇത്', 'അവൻ', 'അവൾ', 'അവർ', 'ഉണ്ടായിരുന്നു', 'വേണ്ടി', 'പോലെ', 'ചെയ്യുക',
