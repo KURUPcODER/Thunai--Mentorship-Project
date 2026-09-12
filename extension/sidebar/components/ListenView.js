@@ -1,15 +1,24 @@
-/**
- * Listen / Reader View Component (Tab: 'listen')
- * Provides segment-by-segment Malayalam TTS playback, speech speed slider, voice picker,
- * audio equalizer animation, and live page highlight synchronization.
- */
-
 import { ttsService } from '../../services/ttsService.js';
 
-export function renderListenView(container, state, setState) {
-  // Hydrate segment-by-segment playback from universal scanReport
-  if (state.scanReport?.textSegments && state.scanReport.textSegments.length > 0) {
-    ttsService.loadSegments(state.scanReport.textSegments);
+function getSegmentPreview(text) {
+  if (!text) return '';
+  const words = text.trim().split(/\s+/);
+  if (words.length <= 10) return text.trim();
+  return words.slice(0, 10).join(' ') + '...';
+}
+
+export function renderListenView(container, state, setState, activeTabId = 'default') {
+  if (state.currentLang) {
+    ttsService.setLanguage(state.currentLang);
+  }
+
+  // Enforce precise active URL matching before rendering TTS content
+  let currentTtsState = ttsService.getState();
+  let isPageMismatch = currentTtsState.pageSessionUrl !== state.pageSessionUrl;
+
+  if (isPageMismatch && state.scanReport?.textSegments) {
+    // If TTS holds another page's text (or defaults), force-feed fresh real data.
+    ttsService.loadSegments(state.scanReport.textSegments, activeTabId, state.pageSessionUrl);
   }
 
   let ttsState = ttsService.getState();
@@ -25,21 +34,39 @@ export function renderListenView(container, state, setState) {
         }
       });
     } else if (window.parent && window.parent.ThunaiContentScript) {
-      // Standalone preview testbed fallback
       window.parent.ThunaiContentScript.highlightSegment(selector);
     }
   }
 
-  function render() {
+  // Render initial tab HTML once
+  function buildInitialDOM() {
     ttsState = ttsService.getState();
-    const seg = ttsState.currentSegment || {
-      tag: "കേരളം - വിക്കിപീഡിയ",
-      type: "PARAGRAPH",
-      malayalamText: "ഇന്ത്യയുടെ തെക്കുപടിഞ്ഞാറൻ മലബാർ തീരത്ത് സ്ഥിതി ചെയ്യുന്ന ഒരു സംസ്ഥാനമാണ് കേരളം.",
-      englishText: "Kerala is a state on the southwestern Malabar Coast of India.",
-      selector: "p:nth-of-type(1)"
-    };
-    const segmentsList = ttsState.segments || [];
+    const isStateMismatch = ttsState.pageSessionUrl !== state.pageSessionUrl;
+
+    if (state.isScanning) {
+      container.innerHTML = `
+        <div class="view-panel listen-view" id="panel-listen" style="display: flex; align-items: center; justify-content: center; height: 100%;">
+          <div style="text-align: center; color: #94A3B8;">
+            <div class="spinner" style="margin-bottom: 12px;"></div>
+            <p style="font-weight: 500; font-size: 15px;">Extracting current page...</p>
+          </div>
+        </div>
+      `;
+      return;
+    }
+
+    if (isStateMismatch || !ttsState.segments || ttsState.segments.length === 0) {
+      container.innerHTML = `
+        <div class="view-panel listen-view" id="panel-listen" style="display: flex; align-items: center; justify-content: center; height: 100%;">
+          <p style="text-align: center; color: #94A3B8; font-weight: 500; font-size: 15px;">No page content extracted yet.</p>
+        </div>
+      `;
+      return;
+    }
+
+    const segmentsList = (ttsState && ttsState.segments && Array.isArray(ttsState.segments)) ? ttsState.segments : [];
+    const seg = ttsState.currentSegment || segmentsList[0];
+    const actionText = ttsState.currentLang === 'en' ? 'Speak' : 'കേൾക്കുക';
 
     container.innerHTML = `
       <div class="view-panel listen-view animate-fade-in" id="panel-listen" role="tabpanel" aria-labelledby="tab-listen">
@@ -48,29 +75,49 @@ export function renderListenView(container, state, setState) {
         <div class="listen-page-header">
           <div class="page-source-pill">
             <span class="source-icon">📄</span>
-            <span class="source-title" title="${seg.tag || 'കേരളം - വിക്കിപീഡിയ'}">${seg.tag || 'കേരളം - വിക്കിപീഡിയ'}</span>
+            <span class="source-title" id="listen-source-title" title="${seg?.tag || 'കേരളം - വിക്കിപീഡിയ'}">${seg?.tag || 'കേരളം - വിക്കിപീഡിയ'}</span>
           </div>
-          <div class="sync-indicator ${ttsState.isPlaying ? 'active' : ''}" title="Current sentence is synced with page highlight">
+          <div class="sync-indicator ${ttsState.isPlaying ? 'active' : ''}" id="listen-sync-indicator" title="Current sentence is synced with page highlight">
             <span class="sync-dot"></span>
             <span class="sync-text">Live Sync</span>
           </div>
         </div>
 
-        <!-- Current Paragraph Display Box (with glowing highlighted left edge) -->
-        <div class="reading-segment-card ${ttsState.isPlaying ? 'is-playing' : ''}">
+        <!-- Extracted Content Preview List Section -->
+        <div class="extracted-content-card" id="listen-extracted-card">
+          <div class="extracted-content-header">
+            <span class="extracted-content-title">Extracted content</span>
+            <span class="extracted-content-count" id="listen-extracted-count">${segmentsList.length} segments</span>
+          </div>
+          <div class="extracted-content-list" id="listen-extracted-list">
+            ${segmentsList.map((s, idx) => {
+              if (!s) return '';
+              const segText = typeof s === 'string' ? s : (s.malayalamText || s.text || s.englishText || '');
+              const preview = getSegmentPreview(segText) || `Segment ${idx + 1}`;
+              const isActive = idx + 1 === ttsState.currentSegmentIndex;
+              return `<div class="extracted-preview-item ${isActive ? 'active-seg' : ''}" data-seg-index="${idx + 1}">
+                <span class="preview-num">${idx + 1}.</span>
+                <span class="preview-text">${preview}</span>
+              </div>`;
+            }).join('')}
+          </div>
+        </div>
+
+        <!-- Current Paragraph Display Box -->
+        <div class="reading-segment-card ${ttsState.isPlaying ? 'is-playing' : ''}" id="listen-segment-card">
           <div class="segment-meta-header">
-            <span class="segment-type-tag">
+            <span class="segment-type-tag" id="listen-seg-type">
               <span class="tag-square"></span>
               ${seg.type || 'PARAGRAPH'}
             </span>
-            <span class="segment-position-tag">${ttsState.currentSegmentIndex} of ${segmentsList.length || 5}</span>
+            <span class="segment-position-tag" id="listen-seg-pos">${ttsState.currentSegmentIndex} of ${segmentsList.length || 5}</span>
           </div>
 
-          <p class="segment-malayalam-text" lang="ml">
+          <p class="segment-malayalam-text" id="listen-seg-ml" lang="ml">
             ${seg.malayalamText}
           </p>
 
-          <p class="segment-english-subtext" lang="en">
+          <p class="segment-english-subtext" id="listen-seg-en" lang="en">
             ${seg.englishText}
           </p>
         </div>
@@ -78,12 +125,12 @@ export function renderListenView(container, state, setState) {
         <!-- Equalizer Visualizer & Segment Counter -->
         <div class="player-status-strip">
           <div class="segment-counter">
-            <span class="counter-number">${ttsState.currentSegmentIndex} / ${ttsState.totalSegments}</span>
+            <span class="counter-number" id="listen-counter-num">${ttsState.currentSegmentIndex} / ${ttsState.totalSegments}</span>
             <span class="counter-label">segments</span>
           </div>
 
           <!-- Soundwave Animation -->
-          <div class="audio-equalizer ${ttsState.isPlaying ? 'animating' : ''}" aria-hidden="true">
+          <div class="audio-equalizer ${ttsState.isPlaying ? 'animating' : ''}" id="listen-equalizer" aria-hidden="true">
             <span class="eq-bar bar-1"></span>
             <span class="eq-bar bar-2"></span>
             <span class="eq-bar bar-3"></span>
@@ -103,8 +150,8 @@ export function renderListenView(container, state, setState) {
               </svg>
             </button>
 
-            <!-- Main Play / Pause Circle (Gold Accent) -->
-            <button class="btn-ctrl-primary-play ${ttsState.isPlaying ? 'playing' : ''}" id="btn-toggle-play" aria-label="${ttsState.isPlaying ? 'Pause' : 'Play'}">
+            <!-- Main Play / Pause Circle (Gold Accent) - Speak / കേൾക്കുക -->
+            <button class="btn-ctrl-primary-play ${ttsState.isPlaying ? 'playing' : ''}" id="btn-toggle-play" title="${ttsState.isPlaying ? 'Pause' : actionText}" aria-label="${ttsState.isPlaying ? 'Pause' : actionText}">
               ${ttsState.isPlaying ? `
                 <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor">
                   <rect x="6" y="4" width="4" height="16" rx="1"></rect>
@@ -150,22 +197,6 @@ export function renderListenView(container, state, setState) {
           </div>
         </div>
 
-        <!-- Voice Selection Dropdown -->
-        <div class="voice-picker-card">
-          <label class="voice-picker-label" for="select-tts-voice">
-            <span class="label-ml">ശബ്ദം തിരഞ്ഞെടുക്കുക (Voice)</span>
-          </label>
-          <div class="custom-select-wrapper">
-            <select id="select-tts-voice" class="custom-select" aria-label="Select Malayalam Speech Voice">
-              ${ttsState.voices.map(v => `
-                <option value="${v.id}" ${v.id === ttsState.selectedVoice ? 'selected' : ''}>
-                  ${v.name}
-                </option>
-              `).join('')}
-            </select>
-          </div>
-        </div>
-
         <!-- In-Page Sync Explanatory Note -->
         <div class="sync-info-footer">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#38BDF8" stroke-width="2">
@@ -185,20 +216,120 @@ export function renderListenView(container, state, setState) {
     }
   }
 
+  // Smooth targeted DOM updates without destroying/re-creating container.innerHTML
+  function updateUI() {
+    ttsState = ttsService.getState();
+    const isStateMismatch = ttsState.pageSessionUrl !== state.pageSessionUrl;
+
+    if (state.isScanning || isStateMismatch || !ttsState.segments || ttsState.segments.length === 0) {
+      buildInitialDOM(); // Re-render simple text strings entirely covering edge cases
+      return;
+    }
+
+    const seg = ttsState.currentSegment || {};
+    const actionText = ttsState.currentLang === 'en' ? 'Speak' : 'കേൾക്കുക';
+
+    const playBtn = container.querySelector('#btn-toggle-play');
+    if (playBtn) {
+      if (ttsState.isPlaying) {
+        playBtn.classList.add('playing');
+        playBtn.setAttribute('aria-label', 'Pause');
+        playBtn.setAttribute('title', 'Pause');
+        playBtn.innerHTML = `
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor">
+            <rect x="6" y="4" width="4" height="16" rx="1"></rect>
+            <rect x="14" y="4" width="4" height="16" rx="1"></rect>
+          </svg>`;
+      } else {
+        playBtn.classList.remove('playing');
+        playBtn.setAttribute('aria-label', actionText);
+        playBtn.setAttribute('title', actionText);
+        playBtn.innerHTML = `
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor" style="transform: translateX(2px);">
+            <polygon points="5 3 19 12 5 21 5 3"></polygon>
+          </svg>`;
+      }
+    }
+
+    const listEl = container.querySelector('#listen-extracted-list');
+    if (listEl) {
+      const items = listEl.querySelectorAll('.extracted-preview-item');
+      items.forEach(item => {
+        const segIdx = parseInt(item.getAttribute('data-seg-index'), 10);
+        if (segIdx === ttsState.currentSegmentIndex) {
+          item.classList.add('active-seg');
+        } else {
+          item.classList.remove('active-seg');
+        }
+      });
+    }
+
+    const card = container.querySelector('#listen-segment-card');
+    if (card) {
+      if (ttsState.isPlaying) card.classList.add('is-playing');
+      else card.classList.remove('is-playing');
+    }
+
+    const syncInd = container.querySelector('#listen-sync-indicator');
+    if (syncInd) {
+      if (ttsState.isPlaying) syncInd.classList.add('active');
+      else syncInd.classList.remove('active');
+    }
+
+    const eq = container.querySelector('#listen-equalizer');
+    if (eq) {
+      if (ttsState.isPlaying) eq.classList.add('animating');
+      else eq.classList.remove('animating');
+    }
+
+    const segTypeEl = container.querySelector('#listen-seg-type');
+    if (segTypeEl) {
+      segTypeEl.innerHTML = `<span class="tag-square"></span> ${seg.type || 'PARAGRAPH'}`;
+    }
+
+    const segPosEl = container.querySelector('#listen-seg-pos');
+    if (segPosEl) {
+      segPosEl.textContent = `${ttsState.currentSegmentIndex} of ${ttsState.totalSegments}`;
+    }
+
+    const segMlEl = container.querySelector('#listen-seg-ml');
+    if (segMlEl) {
+      segMlEl.textContent = seg.malayalamText || seg.text || '';
+    }
+
+    const segEnEl = container.querySelector('#listen-seg-en');
+    if (segEnEl) {
+      segEnEl.textContent = seg.englishText || '';
+    }
+
+    const counterNumEl = container.querySelector('#listen-counter-num');
+    if (counterNumEl) {
+      counterNumEl.textContent = `${ttsState.currentSegmentIndex} / ${ttsState.totalSegments}`;
+    }
+
+    const sourceTitleEl = container.querySelector('#listen-source-title');
+    if (sourceTitleEl && seg.tag) {
+      sourceTitleEl.textContent = seg.tag;
+      sourceTitleEl.title = seg.tag;
+    }
+
+    if (ttsState.isPlaying && seg.selector) {
+      triggerInPageHighlight(seg.selector);
+    }
+  }
+
   function attachEvents() {
-    // Play/Pause
     const playBtn = container.querySelector('#btn-toggle-play');
     if (playBtn) {
       playBtn.addEventListener('click', () => {
         if (ttsState.isPlaying) {
           ttsService.pause();
         } else {
-          ttsService.play();
+          ttsService.play(state.currentLang);
         }
       });
     }
 
-    // Stop
     const stopBtn = container.querySelector('#btn-stop-playback');
     if (stopBtn) {
       stopBtn.addEventListener('click', () => {
@@ -206,7 +337,6 @@ export function renderListenView(container, state, setState) {
       });
     }
 
-    // Prev / Next
     const prevBtn = container.querySelector('#btn-prev-segment');
     if (prevBtn) {
       prevBtn.addEventListener('click', () => {
@@ -220,7 +350,6 @@ export function renderListenView(container, state, setState) {
       });
     }
 
-    // Speed Slider
     const speedSlider = container.querySelector('#input-tts-speed');
     if (speedSlider) {
       speedSlider.addEventListener('input', (e) => {
@@ -230,20 +359,16 @@ export function renderListenView(container, state, setState) {
         ttsService.setSpeed(val);
       });
     }
-
-    // Voice Selector
-    const voiceSelect = container.querySelector('#select-tts-voice');
-    if (voiceSelect) {
-      voiceSelect.addEventListener('change', (e) => {
-        ttsService.setVoice(e.target.value);
-      });
-    }
   }
 
-  // Subscribe to service state changes
-  const unsubscribe = ttsService.subscribe(() => {
-    render();
-  });
+  buildInitialDOM();
 
-  render();
+  // Subscribe to service state changes with smooth targeted updates
+  const unsubscribe = ttsService.subscribe(() => {
+    if (!container || !container.querySelector('#panel-listen')) {
+      if (typeof unsubscribe === 'function') unsubscribe();
+      return;
+    }
+    updateUI();
+  });
 }

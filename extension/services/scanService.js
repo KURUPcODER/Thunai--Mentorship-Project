@@ -303,22 +303,21 @@ export const defaultMockReport = {
 /**
  * Storage Service: Persists scan result per URL and updates latest scan
  */
-export async function saveScanResult(url, data) {
+export async function saveScanResult(url, data, tabId = 'default') {
   if (!data) return null;
   try {
     const rawUrl = url || data.url || 'default_url';
     const safeB64 = btoa(unescape(encodeURIComponent(rawUrl))).replace(/[^a-zA-Z0-9]/g, '').substring(0, 32);
-    const key = `thunai_scan_${safeB64}`;
+    const key = `thunai_scan_${tabId}`; // Use tabId directly for isolation
 
     if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
       await new Promise((resolve) => {
-        chrome.storage.local.set({ [key]: data, thunai_latest_scan: data }, () => {
+        chrome.storage.local.set({ [key]: data }, () => {
           resolve(true);
         });
       });
     } else if (typeof localStorage !== 'undefined') {
       localStorage.setItem(key, JSON.stringify(data));
-      localStorage.setItem('thunai_latest_scan', JSON.stringify(data));
     }
   } catch (err) {
     console.warn("Could not save scan result to local storage:", err);
@@ -329,18 +328,19 @@ export async function saveScanResult(url, data) {
 /**
  * Storage Service: Immediately hydrates sidebar views with the latest scan
  */
-export async function getLatestScan() {
+export async function getLatestScan(tabId = 'default') {
   try {
+    const key = `thunai_scan_${tabId}`;
     if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
       const res = await new Promise((resolve) => {
-        chrome.storage.local.get(['thunai_latest_scan'], (items) => {
+        chrome.storage.local.get([key], (items) => {
           if (chrome.runtime.lastError) resolve(null);
-          else resolve(items ? items.thunai_latest_scan : null);
+          else resolve(items ? items[key] : null);
         });
       });
       if (res) return res;
     } else if (typeof localStorage !== 'undefined') {
-      const raw = localStorage.getItem('thunai_latest_scan');
+      const raw = localStorage.getItem(key);
       if (raw) return JSON.parse(raw);
     }
   } catch (err) {
@@ -424,18 +424,24 @@ export function normalizeScanReport(report) {
   };
 }
 
-export async function scanPage() {
+export async function scanPage(targetTabId = null) {
   let rawReport = null;
 
-  // 1. Query the active tab in live Chrome browser extension
-  if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.query) {
+  // 1. Query the explicit tab or active tab in live Chrome browser extension
+  if (typeof chrome !== 'undefined' && chrome.tabs) {
     try {
-      const tabs = await new Promise((resolve) => {
-        chrome.tabs.query({ active: true, currentWindow: true }, resolve);
-      });
-      if (tabs && tabs[0] && tabs[0].id) {
+      let targetId = targetTabId;
+      if (!targetId && chrome.tabs.query) {
+        const tabs = await new Promise((resolve) => {
+          chrome.tabs.query({ active: true, currentWindow: true }, resolve);
+        });
+        if (tabs && tabs[0] && tabs[0].id) {
+          targetId = tabs[0].id;
+        }
+      }
+      if (targetId) {
         const response = await new Promise((resolve) => {
-          chrome.tabs.sendMessage(tabs[0].id, { action: 'SCAN_LIVE_DOM' }, (res) => {
+          chrome.tabs.sendMessage(targetId, { action: 'SCAN_LIVE_DOM' }, (res) => {
             if (chrome.runtime.lastError) {
               resolve(null);
             } else {
@@ -449,7 +455,7 @@ export async function scanPage() {
         }
       }
     } catch (e) {
-      console.warn("Active tab live scan error:", e);
+      console.warn("Target tab live scan error:", e);
     }
   }
 
@@ -458,17 +464,28 @@ export async function scanPage() {
     rawReport = window.parent.ThunaiContentScript.scanLivePageDOM();
   }
 
-  // 3. Fallback with realistic latency if no report could be generated
+  // 3. Fallback only if strictly outside of Chrome (i.e. isolated preview mode)
   if (!rawReport) {
-    await new Promise(r => setTimeout(r, 600));
-    rawReport = JSON.parse(JSON.stringify(defaultMockReport));
+    if (typeof chrome !== 'undefined' && chrome.tabs && chrome.runtime) {
+      // Return explicit failure to prevent falsely showing mock data on real pages
+      rawReport = {
+         url: 'error:failed',
+         segments: [],
+         textSegments: [],
+         wordCount: 0,
+         detectedLanguage: 'unknown'
+      };
+    } else {
+      await new Promise(r => setTimeout(r, 600));
+      rawReport = JSON.parse(JSON.stringify(defaultMockReport));
+    }
   }
 
   // Normalize to Universal Scanned State Schema
   const normalizedReport = normalizeScanReport(rawReport);
 
-  // Persist into chrome.storage.local
-  await saveScanResult(normalizedReport.url, normalizedReport);
+  // Persist into chrome.storage.local using targetTabId
+  await saveScanResult(normalizedReport.url, normalizedReport, targetTabId || 'default');
 
   return normalizedReport;
 }

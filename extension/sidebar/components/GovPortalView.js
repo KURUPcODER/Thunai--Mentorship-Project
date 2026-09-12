@@ -94,7 +94,7 @@ export function renderGovPortalView(container, state, setState, onNavigate) {
                   <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
                   <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
                 </svg>
-                <span>മലയാളത്തിൽ കേൾക്കുക (Listen)</span>
+                <span>കേൾക്കുക (Listen)</span>
               </button>
 
               <button class="btn-action-small secondary" id="btn-copy-gov-text">

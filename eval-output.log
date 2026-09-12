@@ -1,0 +1,20 @@
+
+--- ML ---
+Raw Candidates: 1335
+Blocks lost under >15 vs >5: 69
+Final Blocks (>5): 714
+Final chars (>5): 141501
+First 3: ["ഇന്ത്യയുടെ 28 സംസ്ഥാനങ്ങളിൽ മല","ബിസി 3000 മുതൽക്കുതന്നെ കേരളം ","വൈവിദ്ധ്യമേറിയ ഭൂപ്രകൃതിയാൽ സമ"]
+Middle 3: ["ഈസ്റ്റർ","ലോക ക്രൈസ്തവരുടെ പ്രധാനാഘോഷങ്ങ","ഈദ് അൽഫിതറും ഈദ് അൽ-അസ്ഹയും"]
+Last 3: ["കേരള ടൂറിസം ഡെവലപ്മെന്റ് കോർപ്","എൻസൈക്ലോപീഡിയ ബ്രിട്ടാണിക്കയില","എൻസൈക്ലോപീഡിയ ബ്രിട്ടാണിക്കയില"]
+Total SegChars sum: 140075
+
+--- EN ---
+Raw Candidates: 1676
+Blocks lost under >15 vs >5: 50
+Final Blocks (>5): 793
+Final chars (>5): 193363
+First 3: ["Kerala,[a] officially Keralam[","Kerala has been a prominent ex","Kerala has the highest Human D"]
+Middle 3: ["↑ Duran, Jane (April 2025). \"E","↑ Thiranagama, Sharika (2019).","↑ Devika, J. (August 2010). \"E"]
+Last 3: ["Official website Archived 18 J","Official website of Kerala Tou","Geographic data related to Ker"]
+Total SegChars sum: 191779

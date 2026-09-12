@@ -106,11 +106,10 @@ A defining design choice: **AI-generated fixes are never applied silently.** Eve
 |---|---|
 | Extension | JavaScript, Manifest V3 (Chrome / Edge / Firefox) |
 | Accessibility scanning | [axe-core](https://github.com/dequelabs/axe-core) |
-| Translation & Malayalam TTS | [Bhashini](https://bhashini.gov.in) (National Language Translation Mission, Govt. of India) |
-| Fallback translation/TTS | Google Cloud Translate & Text-to-Speech |
-| Text simplification & fix suggestions | LLM API (Claude / Gemini) |
-| Backend | Node.js (Express) or Python (FastAPI) — stateless API proxy |
-| Backend hosting | Render / Railway (free tier) |
+| Malayalam Text-to-Speech | [Sarvam AI](https://www.sarvam.ai) (`bulbul:v3`) via Thunai Backend |
+| English Text-to-Speech | Browser Web Speech API (`window.speechSynthesis`, Client-Side) |
+| Text simplification & fix suggestions | LLM API |
+| Backend | Node.js (Express) |
 
 ---
 
@@ -129,24 +128,21 @@ A defining design choice: **AI-generated fixes are never applied silently.** Eve
 │        └──────┬───────┘       │
 │         Background Worker     │
 └───────────────┬───────────────┘
-                │  API calls
-                ▼
-┌───────────────────────────────┐
-│   Backend (API proxy)          │
-│  /translateAndSpeak            │
-│  /simplify                     │
-│  /suggestFixes                 │
-└───┬─────────────┬──────────────┘
-    │             │
-    ▼             ▼
- Bhashini    LLM (simplify +
- (translate  fix suggestions)
-  + TTS)     │
-    │        
-    ▼        
- Google Cloud (fallback
- translate/TTS if Bhashini
- is slow/unavailable)
+                │  
+        ┌───────┴─────────────────┐
+        │                         │
+   English ("en")           Malayalam ("ml")
+        │                         │
+        ▼                         ▼
+Web Speech API              Thunai Backend
+(Client-Side)                POST /api/tts
+                                  │
+                                  ▼
+                              Sarvam AI
+                            (bulbul:v3)
+                                  │
+                                  ▼
+                             audio/wav
 ```
 
 ---

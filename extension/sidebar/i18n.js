@@ -52,8 +52,8 @@ export const translations = {
     actionSearchSub: 'Find in Page',
     actionSearchDesc: 'പേജിലെ പ്രധാന വാക്കുകൾ കണ്ടെത്തി പരിശോധിക്കുക',
 
-    actionListenTitle: 'മലയാളത്തിൽ കേൾക്കുക',
-    actionListenSub: 'Read in Malayalam',
+    actionListenTitle: 'കേൾക്കുക',
+    actionListenSub: 'Listen',
     actionListenDesc: 'മലയാളം TTS ഉപയോഗിച്ച് പേജ് വായിച്ചു കേൾക്കുക',
 
     actionTranslateTitle: 'പരിഭാഷ & ലളിതമാക്കൽ',
@@ -201,8 +201,8 @@ export const translations = {
     actionSearchSub: 'വാക്ക് തിരയുക',
     actionSearchDesc: 'Search and jump to any keyword on the active page',
 
-    actionListenTitle: 'Read in Malayalam',
-    actionListenSub: 'മലയാളത്തിൽ കേൾക്കുക',
+    actionListenTitle: 'Speak',
+    actionListenSub: 'കേൾക്കുക',
     actionListenDesc: 'Listen to page content with Malayalam TTS',
 
     actionTranslateTitle: 'Translate & Simplify',

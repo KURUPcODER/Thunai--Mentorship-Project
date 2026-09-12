@@ -1,0 +1,24 @@
+
+============================
+ENGLISH (https://en.wikipedia.org/wiki/Kerala)
+lang: en
+root tag: MAIN
+root id: content
+root class: mw-body
+root text chars: 238397
+candidates: 1676
+final blocks: 793
+final fullText chars: 193363
+final blocks chars sum: 191779
+
+============================
+MALAYALAM (https://ml.wikipedia.org/wiki/%E0%B4%95%E0%B5%87%E0%B4%B0%E0%B4%B3%E0%B4%82)
+lang: ml
+root tag: MAIN
+root id: content
+root class: mw-body
+root text chars: 171574
+candidates: 1335
+final blocks: 714
+final fullText chars: 141501
+final blocks chars sum: 140075

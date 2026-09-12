@@ -280,32 +280,37 @@
     const pageTitle = document.title || 'Current Webpage';
     const rawUrl = window.location.href;
 
-    const mainEl = document.querySelector('main, article, #content, .content, #main') || document.body;
-    
-    // Find all candidate visible readable blocks
-    const candidateElements = Array.from(mainEl.querySelectorAll('h1, h2, h3, h4, h5, h6, p, li, article, section, blockquote'))
-      .filter(el => {
-        // Strip out boilerplate and navigation
-        if (el.closest('script, style, noscript, svg, nav, footer, .sidebar, #thunai-inpage-styles, .thunai-inspect-box')) {
+    // Detect primary page language from document attributes and sample text
+    const htmlLang = (document.documentElement.lang || document.body?.getAttribute('lang') || 'en').toLowerCase();
+    const sampleText = document.body ? document.body.innerText.slice(0, 1200) : '';
+    const isMalayalamPage = htmlLang.startsWith('ml') || /[\u0D00-\u0D7F]/.test(sampleText);
+    const langCode = isMalayalamPage ? 'ml' : 'en';
+
+    // Prioritize main article body container (e.g. MediaWiki .mw-parser-output / #mw-content-text over broad #content)
+    const mainEl = document.querySelector('.mw-parser-output, #mw-content-text, main, article, [role="main"], #content, .content, #main') || document.body;
+
+    // Select candidate leaf block elements (excluding container elements like article/section to prevent duplicates)
+    const rawCandidates = Array.from(mainEl.querySelectorAll('h1, h2, h3, h4, h5, h6, p, li, blockquote'));
+
+    const candidateElements = rawCandidates.filter(el => {
+      // Exclude boilerplate, site notices, infoboxes, TOC, navigation, headers, footers, sidebars, and edit section widgets
+      if (el.closest('script, style, noscript, svg, nav, footer, header, .sidebar, .infobox, .toc, .navbox, .catlinks, #siteNotice, .mw-empty-elt, .mw-editsection, .reflist, .reference, .citation, .thumbcaption, #thunai-inpage-styles, .thunai-inspect-box')) {
+        return false;
+      }
+
+      // Filter out explicitly hidden elements (display:none, visibility:hidden, opacity:0, aria-hidden)
+      if (el.hidden || el.getAttribute('aria-hidden') === 'true') return false;
+      try {
+        const style = window.getComputedStyle(el);
+        if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') {
           return false;
         }
+      } catch(e) {}
 
-        // Filter out invisible/hidden elements
-        const rect = el.getBoundingClientRect();
-        if (rect.height === 0 || rect.width === 0) return false;
-        
-        try {
-          const style = window.getComputedStyle(el);
-          if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') {
-            return false;
-          }
-        } catch(e) {}
-
-        const text = (el.innerText || '').trim();
-        // Ignore tiny labels or empty blocks
-        return text.length > 12;
-      })
-      .slice(0, 40);
+      const text = (el.innerText || '').trim();
+      // Ignore tiny navigation links, empty blocks, or trivial labels (5 chars is safe for short Malayalam headings)
+      return text.length > 5;
+    });
 
     const segments = candidateElements.map((el, idx) => {
       const segId = `seg-${idx}`;
@@ -316,25 +321,33 @@
         id: segId,
         selector: `[data-thunai-seg="${segId}"]`,
         text: text,
-        mlText: '',
+        mlText: isMalayalamPage ? text : '',
+        enText: !isMalayalamPage ? text : '',
         type: tagType,
         tag: `${pageTitle.slice(0, 24)} (${tagType})`,
         durationMs: Math.max(3000, text.length * 65)
       };
     });
 
-    const fullOriginalText = segments.map(s => s.text).join('\n\n').slice(0, 4000);
+    const fullOriginalText = segments.map(s => s.text).join('\n\n');
+
+    const rootTag = mainEl.tagName ? mainEl.tagName.toLowerCase() : 'body';
+    const rootId = mainEl.id ? `#${mainEl.id}` : '';
+    const rootClass = mainEl.className && typeof mainEl.className === 'string' ? `.${mainEl.className.trim().split(/\s+/)[0]}` : '';
 
     return {
       title: pageTitle,
       url: rawUrl,
-      fullText: fullOriginalText || (document.body ? document.body.innerText.slice(0, 1500) : ''),
+      langCode: langCode,
+      rootSelector: `${rootTag}${rootId}${rootClass}`,
+      fullText: fullOriginalText || (document.body ? document.body.innerText : ''),
       segments: segments.length > 0 ? segments : [
         {
           id: 'seg-0',
           selector: 'body',
-          text: (document.body ? document.body.innerText.slice(0, 300) : '') || 'Webpage content extracted.',
-          mlText: '',
+          text: (document.body ? document.body.innerText : '') || 'Webpage content extracted.',
+          mlText: isMalayalamPage ? (document.body ? document.body.innerText : '') : '',
+          enText: !isMalayalamPage ? (document.body ? document.body.innerText : '') : '',
           type: 'PARAGRAPH',
           tag: pageTitle,
           durationMs: 4000
@@ -1025,4 +1038,46 @@
     applyLiveFixToPage,
     applyUserSettings
   };
+
+  // Robust SPA Navigation Detection without polling or manifest "tabs" permission
+  if (typeof chrome !== 'undefined' && chrome.runtime) {
+    const notifyNav = () => {
+      try {
+        chrome.runtime.sendMessage({ action: 'PAGE_NAVIGATED', url: window.location.href });
+      } catch (e) {
+        // Message port might be closed if extension reloaded
+      }
+    };
+
+    // Inject interceptors into the main page execution context
+    const navScript = document.createElement('script');
+    navScript.textContent = `
+      (function() {
+        const notify = () => window.dispatchEvent(new Event('thunai_nav_event'));
+        const pState = history.pushState;
+        history.pushState = function() {
+          const ret = pState.apply(this, arguments);
+          notify();
+          return ret;
+        };
+        const rState = history.replaceState;
+        history.replaceState = function() {
+          const ret = rState.apply(this, arguments);
+          notify();
+          return ret;
+        };
+        window.addEventListener('popstate', notify);
+        window.addEventListener('hashchange', notify);
+      })();
+    `;
+    document.documentElement.appendChild(navScript);
+    navScript.remove();
+
+    window.addEventListener('thunai_nav_event', () => {
+      setTimeout(notifyNav, 100); // Allow DOM to update after SPA route shift
+    });
+
+    // Notify immediately on page script initialization (detects hard reloads / normal links)
+    notifyNav();
+  }
 })();
