@@ -476,6 +476,8 @@ class TTSService {
 
     const wasPlaying = ctx.isPlaying;
     this._stopCurrentAudio(ctx);
+    ctx.isPaused = false;
+    ctx.audioElement = null;
     ctx.currentSegmentIndex = (ctx.currentSegmentIndex + 1) % ctx.segments.length;
     this.notify();
     if (wasPlaying) {
@@ -490,6 +492,8 @@ class TTSService {
 
     const wasPlaying = ctx.isPlaying;
     this._stopCurrentAudio(ctx);
+    ctx.isPaused = false;
+    ctx.audioElement = null;
     ctx.currentSegmentIndex = (ctx.currentSegmentIndex - 1 + ctx.segments.length) % ctx.segments.length;
     this.notify();
     if (wasPlaying) {
