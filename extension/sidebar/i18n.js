@@ -171,6 +171,41 @@ export const translations = {
     diagNoIssuesPick: 'പ്രത്യേക ബട്ടൺ ചൂണ്ടിക്കാണിക്കുക',
     diagNoIssuesAsk: 'സഹായിയോട് ചോദിക്കുക',
 
+    // Diagnostic Options Tabs
+    diagOptScan: 'സ്കാൻ ചെയ്യുക',
+    diagOptScanSub: 'Scan Webpage',
+    diagOptContents: 'ഉള്ളടക്കം എടുക്കുക',
+    diagOptContentsSub: 'Retrieve Contents',
+    diagOptButtons: 'ബട്ടണുകൾ പരിശോധിക്കുക',
+    diagOptButtonsSub: 'Diagnose Buttons',
+    diagOptChat: 'സഹായി ചാറ്റ്',
+    diagOptChatSub: 'AI Assistant',
+
+    // Content Retrieval
+    contentTitle: 'വെബ്‌പേജ് ഉള്ളടക്ക വിവരണം',
+    contentWordCount: 'വാക്കുകൾ:',
+    contentReadingTime: 'വായനാ സമയം:',
+    contentHeadings: 'പ്രധാന തലക്കെട്ടുകൾ (Headings):',
+    contentForms: 'ഫോമുകൾ & ഫീൽഡുകൾ (Forms):',
+    contentParagraphs: 'പ്രധാന ഉള്ളടക്ക ഭാഗങ്ങൾ:',
+    contentCopyBtn: '📋 കോപ്പി ചെയ്യുക',
+    contentCopied: '✓ കോപ്പി ചെയ്തു!',
+    contentReadAloud: '🔊 ശബ്ദത്തിൽ കേൾക്കുക',
+    contentStopRead: '⏹️ നിർത്തുക',
+
+    // Button Diagnosis
+    btnAuditTitle: 'പേജിലെ ബട്ടണുകളുടെ വിശദ പരിശോധന',
+    btnAuditSub: 'എല്ലാ ബട്ടണുകളുടെയും തത്സമയ പ്രവർത്തന ക്ഷമത ഇവിടെ പരിശോധിക്കാം.',
+    btnAuditTotal: 'ആകെ ബട്ടണുകൾ:',
+    btnAuditWorking: 'പ്രവർത്തനക്ഷമം:',
+    btnAuditBroken: 'തടസ്സങ്ങൾ:',
+    btnAuditAllWorking: 'ഈ പേജിലെ എല്ലാ ബട്ടണുകളും ശരിയായി പ്രവർത്തിക്കുന്നു. യാതൊരു പ്രശ്നവുമില്ല (No Problem Exists).',
+    btnStatusWorking: 'പ്രവർത്തനക്ഷമം',
+    btnStatusDisabled: 'നിഷ്ക്രിയമാണ് (Disabled)',
+    btnStatusMissing: 'ഫോമിൽ വിവരങ്ങൾ ബാക്കി',
+    btnStatusOverlay: 'മറഞ്ഞിരിക്കുന്നു (Overlay)',
+    btnStatusUnlabelled: 'പേരില്ലാത്ത ബട്ടൺ',
+
     // Webpage-Aware AI Chatbot
     chatHeading: 'വെബ്സഹായി ചാറ്റ്ബോട്ട്',
     chatSub: 'ഈ വെബ്‌പേജിനെക്കുറിച്ചുള്ള ചോദ്യങ്ങൾക്ക് ലളിതമായ ഭാഷയിൽ ഉത്തരം നൽകുന്നു.',
@@ -331,6 +366,41 @@ export const translations = {
     diagNoIssuesCheck3: 'Form inputs and controls are accessible',
     diagNoIssuesPick: 'Inspect Specific Button',
     diagNoIssuesAsk: 'Ask AI Assistant',
+
+    // Diagnostic Options Tabs
+    diagOptScan: 'Scan Webpage',
+    diagOptScanSub: 'Check issues',
+    diagOptContents: 'Retrieve Contents',
+    diagOptContentsSub: 'Extract page text',
+    diagOptButtons: 'Diagnose Buttons',
+    diagOptButtonsSub: 'Audit all buttons',
+    diagOptChat: 'AI Assistant',
+    diagOptChatSub: 'Ask questions',
+
+    // Content Retrieval
+    contentTitle: 'Retrieved Webpage Content',
+    contentWordCount: 'Words:',
+    contentReadingTime: 'Reading Time:',
+    contentHeadings: 'Page Headings:',
+    contentForms: 'Detected Forms & Inputs:',
+    contentParagraphs: 'Key Page Sections:',
+    contentCopyBtn: '📋 Copy Text',
+    contentCopied: '✓ Copied!',
+    contentReadAloud: '🔊 Read Aloud (TTS)',
+    contentStopRead: '⏹️ Stop Reading',
+
+    // Button Diagnosis
+    btnAuditTitle: 'Page Buttons & Controls Audit',
+    btnAuditSub: 'Live interaction audit of every button and submit trigger on this page.',
+    btnAuditTotal: 'Total Buttons:',
+    btnAuditWorking: 'Working:',
+    btnAuditBroken: 'Barriers Found:',
+    btnAuditAllWorking: 'All buttons on this webpage are fully functional. No problem exists!',
+    btnStatusWorking: 'Working Normally',
+    btnStatusDisabled: 'Disabled / Locked',
+    btnStatusMissing: 'Form Incomplete',
+    btnStatusOverlay: 'Obscured by Overlay',
+    btnStatusUnlabelled: 'Missing Label',
 
     // Webpage-Aware AI Chatbot
     chatHeading: 'Webpage AI Assistant',

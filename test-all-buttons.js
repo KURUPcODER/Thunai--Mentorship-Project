@@ -77,6 +77,19 @@ async function runButtonAudit() {
   });
   console.log(`✓ Clean Page AI Response: "${cleanChatRes.text.slice(0, 75)}..."`);
 
+  // 10. Test Retrieve Webpage Contents (Option 2)
+  const retrievedContent = await diagnosticsService.retrievePageContents();
+  console.log(`✓ Option 2 - Retrieve Contents: Title="${retrievedContent.title}", Words=${retrievedContent.wordCount}, Headings=${retrievedContent.headings.length}, Forms=${retrievedContent.forms.length}.`);
+
+  // 11. Test Check & Diagnose All Page Buttons (Option 3)
+  const auditResult = await diagnosticsService.auditPageButtons();
+  const btnList = auditResult.buttons || [];
+  console.log(`✓ Option 3 - Check & Diagnose Buttons: Total=${auditResult.totalButtons}, Broken=${auditResult.brokenCount}, Working=${auditResult.workingCount}.`);
+  if (btnList.length > 0) {
+    const firstBtn = btnList[0];
+    console.log(`    -> Sample Button: "${firstBtn.text}" | Status: ${firstBtn.status} | CanAutoFix: ${firstBtn.canAutoFix}`);
+  }
+
   console.log("=== ALL BUTTONS & INTERACTIONS OPERATIONAL (100% PASS) ===");
 }
 

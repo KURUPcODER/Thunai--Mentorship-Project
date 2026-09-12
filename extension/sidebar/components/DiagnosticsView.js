@@ -2,10 +2,12 @@
  * Diagnostics & Explainability AI Component (View: 'diagnostics')
  * "Why Doesn't This Work? (എന്തുകൊണ്ട് പ്രവർത്തിക്കുന്നില്ല?)"
  * Features:
- * 1. Live Webpage Element Inspector with Pointing Spotlight & Arrow on the active webpage.
- * 2. Deep Explainability AI translating web barriers into compassionate, plain Malayalam & English.
- * 3. Context-Aware Bilingual AI Chatbot with page analysis, elderly text zoom, and TTS speech.
- * 4. Cross-platform universal compatibility (Chrome, Firefox, Edge, Safari, Kiwi, Orion, Android, iOS).
+ * 1. Auto-Scan on Webpage Opened: Audits current page live and returns if any problems exist.
+ *    If no issues exist, prominently returns "No Problem Exists (പ്രശ്നങ്ങളൊന്നും കണ്ടെത്തിയില്ല)".
+ * 2. Option to Scan Webpage (🔍 സ്കാൻ ചെയ്യുക): Interactive live barrier scan with in-page pointing spotlight.
+ * 3. Option to Retrieve Contents (📄 ഉള്ളടക്കം എടുക്കുക): Structured extraction of page text, headings, forms & stats with TTS audio.
+ * 4. Option to Check & Diagnose Buttons (🔘 ബട്ടണുകൾ പരിശോധിക്കുക): Comprehensive health audit of every button on the page.
+ * 5. Webpage-Aware Bilingual AI Chatbot: Answers questions in Malayalam & English with elderly zoom.
  */
 
 import { getT } from '../i18n.js';
@@ -18,14 +20,13 @@ export function renderDiagnosticsView(container, state, setState, onNavigate) {
   const t = getT(currentLang);
   const isEn = currentLang === 'en';
 
-  // Sub-tab: 'inspector' or 'chatbot'
+  // Sub-tabs: 'inspector' (Scan), 'contents' (Retrieve), 'buttons' (Diagnose Buttons), 'chatbot' (AI Assistant)
   let activeSubTab = state.diagnosticsSubTab || 'inspector';
-  let isDiagnosing = state.isDiagnosing || false;
-  let hasDiagnosed = state.hasDiagnosed || true;
   let isPickingElement = false;
   let activeInspectedItem = state.currentInspectedElement || null;
   let isSpeaking = false;
-  let chatTextZoom = state.chatTextZoom || 100; // 100%, 120%, 140%
+  let isCopied = false;
+  let chatTextZoom = state.chatTextZoom || 100; // 100%, 125%, 150%
 
   // Active Webpage Context
   const activePageTitle = (typeof document !== 'undefined' && window.parent && window.parent.document && window.parent.document.title)
@@ -39,8 +40,16 @@ export function renderDiagnosticsView(container, state, setState, onNavigate) {
     title: activePageTitle,
     url: activePageUrl,
     wordCount: state.scanReport?.meta?.wordCount || 380,
-    brokenCount: state.scanReport?.brokenElements?.length || 3
+    brokenCount: state.scanReport?.brokenElements?.length || 0
   };
+
+  // State caches
+  let barriers = [];
+  let isScanningPage = false;
+  let pageContent = state.diagPageContent || null;
+  let isLoadingContent = false;
+  let buttonAudit = state.diagButtonAudit || null;
+  let isLoadingButtons = false;
 
   // Chat conversation history
   let chatMessages = state.chatMessages || [
@@ -52,11 +61,12 @@ export function renderDiagnosticsView(container, state, setState, onNavigate) {
     }
   ];
 
-  // Retrieved barriers from diagnosticsService
-  let barriers = [];
-
+  // 1. Auto-Scan Barriers on Open
   async function loadBarriers() {
+    isScanningPage = true;
+    render();
     barriers = await diagnosticsService.getPageBarriers(state.scanReport);
+    isScanningPage = false;
     if (barriers.length === 0) {
       activeInspectedItem = null;
     } else if (!activeInspectedItem) {
@@ -65,12 +75,31 @@ export function renderDiagnosticsView(container, state, setState, onNavigate) {
     render();
   }
 
+  // 2. Retrieve Page Contents
+  async function loadContents() {
+    isLoadingContent = true;
+    render();
+    pageContent = await diagnosticsService.retrievePageContents();
+    isLoadingContent = false;
+    setState({ diagPageContent: pageContent });
+    render();
+  }
+
+  // 3. Audit All Buttons on Page
+  async function loadButtonAudit() {
+    isLoadingButtons = true;
+    render();
+    buttonAudit = await diagnosticsService.auditPageButtons();
+    isLoadingButtons = false;
+    setState({ diagButtonAudit: buttonAudit });
+    render();
+  }
+
   // Cross-Platform Global Element Picked Listener
   if (typeof window !== 'undefined') {
     window.ThunaiOnElementPicked = (pickedDiag) => {
       if (pickedDiag) {
         activeInspectedItem = pickedDiag;
-        // Prepend to barriers if not already present
         const exists = barriers.find(b => b.selector === pickedDiag.selector);
         if (!exists) {
           barriers.unshift(pickedDiag);
@@ -81,7 +110,7 @@ export function renderDiagnosticsView(container, state, setState, onNavigate) {
     };
   }
 
-  // Listen for runtime messages in extension mode
+  // Runtime message listener for picked elements
   if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
     try {
       chrome.runtime.onMessage.addListener((msg) => {
@@ -112,7 +141,6 @@ export function renderDiagnosticsView(container, state, setState, onNavigate) {
   async function handleChatSubmit(userQuery) {
     if (!userQuery || !userQuery.trim()) return;
 
-    // Add user message
     chatMessages.push({
       sender: 'user',
       text: userQuery.trim(),
@@ -121,13 +149,11 @@ export function renderDiagnosticsView(container, state, setState, onNavigate) {
     setState({ chatMessages: chatMessages });
     render();
 
-    // Scroll to bottom of chat feed
     setTimeout(() => {
       const feed = container.querySelector('#diag-chat-feed');
       if (feed) feed.scrollTop = feed.scrollHeight;
     }, 50);
 
-    // Call Diagnostics AI Chatbot
     const botResponse = await diagnosticsService.askChatbot({
       query: userQuery,
       pageContext: pageContext,
@@ -145,7 +171,6 @@ export function renderDiagnosticsView(container, state, setState, onNavigate) {
       followUps: botResponse.followUps,
       timestamp: Date.now()
     });
-
     setState({ chatMessages: chatMessages });
     render();
 
@@ -159,7 +184,7 @@ export function renderDiagnosticsView(container, state, setState, onNavigate) {
     container.innerHTML = `
       <div class="view-panel diagnostics-master-view animate-fade-in" id="panel-diagnostics" role="region" aria-label="Why Doesn't This Work Explainability Diagnostics">
         
-        <!-- Header Strip with Universal Cross-Platform Badge -->
+        <!-- Top Header Strip with Universal Engine Badge -->
         <header class="diag-header-box">
           <div class="diag-header-top-row">
             <div class="diag-badge-pill">
@@ -180,27 +205,43 @@ export function renderDiagnosticsView(container, state, setState, onNavigate) {
           </div>
         </header>
 
-        <!-- Mode Switcher Navigation (Inspector vs Chatbot) -->
-        <nav class="diag-subtab-nav" role="tablist" aria-label="Diagnostics Sub-navigation">
-          <button class="diag-subtab-btn ${activeSubTab === 'inspector' ? 'active' : ''}" id="btn-subtab-inspect" role="tab" aria-selected="${activeSubTab === 'inspector'}">
+        <!-- 4 Core Navigation Options: Scan Webpage, Retrieve Contents, Diagnose Buttons, AI Chatbot -->
+        <nav class="diag-subtab-nav" role="tablist" aria-label="Diagnostics Core Options">
+          <button class="diag-subtab-btn ${activeSubTab === 'inspector' ? 'active' : ''}" id="btn-subtab-inspect" role="tab" aria-selected="${activeSubTab === 'inspector'}" title="${t.diagOptScanSub}">
             <span class="subtab-icon">🔍</span>
-            <span class="subtab-title">${t.diagTabInspect}</span>
+            <span class="subtab-title">${t.diagOptScan}</span>
             ${barriers.length > 0 ? `<span class="subtab-badge">${barriers.length}</span>` : `<span class="subtab-badge-clean" title="${t.diagNoIssuesTitle}">✓</span>`}
           </button>
+
+          <button class="diag-subtab-btn ${activeSubTab === 'contents' ? 'active' : ''}" id="btn-subtab-contents" role="tab" aria-selected="${activeSubTab === 'contents'}" title="${t.diagOptContentsSub}">
+            <span class="subtab-icon">📄</span>
+            <span class="subtab-title">${t.diagOptContents}</span>
+          </button>
+
+          <button class="diag-subtab-btn ${activeSubTab === 'buttons' ? 'active' : ''}" id="btn-subtab-buttons" role="tab" aria-selected="${activeSubTab === 'buttons'}" title="${t.diagOptButtonsSub}">
+            <span class="subtab-icon">🔘</span>
+            <span class="subtab-title">${t.diagOptButtons}</span>
+            ${buttonAudit && buttonAudit.brokenCount > 0 ? `<span class="subtab-badge">${buttonAudit.brokenCount}</span>` : (buttonAudit ? `<span class="subtab-badge-clean">✓</span>` : '')}
+          </button>
           
-          <button class="diag-subtab-btn ${activeSubTab === 'chatbot' ? 'active' : ''}" id="btn-subtab-chat" role="tab" aria-selected="${activeSubTab === 'chatbot'}">
+          <button class="diag-subtab-btn ${activeSubTab === 'chatbot' ? 'active' : ''}" id="btn-subtab-chat" role="tab" aria-selected="${activeSubTab === 'chatbot'}" title="${t.diagOptChatSub}">
             <span class="subtab-icon">💬</span>
-            <span class="subtab-title">${t.diagTabChat}</span>
+            <span class="subtab-title">${t.diagOptChat}</span>
             <span class="subtab-badge-ai">AI</span>
           </button>
         </nav>
 
-        <!-- SUB-VIEW 1: ELEMENT INSPECTOR & EXPLAINABILITY REASONS -->
+        <!-- SUB-VIEW 1: SCAN WEBPAGE & EXPLAINABILITY BARRIERS -->
         ${activeSubTab === 'inspector' ? `
           <div class="diag-tab-content animate-fade-in" id="diag-subtab-panel-inspect">
             
-            ${barriers.length === 0 && !activeInspectedItem ? `
-              <!-- CLEAN NO ISSUES FOUND STATE: Concise, uncluttered, reassuring -->
+            ${isScanningPage ? `
+              <div class="diag-loading-state">
+                <div class="diag-spinner-circle"></div>
+                <p class="diag-loading-text">${isEn ? 'Auditing active webpage DOM for interaction barriers...' : 'വെബ്‌പേജ് തത്സമയം പരിശോധിക്കുന്നു...'}</p>
+              </div>
+            ` : (barriers.length === 0 && !activeInspectedItem ? `
+              <!-- CLEAN NO PROBLEM EXISTS STATE -->
               <div class="diag-no-issues-panel animate-fade-in" id="diag-no-issues-card">
                 <div class="no-issues-badge-icon">
                   <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -209,11 +250,11 @@ export function renderDiagnosticsView(container, state, setState, onNavigate) {
                   </svg>
                 </div>
 
-                <h3 class="no-issues-title">${t.diagNoIssuesTitle}</h3>
+                <h3 class="no-issues-title">${isEn ? 'No Problem Exists' : 'പ്രശ്നങ്ങളൊന്നും കണ്ടെത്തിയില്ല'}</h3>
                 <p class="no-issues-desc">
                   ${isEn 
-                    ? `We analyzed <strong>"${activePageTitle}"</strong>. All interactive buttons, links, and forms on this webpage are accessible and working normally.`
-                    : `<strong>"${activePageTitle}"</strong> എന്ന വെബ്‌പേജ് പൂർണ്ണമായും പരിശോധിച്ചു. ഈ പേജിലെ ബട്ടണുകളും ഫോമുകളും തടസ്സങ്ങളില്ലാതെ സാധാരണ രീതിയിൽ പ്രവർത്തിക്കുന്നു.`}
+                    ? `We thoroughly audited <strong>"${activePageTitle}"</strong>. All buttons, links, and forms on this webpage are accessible and working normally. No interaction barriers were detected.`
+                    : `<strong>"${activePageTitle}"</strong> എന്ന വെബ്‌പേജ് പൂർണ്ണമായും പരിശോധിച്ചു. ഈ പേജിലെ ബട്ടണുകളും ഫോമുകളും തടസ്സങ്ങളില്ലാതെ സാധാരണ രീതിയിൽ പ്രവർത്തിക്കുന്നു. യാതൊരു പ്രശ്നവുമില്ല.`}
                 </p>
 
                 <div class="no-issues-checklist">
@@ -231,11 +272,19 @@ export function renderDiagnosticsView(container, state, setState, onNavigate) {
                   </div>
                 </div>
 
-                <!-- Focused Clean Action Buttons: Re-check, Point/Inspect, or Chatbot -->
+                <!-- Focused Action Buttons -->
                 <div class="no-issues-actions-group">
                   <button class="btn-clean-action btn-clean-recheck" id="btn-recheck-clean" title="${t.diagRecheckBtn}">
                     <span class="action-icon">🔄</span>
                     <span>${t.diagRecheckBtn}</span>
+                  </button>
+                  <button class="btn-clean-action btn-clean-contents" id="btn-goto-contents-clean" title="${t.diagOptContents}">
+                    <span class="action-icon">📄</span>
+                    <span>${t.diagOptContents}</span>
+                  </button>
+                  <button class="btn-clean-action btn-clean-buttons" id="btn-goto-buttons-clean" title="${t.diagOptButtons}">
+                    <span class="action-icon">🔘</span>
+                    <span>${t.diagOptButtons}</span>
                   </button>
                   <button class="btn-clean-action btn-clean-pick" id="btn-trigger-picker-clean" title="${t.diagNoIssuesPick}">
                     <span class="action-icon">🎯</span>
@@ -317,7 +366,7 @@ export function renderDiagnosticsView(container, state, setState, onNavigate) {
                     </button>
 
                     ${activeInspectedItem.canAutoFix ? `
-                      <button class="btn-spotlight-action btn-autofix-diag"
+                      <button class="btn-spotlight-action btn-autofix-diag" 
                               data-selector="${activeInspectedItem.selector}"
                               data-type="${activeInspectedItem.fixType}">
                         <span class="btn-act-icon">⚡</span>
@@ -325,7 +374,7 @@ export function renderDiagnosticsView(container, state, setState, onNavigate) {
                       </button>
                     ` : ''}
 
-                    <button class="btn-spotlight-action btn-ask-chatbot-focus"
+                    <button class="btn-spotlight-action btn-ask-chatbot-focus" 
                             data-title="${activeInspectedItem.text || activeInspectedItem.title}">
                       <span class="btn-act-icon">💬</span>
                       <span>${t.diagAskChatBtn}</span>
@@ -334,12 +383,12 @@ export function renderDiagnosticsView(container, state, setState, onNavigate) {
                 </div>
               ` : ''}
 
-              <!-- All Diagnosed Barriers List (Only shown when barriers exist) -->
+              <!-- All Diagnosed Barriers List -->
               ${barriers.length > 0 ? `
                 <div class="diag-findings-container">
                   <div class="findings-header-strip">
                     <span class="findings-count-pill">${barriers.length} ${t.diagFound}</span>
-                    <button class="btn-recheck-diag" id="btn-recheck-diag" title="Re-check page">
+                    <button class="btn-recheck-diag" id="btn-recheck-diag" title="${t.diagRecheckBtn}">
                       <span>🔄</span>
                       <span>${t.diagRecheckBtn}</span>
                     </button>
@@ -371,11 +420,231 @@ export function renderDiagnosticsView(container, state, setState, onNavigate) {
                   </div>
                 </div>
               ` : ''}
+            `)}
+
+          </div>
+        ` : ''}
+
+        <!-- SUB-VIEW 2: RETRIEVE WEBPAGE CONTENTS -->
+        ${activeSubTab === 'contents' ? `
+          <div class="diag-tab-content animate-fade-in" id="diag-subtab-panel-contents">
+            
+            ${isLoadingContent ? `
+              <div class="diag-loading-state">
+                <div class="diag-spinner-circle"></div>
+                <p class="diag-loading-text">${isEn ? 'Extracting readable webpage contents...' : 'പേജിലെ വിവരങ്ങൾ ശേഖരിക്കുന്നു...'}</p>
+              </div>
+            ` : `
+              <!-- Content Overview Statistics Card -->
+              <div class="content-stats-grid">
+                <div class="content-stat-card">
+                  <span class="stat-icon">📝</span>
+                  <span class="stat-val">${pageContent?.wordCount || 0}</span>
+                  <span class="stat-label">${isEn ? 'Words' : 'വാക്കുകൾ'}</span>
+                </div>
+                <div class="content-stat-card">
+                  <span class="stat-icon">⏱️</span>
+                  <span class="stat-val">~${pageContent?.readingTimeMinutes || 1}m</span>
+                  <span class="stat-label">${isEn ? 'Read Time' : 'വായന'}</span>
+                </div>
+                <div class="content-stat-card">
+                  <span class="stat-icon">📑</span>
+                  <span class="stat-val">${pageContent?.stats?.headingsCount || pageContent?.headings?.length || 0}</span>
+                  <span class="stat-label">${isEn ? 'Headings' : 'തലക്കെട്ടുകൾ'}</span>
+                </div>
+                <div class="content-stat-card">
+                  <span class="stat-icon">📋</span>
+                  <span class="stat-val">${pageContent?.stats?.formsCount || pageContent?.formsSummary?.length || 0}</span>
+                  <span class="stat-label">${isEn ? 'Forms' : 'ഫോമുകൾ'}</span>
+                </div>
+                <div class="content-stat-card">
+                  <span class="stat-icon">🔘</span>
+                  <span class="stat-val">${pageContent?.stats?.buttonsCount || 0}</span>
+                  <span class="stat-label">${isEn ? 'Buttons' : 'ബട്ടണുകൾ'}</span>
+                </div>
+                <div class="content-stat-card">
+                  <span class="stat-icon">🔗</span>
+                  <span class="stat-val">${pageContent?.stats?.linksCount || 0}</span>
+                  <span class="stat-label">${isEn ? 'Links' : 'ലിങ്കുകൾ'}</span>
+                </div>
+              </div>
+
+              <!-- Quick Action Toolbar for Retrieved Content -->
+              <div class="content-actions-bar">
+                <button class="btn-content-action btn-content-read" id="btn-content-read-aloud">
+                  <span>${isSpeaking ? '⏹️' : '🔊'}</span>
+                  <span>${isSpeaking ? t.contentStopRead : t.contentReadAloud}</span>
+                </button>
+                <button class="btn-content-action btn-content-copy" id="btn-content-copy-text">
+                  <span>${isCopied ? '✓' : '📋'}</span>
+                  <span>${isCopied ? t.contentCopied : t.contentCopyBtn}</span>
+                </button>
+                <button class="btn-content-action btn-content-refresh" id="btn-content-refresh">
+                  <span>🔄</span>
+                  <span>${isEn ? 'Refresh Content' : 'പുതുക്കുക'}</span>
+                </button>
+              </div>
+
+              <!-- Section 1: Page Headings Structure -->
+              ${(pageContent?.headings && pageContent.headings.length > 0) ? `
+                <div class="content-section-box">
+                  <div class="section-box-header">
+                    <span class="section-box-icon">📑</span>
+                    <h4 class="section-box-title">${t.contentHeadings}</h4>
+                  </div>
+                  <div class="headings-chips-list">
+                    ${pageContent.headings.map(h => `
+                      <div class="heading-chip-item tag-${h.tag.toLowerCase()}">
+                        <span class="heading-tag-pill">${h.tag}</span>
+                        <span class="heading-text-val">${h.text}</span>
+                      </div>
+                    `).join('')}
+                  </div>
+                </div>
+              ` : ''}
+
+              <!-- Section 2: Detected Forms & Inputs Summary -->
+              ${(pageContent?.formsSummary && pageContent.formsSummary.length > 0) ? `
+                <div class="content-section-box">
+                  <div class="section-box-header">
+                    <span class="section-box-icon">📋</span>
+                    <h4 class="section-box-title">${t.contentForms}</h4>
+                  </div>
+                  <div class="forms-summary-list">
+                    ${pageContent.formsSummary.map((f, fIdx) => `
+                      <div class="form-summary-card">
+                        <div class="form-summary-top">
+                          <span class="form-id-badge">Form #${fIdx + 1}: ${f.id}</span>
+                          <span class="form-inputs-count">${f.inputCount} ${isEn ? 'fields' : 'കോളങ്ങൾ'}</span>
+                        </div>
+                        <div class="form-fields-pills">
+                          ${f.inputs.map(inp => `<span class="field-pill">${inp}</span>`).join('')}
+                          ${f.hasSubmit ? `<span class="field-pill pill-submit">Submit Button</span>` : ''}
+                        </div>
+                      </div>
+                    `).join('')}
+                  </div>
+                </div>
+              ` : ''}
+
+              <!-- Section 3: Extracted Readable Text -->
+              <div class="content-section-box">
+                <div class="section-box-header">
+                  <span class="section-box-icon">📄</span>
+                  <h4 class="section-box-title">${t.contentParagraphs}</h4>
+                </div>
+                <div class="extracted-text-body">
+                  ${(pageContent?.keyParagraphs && pageContent.keyParagraphs.length > 0) 
+                    ? pageContent.keyParagraphs.map((p, idx) => `<p class="extracted-para">${idx + 1}. ${p}</p>`).join('')
+                    : `<p class="extracted-para">${pageContent?.fullText || (isEn ? 'No readable paragraphs detected.' : 'വായിക്കാവുന്ന ഉള്ളടക്കമില്ല.')}</p>`
+                  }
+                </div>
+              </div>
             `}
 
           </div>
-        ` : `
-          <!-- SUB-VIEW 2: CONTEXT-AWARE WEBPAGE AI CHATBOT -->
+        ` : ''}
+
+        <!-- SUB-VIEW 3: CHECK AND DIAGNOSE BUTTONS -->
+        ${activeSubTab === 'buttons' ? `
+          <div class="diag-tab-content animate-fade-in" id="diag-subtab-panel-buttons">
+            
+            ${isLoadingButtons ? `
+              <div class="diag-loading-state">
+                <div class="diag-spinner-circle"></div>
+                <p class="diag-loading-text">${isEn ? 'Auditing all webpage buttons & action triggers...' : 'പേജിലെ എല്ലാ ബട്ടണുകളും പരിശോധിക്കുന്നു...'}</p>
+              </div>
+            ` : `
+              <!-- Button Audit Overview Strip -->
+              <div class="btn-audit-summary-strip">
+                <div class="audit-summary-stat">
+                  <span class="stat-num">${buttonAudit?.totalButtons || 0}</span>
+                  <span class="stat-name">${isEn ? 'Total' : 'ആകെ'}</span>
+                </div>
+                <div class="audit-summary-stat stat-working">
+                  <span class="stat-num">${buttonAudit?.workingCount || 0}</span>
+                  <span class="stat-name">${isEn ? 'Working' : 'സജീവം'}</span>
+                </div>
+                <div class="audit-summary-stat stat-broken">
+                  <span class="stat-num">${buttonAudit?.brokenCount || 0}</span>
+                  <span class="stat-name">${isEn ? 'Barriers' : 'തടസ്സങ്ങൾ'}</span>
+                </div>
+                <button class="btn-reaudit-action" id="btn-reaudit-buttons" title="Re-Audit Buttons">
+                  <span>🔄</span>
+                  <span>${isEn ? 'Re-Audit' : 'പുനഃപരിശോധന'}</span>
+                </button>
+              </div>
+
+              <!-- Success Card if 0 broken buttons -->
+              ${buttonAudit && buttonAudit.brokenCount === 0 ? `
+                <div class="btn-audit-all-good-card animate-fade-in">
+                  <span class="all-good-icon">✅</span>
+                  <div class="all-good-text">
+                    <strong>${isEn ? 'All Buttons Are Working Normally' : 'എല്ലാ ബട്ടണുകളും ശരിയായി പ്രവർത്തിക്കുന്നു'}</strong>
+                    <p>${t.btnAuditAllWorking}</p>
+                  </div>
+                </div>
+              ` : ''}
+
+              <!-- Buttons Cards Grid -->
+              <div class="btn-audit-cards-grid">
+                ${(buttonAudit?.buttons || []).map((btn, idx) => `
+                  <div class="button-audit-card card-status-${btn.status}" data-btn-idx="${idx}">
+                    <div class="btn-card-top-row">
+                      <span class="btn-status-pill pill-${btn.status}">
+                        ${btn.status === 'working' ? '🟢' : '🔴'} ${isEn ? btn.statusTextEn : btn.statusTextMl}
+                      </span>
+                      <span class="btn-tag-code">&lt;${btn.tag}&gt; ${btn.selector}</span>
+                    </div>
+
+                    <h4 class="btn-label-title">"${btn.text}"</h4>
+
+                    <div class="btn-reason-box">
+                      <span class="reason-icon">❓</span>
+                      <p class="reason-text">${isEn ? btn.reasonEn : btn.reasonMl}</p>
+                    </div>
+
+                    <div class="btn-solution-box">
+                      <span class="solution-icon">💡</span>
+                      <p class="solution-text">${isEn ? btn.fixEn : btn.fixMl}</p>
+                    </div>
+
+                    <!-- Action buttons toolbar -->
+                    <div class="btn-card-actions-toolbar">
+                      <button class="btn-action-trigger btn-point-btn" 
+                              data-selector="${btn.selector}" 
+                              data-title="${btn.text}" 
+                              data-reason="${isEn ? btn.reasonEn : btn.reasonMl}" 
+                              data-fix="${isEn ? btn.fixEn : btn.fixMl}">
+                        <span>👉</span>
+                        <span>${t.diagPointBtn}</span>
+                      </button>
+
+                      ${btn.canAutoFix ? `
+                        <button class="btn-action-trigger btn-autofix-btn" 
+                                data-selector="${btn.selector}" 
+                                data-type="${btn.fixType}">
+                          <span>⚡</span>
+                          <span>${t.diagAutoFixBtn}</span>
+                        </button>
+                      ` : ''}
+
+                      <button class="btn-action-trigger btn-listen-btn" 
+                              data-text="${isEn ? (btn.reasonEn + '. ' + btn.fixEn) : (btn.reasonMl + '. ' + btn.fixMl)}">
+                        <span>🔊</span>
+                        <span>${t.diagListenBtn}</span>
+                      </button>
+                    </div>
+                  </div>
+                `).join('')}
+              </div>
+            `}
+
+          </div>
+        ` : ''}
+
+        <!-- SUB-VIEW 4: CONTEXT-AWARE WEBPAGE AI CHATBOT -->
+        ${activeSubTab === 'chatbot' ? `
           <div class="diag-tab-content animate-fade-in" id="diag-subtab-panel-chat">
             
             <!-- Chat Header & Elderly Text Zoom Controls -->
@@ -473,7 +742,7 @@ export function renderDiagnosticsView(container, state, setState, onNavigate) {
             </div>
 
           </div>
-        `}
+        ` : ''}
 
       </div>
     `;
@@ -482,14 +751,39 @@ export function renderDiagnosticsView(container, state, setState, onNavigate) {
   }
 
   function attachEvents() {
-    // 1. Subtab switcher (Inspector vs Chatbot)
+    // 1. Subtab Switchers
     const inspectTabBtn = container.querySelector('#btn-subtab-inspect');
+    const contentsTabBtn = container.querySelector('#btn-subtab-contents');
+    const buttonsTabBtn = container.querySelector('#btn-subtab-buttons');
     const chatTabBtn = container.querySelector('#btn-subtab-chat');
+
     if (inspectTabBtn) {
       inspectTabBtn.addEventListener('click', () => {
         activeSubTab = 'inspector';
         setState({ diagnosticsSubTab: 'inspector' });
         render();
+      });
+    }
+    if (contentsTabBtn) {
+      contentsTabBtn.addEventListener('click', () => {
+        activeSubTab = 'contents';
+        setState({ diagnosticsSubTab: 'contents' });
+        if (!pageContent) {
+          loadContents();
+        } else {
+          render();
+        }
+      });
+    }
+    if (buttonsTabBtn) {
+      buttonsTabBtn.addEventListener('click', () => {
+        activeSubTab = 'buttons';
+        setState({ diagnosticsSubTab: 'buttons' });
+        if (!buttonAudit) {
+          loadButtonAudit();
+        } else {
+          render();
+        }
       });
     }
     if (chatTabBtn) {
@@ -522,7 +816,7 @@ export function renderDiagnosticsView(container, state, setState, onNavigate) {
       });
     }
 
-    // 4. Point on Page from Cards
+    // 4. Point on Page from Barriers List
     container.querySelectorAll('.btn-card-point').forEach(btn => {
       btn.addEventListener('click', async () => {
         const selector = btn.getAttribute('data-selector');
@@ -579,7 +873,7 @@ export function renderDiagnosticsView(container, state, setState, onNavigate) {
       });
     }
 
-    // 8b. Clean No Issues State Buttons
+    // 8b. Clean No Issues State Action Buttons
     const cleanRecheckBtn = container.querySelector('#btn-recheck-clean');
     if (cleanRecheckBtn) {
       cleanRecheckBtn.addEventListener('click', async () => {
@@ -587,6 +881,24 @@ export function renderDiagnosticsView(container, state, setState, onNavigate) {
         const newReport = await scanPage();
         setState({ scanReport: newReport });
         await loadBarriers();
+      });
+    }
+
+    const cleanContentsBtn = container.querySelector('#btn-goto-contents-clean');
+    if (cleanContentsBtn) {
+      cleanContentsBtn.addEventListener('click', () => {
+        activeSubTab = 'contents';
+        setState({ diagnosticsSubTab: 'contents' });
+        loadContents();
+      });
+    }
+
+    const cleanButtonsBtn = container.querySelector('#btn-goto-buttons-clean');
+    if (cleanButtonsBtn) {
+      cleanButtonsBtn.addEventListener('click', () => {
+        activeSubTab = 'buttons';
+        setState({ diagnosticsSubTab: 'buttons' });
+        loadButtonAudit();
       });
     }
 
@@ -608,7 +920,76 @@ export function renderDiagnosticsView(container, state, setState, onNavigate) {
       });
     }
 
-    // 9. Switch to Chatbot with Focus
+    // 9. Retrieved Contents Actions
+    const contentReadBtn = container.querySelector('#btn-content-read-aloud');
+    if (contentReadBtn) {
+      contentReadBtn.addEventListener('click', () => {
+        const textToSpeak = pageContent?.fullText || pageContent?.keyParagraphs?.join('. ') || activePageTitle;
+        handleSpeak(textToSpeak);
+      });
+    }
+
+    const contentCopyBtn = container.querySelector('#btn-content-copy-text');
+    if (contentCopyBtn) {
+      contentCopyBtn.addEventListener('click', () => {
+        const textToCopy = pageContent?.fullText || '';
+        navigator.clipboard.writeText(textToCopy).then(() => {
+          isCopied = true;
+          render();
+          setTimeout(() => {
+            isCopied = false;
+            render();
+          }, 2000);
+        });
+      });
+    }
+
+    const contentRefreshBtn = container.querySelector('#btn-content-refresh');
+    if (contentRefreshBtn) {
+      contentRefreshBtn.addEventListener('click', () => {
+        loadContents();
+      });
+    }
+
+    // 10. Buttons Audit Actions
+    const reauditBtn = container.querySelector('#btn-reaudit-buttons');
+    if (reauditBtn) {
+      reauditBtn.addEventListener('click', () => {
+        loadButtonAudit();
+      });
+    }
+
+    container.querySelectorAll('.btn-point-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const selector = btn.getAttribute('data-selector');
+        const title = btn.getAttribute('data-title');
+        const reason = btn.getAttribute('data-reason');
+        const fix = btn.getAttribute('data-fix');
+        await diagnosticsService.pointToElementOnPage(selector, title, reason, fix);
+      });
+    });
+
+    container.querySelectorAll('.btn-autofix-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const selector = btn.getAttribute('data-selector');
+        const type = btn.getAttribute('data-type');
+        btn.textContent = isEn ? 'Fixing...' : 'മാറ്റുന്നു...';
+        await diagnosticsService.executeAutoFix(selector, type);
+        setTimeout(async () => {
+          btn.textContent = isEn ? '✓ Fixed' : '✓ ശരിയാക്കി';
+          await loadButtonAudit();
+        }, 500);
+      });
+    });
+
+    container.querySelectorAll('.btn-listen-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const text = btn.getAttribute('data-text');
+        handleSpeak(text);
+      });
+    });
+
+    // 11. Switch to Chatbot with Focus
     const askChatFocusBtn = container.querySelector('.btn-ask-chatbot-focus');
     if (askChatFocusBtn) {
       askChatFocusBtn.addEventListener('click', () => {
@@ -622,7 +1003,7 @@ export function renderDiagnosticsView(container, state, setState, onNavigate) {
       });
     }
 
-    // 10. Chat Zoom Controls for Elderly Users
+    // 12. Chat Zoom Controls for Elderly Users
     container.querySelectorAll('.btn-zoom').forEach(btn => {
       btn.addEventListener('click', () => {
         const zoom = parseInt(btn.getAttribute('data-zoom'), 10);
@@ -632,7 +1013,7 @@ export function renderDiagnosticsView(container, state, setState, onNavigate) {
       });
     });
 
-    // 11. Quick Question Chips
+    // 13. Quick Question Chips
     container.querySelectorAll('.chat-chip-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         const query = btn.getAttribute('data-query');
@@ -640,7 +1021,7 @@ export function renderDiagnosticsView(container, state, setState, onNavigate) {
       });
     });
 
-    // 12. Chat Form Submit
+    // 14. Chat Form Submit
     const chatForm = container.querySelector('#diag-chat-form');
     if (chatForm) {
       chatForm.addEventListener('submit', (e) => {
@@ -654,7 +1035,7 @@ export function renderDiagnosticsView(container, state, setState, onNavigate) {
       });
     }
 
-    // 13. Read Aloud on Chat Messages
+    // 15. Read Aloud on Chat Messages
     container.querySelectorAll('.btn-msg-listen').forEach(btn => {
       btn.addEventListener('click', () => {
         const text = btn.getAttribute('data-text');
@@ -662,7 +1043,7 @@ export function renderDiagnosticsView(container, state, setState, onNavigate) {
       });
     });
 
-    // 14. Action buttons inside Assistant chat messages
+    // 16. Action buttons inside Assistant chat messages
     container.querySelectorAll('.btn-msg-action').forEach(btn => {
       btn.addEventListener('click', async () => {
         const action = btn.getAttribute('data-action');
@@ -681,6 +1062,6 @@ export function renderDiagnosticsView(container, state, setState, onNavigate) {
     });
   }
 
-  // Initial load
+  // Initial load: Automatically audit active webpage live
   loadBarriers();
 }

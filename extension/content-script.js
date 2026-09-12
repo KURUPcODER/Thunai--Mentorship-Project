@@ -467,11 +467,59 @@
     });
 
     const fullOriginalText = segments.map(s => s.text).join('\n\n').slice(0, 4000);
+    const wordCount = fullOriginalText.trim().split(/\s+/).filter(Boolean).length;
+    const readingTimeMinutes = Math.max(1, Math.ceil(wordCount / 180));
+
+    // Extract Headings structure
+    const headings = Array.from(mainEl.querySelectorAll('h1, h2, h3'))
+      .filter(h => h.innerText && h.innerText.trim().length > 0)
+      .slice(0, 15)
+      .map(h => ({
+        tag: h.tagName.toUpperCase(),
+        text: h.innerText.trim()
+      }));
+
+    // Extract Forms & Inputs summary
+    const forms = Array.from(document.querySelectorAll('form'));
+    const formsSummary = forms.map((f, fIdx) => {
+      const formInputs = Array.from(f.querySelectorAll('input:not([type="hidden"]), select, textarea'));
+      const inputNames = formInputs.map(inp => inp.placeholder || inp.getAttribute('aria-label') || inp.name || inp.id || 'Field').slice(0, 6);
+      const hasSubmit = !!f.querySelector('button[type="submit"], input[type="submit"], button:not([type="button"])');
+      return {
+        id: f.id || `form-${fIdx + 1}`,
+        inputCount: formInputs.length,
+        inputs: inputNames,
+        hasSubmit
+      };
+    });
+
+    // Extract Element Counts
+    const stats = {
+      wordCount,
+      readingTimeMinutes,
+      headingsCount: headings.length,
+      paragraphsCount: segments.filter(s => s.type === 'PARAGRAPH').length,
+      formsCount: forms.length,
+      buttonsCount: document.querySelectorAll('button, input[type="submit"], input[type="button"], [role="button"]').length,
+      linksCount: document.querySelectorAll('a[href]').length,
+      imagesCount: document.querySelectorAll('img').length
+    };
+
+    const keyParagraphs = segments
+      .filter(s => s.type === 'PARAGRAPH' && s.text.length > 40)
+      .slice(0, 5)
+      .map(s => s.text);
 
     return {
       title: pageTitle,
       url: rawUrl,
       fullText: fullOriginalText || (document.body ? document.body.innerText.slice(0, 1500) : ''),
+      wordCount,
+      readingTimeMinutes,
+      headings,
+      formsSummary,
+      stats,
+      keyParagraphs,
       segments: segments.length > 0 ? segments : [
         {
           id: 'seg-0',
@@ -1383,6 +1431,149 @@
     };
   }
 
+  /**
+   * Dedicated Button & Action Element Audit for Current Webpage
+   * Inspects every button, submit input, and interactive control on the opened page.
+   * Reports health status: Working Normally, Disabled, Missing Required Inputs, or Overlay Blocked.
+   */
+  function auditAllButtonsDOM() {
+    const buttons = [];
+    const seenSelectors = new Set();
+
+    const candidateElements = Array.from(document.querySelectorAll(
+      'button, input[type="submit"], input[type="button"], [role="button"], a.btn, a[class*="button"]'
+    )).filter(el => {
+      // Exclude Thunai internal extension UI elements
+      if (el.closest('#thunai-sidebar-frame, .thunai-picker-banner, .thunai-pointer-arrow-card')) return false;
+      return true;
+    });
+
+    candidateElements.forEach((el, idx) => {
+      const tag = el.tagName.toLowerCase();
+      let rawText = (el.innerText || el.value || el.getAttribute('aria-label') || el.getAttribute('title') || '').trim();
+      const text = rawText.slice(0, 40) || 'Action Button';
+
+      let selector = el.id ? `#${el.id}` : (el.className && typeof el.className === 'string' ? `${tag}.${el.className.trim().split(/\s+/).filter(c => !c.startsWith('thunai-')).slice(0, 2).join('.')}` : `${tag}:nth-of-type(${idx + 1})`);
+      if (seenSelectors.has(selector)) {
+        selector = `${selector}[data-btn-idx="${idx}"]`;
+      }
+      seenSelectors.add(selector);
+
+      const computed = window.getComputedStyle(el);
+      const rect = el.getBoundingClientRect();
+
+      // Check 1: Disabled attribute or aria-disabled or pointer-events none
+      const isDisabledAttr = el.hasAttribute('disabled');
+      const isAriaDisabled = el.getAttribute('aria-disabled') === 'true';
+      const isPointerNone = computed.pointerEvents === 'none';
+      const isDisabled = isDisabledAttr || isAriaDisabled || isPointerNone;
+
+      // Check 2: Form required fields validation
+      const form = el.closest('form') || el.closest('[role="form"]');
+      let missingFields = [];
+      if (form) {
+        const inputs = Array.from(form.querySelectorAll('input:not([type="hidden"]), select, textarea'));
+        missingFields = inputs.filter(inp => {
+          const isReq = inp.hasAttribute('required') || inp.getAttribute('aria-required') === 'true' || (inp.placeholder && inp.placeholder.includes('*'));
+          return isReq && !inp.value.trim();
+        }).map(inp => inp.getAttribute('placeholder') || inp.getAttribute('name') || inp.id || 'Mandatory Field');
+      }
+
+      // Check 3: Overlay / Covered check
+      let isCovered = false;
+      if (rect.width > 0 && rect.height > 0) {
+        const cx = rect.left + rect.width / 2;
+        const cy = rect.top + rect.height / 2;
+        if (cx >= 0 && cy >= 0 && cx < window.innerWidth && cy < window.innerHeight) {
+          const topEl = document.elementFromPoint(cx, cy);
+          if (topEl && topEl !== el && !el.contains(topEl) && !topEl.contains(el)) {
+            isCovered = true;
+          }
+        }
+      }
+
+      let status = 'working';
+      let statusTextEn = 'Working Normally';
+      let statusTextMl = 'ശരിയായി പ്രവർത്തിക്കുന്നു';
+      let reasonEn = 'Button is active, clickable, and accessible.';
+      let reasonMl = 'ഈ ബട്ടൺ ക്ലിക്ക് ചെയ്യാനാകും, സാധാരണ നിലയിൽ പ്രവർത്തിക്കുന്നു.';
+      let fixEn = 'Ready to click.';
+      let fixMl = 'ഈ ബട്ടൺ നേരിട്ട് ഉപയോഗിക്കാവുന്നതാണ്.';
+      let canAutoFix = false;
+      let fixType = 'none';
+
+      if (isDisabled) {
+        status = 'disabled';
+        statusTextEn = 'Disabled / Locked';
+        statusTextMl = 'നിഷ്ക്രിയമാണ് (Disabled)';
+        reasonEn = 'Button is locked in a disabled state by the webpage.';
+        reasonMl = 'പേജ് ഈ ബട്ടൺ നിഷ്ക്രിയമാക്കി വെച്ചിരിക്കുകയാണ് (Disabled).';
+        fixEn = 'Click Thunai Quick Fix to instantly unlock and enable this button.';
+        fixMl = 'തുണ ഓട്ടോ-ഫിക്സ് ഉപയോഗിച്ച് ഈ ബട്ടൺ നേരിട്ട് സജീവമാക്കാം.';
+        canAutoFix = true;
+        fixType = 'unblock_button';
+      } else if (missingFields.length > 0 && (tag === 'button' || el.getAttribute('type') === 'submit')) {
+        status = 'missing_fields';
+        statusTextEn = `Form Incomplete (${missingFields.length} fields missing)`;
+        statusTextMl = `ഫോമിൽ വിവരങ്ങൾ ബാക്കി (${missingFields.length})`;
+        reasonEn = `Parent form has empty required fields: ${missingFields.slice(0, 2).join(', ')}`;
+        reasonMl = `ഫോമിലെ നിർബന്ധിത വിവരങ്ങൾ പൂരിപ്പിക്കാത്തതിനാൽ ബട്ടൺ സമർപ്പിക്കാനാകില്ല (${missingFields.slice(0, 2).join(', ')}).`;
+        fixEn = `Complete all mandatory form fields: ${missingFields.join(', ')}`;
+        fixMl = 'മേൽക്കാണിച്ച നിർബന്ധിത കോളങ്ങൾ പൂരിപ്പിച്ച് സമർപ്പിക്കുക.';
+        canAutoFix = true;
+        fixType = 'focus_missing_field';
+      } else if (isCovered) {
+        status = 'overlay';
+        statusTextEn = 'Obscured by Overlay';
+        statusTextMl = 'മറഞ്ഞിരിക്കുന്നു (Overlay Blocked)';
+        reasonEn = 'A floating modal backdrop or banner is intercepting clicks.';
+        reasonMl = 'പേജിന് മുകളിലുള്ള അദൃശ്യ പാളിയോ പോപ്പപ്പോ ക്ലിക്കുകൾ തടസ്സപ്പെടുത്തുന്നു.';
+        fixEn = 'Dismiss the overlay or use Thunai Quick Fix to remove intercepting layer.';
+        fixMl = 'പോപ്പപ്പ് ക്ലോസ് ചെയ്യുകയോ ഓട്ടോ-ഫിക്സ് ഉപയോഗിക്കുകയോ ചെയ്യുക.';
+        canAutoFix = true;
+        fixType = 'remove_overlay';
+      } else if (rawText.length === 0) {
+        status = 'unlabelled';
+        statusTextEn = 'Missing Accessible Label';
+        statusTextMl = 'പേരില്ലാത്ത ബട്ടൺ (Unlabelled)';
+        reasonEn = 'Button lacks descriptive text or an accessible aria-label attribute.';
+        reasonMl = 'ഈ ബട്ടണിൽ എന്ത് ആവശ്യത്തിനുള്ളതാണെന്ന് വ്യക്തമായി എഴുതിയിട്ടില്ല.';
+        fixEn = 'Add descriptive text or aria-label.';
+        fixMl = 'ബട്ടണിന് അനുയോജ്യമായ പേര് നൽകുക.';
+        canAutoFix = true;
+        fixType = 'inject_label';
+      }
+
+      buttons.push({
+        id: `btn-${idx}`,
+        tag,
+        text,
+        selector,
+        status,
+        statusTextEn,
+        statusTextMl,
+        reasonEn,
+        reasonMl,
+        fixEn,
+        fixMl,
+        canAutoFix,
+        fixType,
+        isBroken: status !== 'working'
+      });
+    });
+
+    const brokenCount = buttons.filter(b => b.isBroken).length;
+
+    return {
+      success: true,
+      totalButtons: buttons.length,
+      brokenCount: brokenCount,
+      workingCount: buttons.length - brokenCount,
+      hasIssues: brokenCount > 0,
+      buttons
+    };
+  }
+
   function toggleHeatmap(show) {
     heatmapOverlays.forEach(el => el.remove());
     heatmapOverlays = [];
@@ -1586,6 +1777,9 @@
       } else if (message.action === 'DIAGNOSE_LIVE_PAGE') {
         const result = diagnoseLivePageBarriers();
         sendResponse(result);
+      } else if (message.action === 'AUDIT_PAGE_BUTTONS') {
+        const result = auditAllButtonsDOM();
+        sendResponse(result);
       } else if (message.action === 'TRY_AUTO_FIX') {
         const result = tryAutoFixElement(message.selector, message.fixType);
         sendResponse(result);
@@ -1612,6 +1806,7 @@
     extractRealPageContent,
     scanLivePageDOM,
     diagnoseLivePageBarriers,
+    auditAllButtonsDOM,
     inspectElement,
     inspectElementWithPointer,
     clearActivePointer,

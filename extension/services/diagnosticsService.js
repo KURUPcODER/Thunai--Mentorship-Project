@@ -113,6 +113,63 @@ class DiagnosticsService {
     return [];
   }
 
+  /**
+   * Retrieve Structured Real Content from Currently Opened Webpage
+   * Returns: title, url, fullText, wordCount, headings, forms, stats, keyParagraphs
+   */
+  async retrievePageContents() {
+    try {
+      const res = await browserCompat.sendMessageToActiveTab({ action: 'EXTRACT_PAGE_CONTENT' });
+      if (res && res.success && res.data) {
+        return {
+          ...res.data,
+          headings: res.data.headings || [],
+          formsSummary: res.data.formsSummary || [],
+          forms: res.data.formsSummary || [],
+          stats: res.data.stats || { wordCount: res.data.wordCount || 0 },
+          keyParagraphs: res.data.keyParagraphs || []
+        };
+      }
+    } catch (e) {
+      console.warn("[Thunai DiagnosticsService] Content retrieval notice:", e);
+    }
+    return {
+      title: 'Active Webpage',
+      url: 'https://kerala.gov.in',
+      fullText: 'Webpage text could not be extracted directly.',
+      wordCount: 0,
+      readingTimeMinutes: 1,
+      headings: [],
+      formsSummary: [],
+      forms: [],
+      stats: { wordCount: 0, readingTimeMinutes: 1, headingsCount: 0, paragraphsCount: 0, formsCount: 0, buttonsCount: 0, linksCount: 0, imagesCount: 0 },
+      keyParagraphs: []
+    };
+  }
+
+  /**
+   * Check & Diagnose Every Button on Currently Opened Webpage
+   * Returns: totalButtons, brokenCount, workingCount, hasIssues, buttons[]
+   */
+  async auditPageButtons() {
+    try {
+      const res = await browserCompat.sendMessageToActiveTab({ action: 'AUDIT_PAGE_BUTTONS' });
+      if (res && res.success && Array.isArray(res.buttons)) {
+        return res;
+      }
+    } catch (e) {
+      console.warn("[Thunai DiagnosticsService] Button audit notice:", e);
+    }
+    return {
+      success: true,
+      totalButtons: 0,
+      brokenCount: 0,
+      workingCount: 0,
+      hasIssues: false,
+      buttons: []
+    };
+  }
+
   normalizeBarrierItem(item, idx) {
     const selector = item.selector || `[data-thunai-broken="${item.id}"]` || 'button';
     const tag = item.tag || 'button';

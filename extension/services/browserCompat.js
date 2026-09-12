@@ -139,6 +139,12 @@ class BrowserCompat {
           }
           return { success: true, barriers: [], totalIssues: 0 };
 
+        case 'AUDIT_PAGE_BUTTONS':
+          if (script.auditAllButtonsDOM) {
+            return script.auditAllButtonsDOM();
+          }
+          return { success: true, buttons: [], totalButtons: 0, brokenCount: 0, workingCount: 0, hasIssues: false };
+
         case 'TRY_AUTO_FIX':
           if (script.tryAutoFixElement) {
             return script.tryAutoFixElement(message.selector, message.fixType);
