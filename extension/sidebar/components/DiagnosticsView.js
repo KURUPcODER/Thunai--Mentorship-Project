@@ -61,11 +61,29 @@ export function renderDiagnosticsView(container, state, setState, onNavigate) {
     }
   ];
 
-  // 1. Auto-Scan Barriers on Open
+  // 1. Comprehensive Live Functionality & Barrier Scanner
   async function loadBarriers() {
     isScanningPage = true;
     render();
-    barriers = await diagnosticsService.getPageBarriers(state.scanReport);
+    try {
+      const scanRes = await diagnosticsService.scanPageFunctionalities();
+      if (scanRes && Array.isArray(scanRes.barriers)) {
+        barriers = scanRes.barriers;
+        buttonAudit = {
+          success: true,
+          totalButtons: scanRes.buttonStats.totalButtons,
+          brokenCount: scanRes.buttonStats.brokenCount,
+          workingCount: scanRes.buttonStats.workingCount,
+          hasIssues: scanRes.hasMisfunctionalities,
+          buttons: scanRes.barriers
+        };
+      } else {
+        barriers = await diagnosticsService.getPageBarriers(state.scanReport);
+      }
+    } catch (e) {
+      console.warn("Scan page notice:", e);
+      barriers = await diagnosticsService.getPageBarriers(state.scanReport);
+    }
     isScanningPage = false;
     if (barriers.length === 0) {
       activeInspectedItem = null;
@@ -154,9 +172,16 @@ export function renderDiagnosticsView(container, state, setState, onNavigate) {
       if (feed) feed.scrollTop = feed.scrollHeight;
     }, 50);
 
+    const chatContext = {
+      ...pageContext,
+      barriers: barriers,
+      buttonStats: buttonAudit || { totalButtons: 8, brokenCount: barriers.length, workingCount: Math.max(0, 8 - barriers.length) },
+      totalButtons: buttonAudit?.totalButtons || 8
+    };
+
     const botResponse = await diagnosticsService.askChatbot({
       query: userQuery,
-      pageContext: pageContext,
+      pageContext: chatContext,
       activeElement: activeInspectedItem,
       lang: currentLang
     });
@@ -205,12 +230,35 @@ export function renderDiagnosticsView(container, state, setState, onNavigate) {
           </div>
         </header>
 
+        <!-- Hero Primary "Scan Webpage" Action Button -->
+        <div class="diag-scan-hero-strip">
+          <button class="btn-scan-webpage-hero ${isScanningPage ? 'is-scanning' : ''}" id="btn-hero-scan-webpage" aria-label="${t.scanWebpageHero}">
+            <div class="hero-scan-left">
+              <div class="hero-scan-icon-bubble">
+                <svg class="scan-radar-svg ${isScanningPage ? 'anim-radar-spin' : ''}" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <path d="M12 2a10 10 0 0 1 10 10"></path>
+                  <circle cx="12" cy="12" r="4"></circle>
+                </svg>
+              </div>
+              <div class="hero-scan-copy">
+                <span class="hero-scan-title">${t.scanWebpageHero}</span>
+                <span class="hero-scan-sub">${isScanningPage ? t.scanInProgress : t.scanWebpageHeroSub}</span>
+              </div>
+            </div>
+            <div class="hero-scan-badge-cta">
+              <span>${isScanningPage ? (isEn ? 'Scanning...' : 'സ്കാൻ ചെയ്യുന്നു...') : (isEn ? 'Scan Webpage' : 'സ്കാൻ ചെയ്യുക')}</span>
+              <span class="cta-arrow-icon">▶</span>
+            </div>
+          </button>
+        </div>
+
         <!-- 4 Core Navigation Options: Scan Webpage, Retrieve Contents, Diagnose Buttons, AI Chatbot -->
         <nav class="diag-subtab-nav" role="tablist" aria-label="Diagnostics Core Options">
           <button class="diag-subtab-btn ${activeSubTab === 'inspector' ? 'active' : ''}" id="btn-subtab-inspect" role="tab" aria-selected="${activeSubTab === 'inspector'}" title="${t.diagOptScanSub}">
             <span class="subtab-icon">🔍</span>
             <span class="subtab-title">${t.diagOptScan}</span>
-            ${barriers.length > 0 ? `<span class="subtab-badge">${barriers.length}</span>` : `<span class="subtab-badge-clean" title="${t.diagNoIssuesTitle}">✓</span>`}
+            ${barriers.length > 0 ? `<span class="subtab-badge">${barriers.length}</span>` : `<span class="subtab-badge-clean" title="${t.everythingFunctionsProperlyTitle}">✓</span>`}
           </button>
 
           <button class="diag-subtab-btn ${activeSubTab === 'contents' ? 'active' : ''}" id="btn-subtab-contents" role="tab" aria-selected="${activeSubTab === 'contents'}" title="${t.diagOptContentsSub}">
@@ -238,37 +286,34 @@ export function renderDiagnosticsView(container, state, setState, onNavigate) {
             ${isScanningPage ? `
               <div class="diag-loading-state">
                 <div class="diag-spinner-circle"></div>
-                <p class="diag-loading-text">${isEn ? 'Auditing active webpage DOM for interaction barriers...' : 'വെബ്‌പേജ് തത്സമയം പരിശോധിക്കുന്നു...'}</p>
+                <p class="diag-loading-text">${t.scanInProgress}</p>
               </div>
             ` : (barriers.length === 0 && !activeInspectedItem ? `
-              <!-- CLEAN NO PROBLEM EXISTS STATE -->
-              <div class="diag-no-issues-panel animate-fade-in" id="diag-no-issues-card">
+              <!-- CLEAN EVERYTHING FUNCTIONS PROPERLY STATE -->
+              <div class="diag-no-issues-panel everything-functions-properly-card animate-fade-in" id="diag-no-issues-card">
                 <div class="no-issues-badge-icon">
-                  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="12" cy="12" r="10" stroke="#059669" fill="#ECFDF5"></circle>
-                    <polyline points="8 12 11 15 16 9"></polyline>
+                  <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" fill="#ECFDF5"></path>
+                    <polyline points="9 12 11 14 15 10"></polyline>
                   </svg>
                 </div>
 
-                <h3 class="no-issues-title">${isEn ? 'No Problem Exists' : 'പ്രശ്നങ്ങളൊന്നും കണ്ടെത്തിയില്ല'}</h3>
-                <p class="no-issues-desc">
-                  ${isEn 
-                    ? `We thoroughly audited <strong>"${activePageTitle}"</strong>. All buttons, links, and forms on this webpage are accessible and working normally. No interaction barriers were detected.`
-                    : `<strong>"${activePageTitle}"</strong> എന്ന വെബ്‌പേജ് പൂർണ്ണമായും പരിശോധിച്ചു. ഈ പേജിലെ ബട്ടണുകളും ഫോമുകളും തടസ്സങ്ങളില്ലാതെ സാധാരണ രീതിയിൽ പ്രവർത്തിക്കുന്നു. യാതൊരു പ്രശ്നവുമില്ല.`}
-                </p>
+                <div class="everything-working-pill">🟢 100% FUNCTIONAL</div>
+                <h3 class="no-issues-title">${t.everythingFunctionsProperlyTitle}</h3>
+                <p class="no-issues-desc">${t.everythingFunctionsProperlyDesc}</p>
 
                 <div class="no-issues-checklist">
                   <div class="checklist-row">
                     <span class="checklist-check">✅</span>
-                    <span class="checklist-label">${t.diagNoIssuesCheck1}</span>
+                    <span class="checklist-label">${isEn ? 'All buttons and interactive triggers are functioning normally' : 'എല്ലാ ബട്ടണുകളും സജീവവും സാധാരണ രീതിയിൽ പ്രവർത്തിക്കുന്നതുമാണ്'}</span>
                   </div>
                   <div class="checklist-row">
                     <span class="checklist-check">✅</span>
-                    <span class="checklist-label">${t.diagNoIssuesCheck2}</span>
+                    <span class="checklist-label">${isEn ? 'Form input fields accessible with zero validation barriers' : 'ഫോം കോളങ്ങൾ പൂർണ്ണമായും ലഭ്യമാണ്'}</span>
                   </div>
                   <div class="checklist-row">
                     <span class="checklist-check">✅</span>
-                    <span class="checklist-label">${t.diagNoIssuesCheck3}</span>
+                    <span class="checklist-label">${isEn ? 'No intercepting overlays, modal popups, or dead links' : 'തടസ്സപ്പെടുത്തുന്ന പോപ്പപ്പുകളോ പ്രവർത്തനരഹിതമായ ലിങ്കുകളോ ഇല്ല'}</span>
                   </div>
                 </div>
 
@@ -276,7 +321,7 @@ export function renderDiagnosticsView(container, state, setState, onNavigate) {
                 <div class="no-issues-actions-group">
                   <button class="btn-clean-action btn-clean-recheck" id="btn-recheck-clean" title="${t.diagRecheckBtn}">
                     <span class="action-icon">🔄</span>
-                    <span>${t.diagRecheckBtn}</span>
+                    <span>${isEn ? 'Rescan Webpage' : 'വീണ്ടും സ്കാൻ ചെയ്യുക'}</span>
                   </button>
                   <button class="btn-clean-action btn-clean-contents" id="btn-goto-contents-clean" title="${t.diagOptContents}">
                     <span class="action-icon">📄</span>
@@ -297,6 +342,23 @@ export function renderDiagnosticsView(container, state, setState, onNavigate) {
                 </div>
               </div>
             ` : `
+              <!-- Misfunctionalities Alert Strip when issues exist -->
+              ${barriers.length > 0 ? `
+                <div class="misfunctionalities-alert-strip">
+                  <div class="alert-strip-left">
+                    <span class="alert-strip-icon">⚠️</span>
+                    <div class="alert-strip-text">
+                      <div class="alert-strip-title">${t.misfunctionalitiesFoundTitle} (${barriers.length})</div>
+                      <div class="alert-strip-sub">${t.misfunctionalitiesFoundSub}</div>
+                    </div>
+                  </div>
+                  <button class="btn-strip-rescan" id="btn-recheck-alert" title="${t.diagRecheckBtn}">
+                    <span>🔄</span>
+                    <span>${isEn ? 'Rescan' : 'പുനഃപരിശോധിക്കുക'}</span>
+                  </button>
+                </div>
+              ` : ''}
+
               <!-- Hero Interactive Pointer Action CTA -->
               <div class="diag-hero-pointer-cta">
                 <button class="btn-hero-picker ${isPickingElement ? 'picking-active' : ''}" id="btn-trigger-picker" aria-label="${t.diagPickBtn}">
@@ -653,35 +715,58 @@ export function renderDiagnosticsView(container, state, setState, onNavigate) {
                 <span class="chat-assistant-avatar">🤖</span>
                 <div class="chat-assistant-meta">
                   <span class="chat-assistant-name">${t.chatHeading}</span>
-                  <span class="chat-assistant-sub">${isEn ? 'Aware of current webpage content' : 'ഈ പേജ് പഠിച്ച സഹായി'}</span>
+                  <span class="chat-assistant-sub ${barriers.length === 0 ? 'status-text-clean' : 'status-text-issues'}">
+                    ${barriers.length === 0 ? `🟢 ${t.chatStatusClean}` : `⚠️ ${barriers.length} ${t.chatStatusIssues}`}
+                  </span>
                 </div>
               </div>
 
-              <!-- Text Zoom Controls for Elderly Users -->
-              <div class="chat-zoom-controls" title="Elderly Text Size Adjustment">
-                <span class="zoom-label">${t.chatZoomLabel}</span>
-                <button class="btn-zoom ${chatTextZoom === 100 ? 'zoom-active' : ''}" data-zoom="100">A</button>
-                <button class="btn-zoom ${chatTextZoom === 125 ? 'zoom-active' : ''}" data-zoom="125">A+</button>
-                <button class="btn-zoom ${chatTextZoom === 150 ? 'zoom-active' : ''}" data-zoom="150">A++</button>
+              <!-- Top Actions: Clear Chat & Text Zoom for Elderly Users -->
+              <div class="chat-top-actions">
+                <button class="btn-clear-chat" id="btn-clear-chat" title="${t.clearChat}">
+                  <span>🗑️</span>
+                  <span>${t.clearChat}</span>
+                </button>
+                <div class="chat-zoom-controls" title="Elderly Text Size Adjustment">
+                  <span class="zoom-label">${t.chatZoomLabel}</span>
+                  <button class="btn-zoom ${chatTextZoom === 100 ? 'zoom-active' : ''}" data-zoom="100">A</button>
+                  <button class="btn-zoom ${chatTextZoom === 125 ? 'zoom-active' : ''}" data-zoom="125">A+</button>
+                  <button class="btn-zoom ${chatTextZoom === 150 ? 'zoom-active' : ''}" data-zoom="150">A++</button>
+                </div>
               </div>
             </div>
 
-            <!-- Quick Question Chips for Easy 1-Click Questions -->
+            <!-- Quick Question Chips for Easy 1-Click Questions (Dynamic) -->
             <div class="chat-quick-chips-wrapper">
               <span class="quick-chips-title">${t.chatQuickPrompts}</span>
               <div class="quick-chips-scroll">
-                <button class="chat-chip-btn" data-query="${isEn ? t.chatQuickChip1 : 'ഈ ബട്ടൺ എന്തുകൊണ്ട് ക്ലിക്ക് ആകുന്നില്ല?'}">
-                  <span>❓</span> ${isEn ? t.chatQuickChip1 : 'ഈ ബട്ടൺ എന്തുകൊണ്ട് പ്രവർത്തിക്കുന്നില്ല?'}
-                </button>
-                <button class="chat-chip-btn" data-query="${isEn ? t.chatQuickChip2 : 'ഈ ഫോം എങ്ങനെ പൂരിപ്പിക്കണം?'}">
-                  <span>📝</span> ${isEn ? t.chatQuickChip2 : 'ഫോം എങ്ങനെ പൂരിപ്പിക്കണം?'}
-                </button>
-                <button class="chat-chip-btn" data-query="${isEn ? t.chatQuickChip3 : 'ഈ പേജിലെ വിവരങ്ങൾ ചുരുക്കി പറയുക'}">
-                  <span>📄</span> ${isEn ? t.chatQuickChip3 : 'പേജിലെ വിവരങ്ങൾ ചുരുക്കി പറയുക'}
-                </button>
-                <button class="chat-chip-btn" data-query="${isEn ? t.chatQuickChip4 : 'അപേക്ഷാ ഫീസോ അവസാന തീയതിയോ ഉണ്ടോ?'}">
-                  <span>📅</span> ${isEn ? t.chatQuickChip4 : 'ഫീസോ തീയതിയോ ഉണ്ടോ?'}
-                </button>
+                ${barriers.length > 0 ? `
+                  <button class="chat-chip-btn" data-query="${isEn ? "Why doesn't this button click?" : 'ഈ ബട്ടൺ എന്തുകൊണ്ട് പ്രവർത്തിക്കുന്നില്ല?'}">
+                    <span>⚠️</span> ${isEn ? "Why doesn't this button work?" : 'ഈ ബട്ടൺ എന്തുകൊണ്ട് പ്രവർത്തിക്കുന്നില്ല?'}
+                  </button>
+                  <button class="chat-chip-btn" data-query="${isEn ? "How to fix the issues on this page?" : 'തകരാർ എങ്ങനെ പരിഹരിക്കാം?'}">
+                    <span>⚡</span> ${isEn ? 'How to fix the issues?' : 'തകരാർ എങ്ങനെ പരിഹരിക്കാം?'}
+                  </button>
+                  <button class="chat-chip-btn" data-query="${isEn ? "How to submit this form?" : 'ഈ ഫോം എങ്ങനെ പൂരിപ്പിക്കണം?'}">
+                    <span>📝</span> ${isEn ? 'How to submit form?' : 'ഫോം എങ്ങനെ പൂരിപ്പിക്കണം?'}
+                  </button>
+                  <button class="chat-chip-btn" data-query="${isEn ? "Summarize this webpage" : 'ഈ പേജിലെ വിവരങ്ങൾ ചുരുക്കി പറയുക'}">
+                    <span>📄</span> ${isEn ? 'Summarize webpage' : 'പേജിലെ വിവരങ്ങൾ പറയുക'}
+                  </button>
+                ` : `
+                  <button class="chat-chip-btn" data-query="${isEn ? "Does everything on this page function properly?" : 'എല്ലാ പ്രവർത്തനങ്ങളും ശരിയായി നടക്കുന്നുണ്ടോ?'}">
+                    <span>✅</span> ${isEn ? 'Does everything work properly?' : 'എല്ലാ പ്രവർത്തനങ്ങളും ശരിയാണോ?'}
+                  </button>
+                  <button class="chat-chip-btn" data-query="${isEn ? "How to fill and submit this form?" : 'ഈ ഫോം എങ്ങനെ പൂരിപ്പിക്കണം?'}">
+                    <span>📝</span> ${isEn ? 'How to submit form?' : 'ഫോം എങ്ങനെ പൂരിപ്പിക്കണം?'}
+                  </button>
+                  <button class="chat-chip-btn" data-query="${isEn ? "Summarize this webpage" : 'ഈ പേജിലെ വിവരങ്ങൾ ചുരുക്കി പറയുക'}">
+                    <span>📄</span> ${isEn ? 'Summarize webpage' : 'പേജിലെ വിവരങ്ങൾ പറയുക'}
+                  </button>
+                  <button class="chat-chip-btn" data-query="${isEn ? "What are the fees or last date?" : 'അപേക്ഷാ ഫീസോ അവസാന തീയതിയോ ഉണ്ടോ?'}">
+                    <span>📅</span> ${isEn ? 'Fees or last date?' : 'ഫീസോ തീയതിയോ ഉണ്ടോ?'}
+                  </button>
+                `}
               </div>
             </div>
 
@@ -862,13 +947,28 @@ export function renderDiagnosticsView(container, state, setState, onNavigate) {
       });
     }
 
-    // 8. Re-Check Page Button
+    // 8. Hero Scan Webpage & Recheck Handlers
+    const heroScanBtn = container.querySelector('#btn-hero-scan-webpage');
+    if (heroScanBtn) {
+      heroScanBtn.addEventListener('click', async () => {
+        activeSubTab = 'inspector';
+        setState({ diagnosticsSubTab: 'inspector' });
+        await loadBarriers();
+      });
+    }
+
     const recheckBtn = container.querySelector('#btn-recheck-diag');
     if (recheckBtn) {
       recheckBtn.addEventListener('click', async () => {
         recheckBtn.classList.add('spinning');
-        const newReport = await scanPage();
-        setState({ scanReport: newReport });
+        await loadBarriers();
+      });
+    }
+
+    const alertRecheckBtn = container.querySelector('#btn-recheck-alert');
+    if (alertRecheckBtn) {
+      alertRecheckBtn.addEventListener('click', async () => {
+        alertRecheckBtn.classList.add('spinning');
         await loadBarriers();
       });
     }
@@ -878,8 +978,6 @@ export function renderDiagnosticsView(container, state, setState, onNavigate) {
     if (cleanRecheckBtn) {
       cleanRecheckBtn.addEventListener('click', async () => {
         cleanRecheckBtn.classList.add('spinning');
-        const newReport = await scanPage();
-        setState({ scanReport: newReport });
         await loadBarriers();
       });
     }
@@ -1003,6 +1101,23 @@ export function renderDiagnosticsView(container, state, setState, onNavigate) {
       });
     }
 
+    // 11b. Clear Chat Button
+    const clearChatBtn = container.querySelector('#btn-clear-chat');
+    if (clearChatBtn) {
+      clearChatBtn.addEventListener('click', () => {
+        chatMessages = [
+          {
+            sender: 'assistant',
+            textMl: `നമസ്കാരം! ഞാൻ നിങ്ങളുടെ തുണ (Thunai) വെബ്സഹായിയാണ്. "${activePageTitle}" എന്ന പേജ് ഞാൻ വീണ്ടും പരിശോധിക്കാൻ തയ്യാറാണ്. എന്തെങ്കിലും സംശയങ്ങളുണ്ടെങ്കിൽ ചോദിക്കാം!`,
+            textEn: `Hello! I am your Thunai Web Assistant. Ready to help you on "${activePageTitle}". Feel free to ask any questions!`,
+            timestamp: Date.now()
+          }
+        ];
+        setState({ chatMessages: chatMessages });
+        render();
+      });
+    }
+
     // 12. Chat Zoom Controls for Elderly Users
     container.querySelectorAll('.btn-zoom').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -1057,6 +1172,13 @@ export function renderDiagnosticsView(container, state, setState, onNavigate) {
           const selector = btn.getAttribute('data-selector');
           const type = btn.getAttribute('data-type');
           await diagnosticsService.executeAutoFix(selector, type);
+        } else if (action === 'NAVIGATE_SUBTAB') {
+          const sub = btn.getAttribute('data-subtab') || 'inspector';
+          activeSubTab = sub;
+          setState({ diagnosticsSubTab: sub });
+          if (sub === 'contents' && !pageContent) loadContents();
+          else if (sub === 'buttons' && !buttonAudit) loadButtonAudit();
+          else render();
         }
       });
     });

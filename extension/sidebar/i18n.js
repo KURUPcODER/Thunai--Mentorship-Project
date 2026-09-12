@@ -217,6 +217,17 @@ export const translations = {
     chatQuickChip2: 'ഈ ഫോം എങ്ങനെ പൂരിപ്പിക്കണം?',
     chatQuickChip3: 'ഈ പേജിലെ വിവരങ്ങൾ ചുരുക്കി പറയുക',
     chatQuickChip4: 'അപേക്ഷാ ഫീസോ തീയതിയോ ഉണ്ടോ?',
+    // Webpage Functionality Scanner & Everything Functions Properly
+    scanWebpageHero: 'പേജ് സ്കാൻ ചെയ്യുക',
+    scanWebpageHeroSub: 'എല്ലാ ബട്ടണുകളും പ്രവർത്തനങ്ങളും പരിശോധിച്ച് തകരാറുകൾ കണ്ടെത്തുക',
+    scanInProgress: 'വെബ്‌പേജിലെ എല്ലാ ബട്ടണുകളും പ്രവർത്തനങ്ങളും പരിശോധിക്കുന്നു...',
+    everythingFunctionsProperlyTitle: 'എല്ലാ പ്രവർത്തനങ്ങളും ശരിയായി നടക്കുന്നു (Everything Functions Properly)',
+    everythingFunctionsProperlyDesc: 'ഈ പേജിലെ എല്ലാ ബട്ടണുകളും ലിങ്കുകളും ഫോമുകളും സാധാരണ രീതിയിൽ തടസ്സങ്ങളൊന്നുമില്ലാതെ പ്രവർത്തിക്കുന്നു. യാതൊരു പ്രവർത്തന തകരാറുമില്ല.',
+    misfunctionalitiesFoundTitle: 'പ്രവർത്തന തകരാറുകൾ കണ്ടെത്തി (Misfunctionalities Detected)',
+    misfunctionalitiesFoundSub: 'താഴെ പറയുന്ന ബട്ടണുകളിലോ ഫോമുകളിലോ തകരാറുകൾ കണ്ടെത്തിയിട്ടുണ്ട്. പരിഹരിക്കാൻ "പേജിൽ കാണിക്കുക" അമർത്തുക.',
+    clearChat: 'ചാറ്റ് മായ്‌ക്കുക',
+    chatStatusClean: 'എല്ലാ പ്രവർത്തനങ്ങളും ശരിയാണ് (100%)',
+    chatStatusIssues: 'തകരാറുകൾ കണ്ടെത്തി',
     chatZoomLabel: 'അക്ഷര വലിപ്പം:',
     chatListening: 'ശബ്ദം കേൾക്കുന്നു...',
     chatVoiceListenBtn: 'ശബ്ദത്തിൽ കേൾക്കുക'
@@ -415,7 +426,18 @@ export const translations = {
     chatQuickChip4: 'What are the fees or dates?',
     chatZoomLabel: 'Text Size:',
     chatListening: 'Listening...',
-    chatVoiceListenBtn: 'Read Aloud'
+    chatVoiceListenBtn: 'Read Aloud',
+    // Webpage Functionality Scanner & Everything Functions Properly
+    scanWebpageHero: 'Scan Webpage',
+    scanWebpageHeroSub: 'Audit all buttons & webpage functionalities for misfunctionalities',
+    scanInProgress: 'Scanning all buttons, links, and webpage functionalities...',
+    everythingFunctionsProperlyTitle: 'Everything Functions Properly',
+    everythingFunctionsProperlyDesc: 'All buttons, links, forms, and interactive functionalities on this webpage are working properly. No issues or misfunctionalities exist.',
+    misfunctionalitiesFoundTitle: 'Misfunctionalities Detected',
+    misfunctionalitiesFoundSub: 'Issues were found affecting interactive elements. Click "Point on Page" to spotlight the problem.',
+    clearChat: 'Clear Chat',
+    chatStatusClean: 'Everything Functions Properly (100%)',
+    chatStatusIssues: 'Misfunctionalities Detected'
   }
 };
 

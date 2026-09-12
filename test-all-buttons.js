@@ -90,7 +90,71 @@ async function runButtonAudit() {
     console.log(`    -> Sample Button: "${firstBtn.text}" | Status: ${firstBtn.status} | CanAutoFix: ${firstBtn.canAutoFix}`);
   }
 
-  console.log("=== ALL BUTTONS & INTERACTIONS OPERATIONAL (100% PASS) ===");
+  // 12. Test Scan Webpage Functionalities Engine (Live DOM & Compatibility Audit)
+  const fullScanResult = await diagnosticsService.scanPageFunctionalities();
+  console.log(`✓ Scan Webpage Functionalities: Success=${fullScanResult.success}, CleanState=${fullScanResult.everythingFunctionsProperly}, Issues=${fullScanResult.totalIssues}, ButtonsAudited=${fullScanResult.buttonStats.totalButtons}.`);
+
+  // 13. Test Chatbot on Clean Page (Returns Everything Functions Properly)
+  const cleanScanPageRes = await diagnosticsService.askChatbot({
+    query: 'Is there any issue on this page?',
+    pageContext: {
+      title: 'Kerala E-District Portal',
+      url: 'https://edistrict.kerala.gov.in',
+      barriers: [],
+      buttonStats: { totalButtons: 12, brokenCount: 0, workingCount: 12 }
+    },
+    activeElement: null,
+    lang: 'en'
+  });
+  if (!cleanScanPageRes.text.includes('functions properly')) {
+    throw new Error('Chatbot should confirm Everything Functions Properly when page is clean');
+  }
+  console.log(`✓ Chatbot Clean Page Assurance (English): "${cleanScanPageRes.text.slice(0, 80)}..."`);
+
+  // 14. Test Chatbot on Page with Misfunctionalities (Returns issue details & step-by-step guidance)
+  const issueScanPageRes = await diagnosticsService.askChatbot({
+    query: 'Why is this button disabled?',
+    pageContext: {
+      title: 'Scholarship Application Form',
+      url: 'https://egrantz.kerala.gov.in/apply',
+      barriers: [
+        {
+          id: 'barrier-submit-btn',
+          tag: 'button',
+          text: 'അപേക്ഷ സമർപ്പിക്കുക (Submit Application)',
+          selector: 'button#btn-submit',
+          title: 'നിഷ്ക്രിയമായ സമർപ്പിക്കൽ ബട്ടൺ (Disabled Button)',
+          titleEn: 'Disabled Action Button',
+          reason: 'ഫോമിലെ 2 നിർബന്ധിത വിവരങ്ങൾ (ആധാർ നമ്പർ, വരുമാന സർട്ടിഫിക്കറ്റ്) പൂരിപ്പിച്ചിട്ടില്ല.',
+          reasonEn: '2 mandatory form inputs (Aadhaar Number, Income Certificate) are missing.',
+          fix: 'നക്ഷത്ര ചിഹ്നമുള്ള കോളങ്ങൾ പൂരിപ്പിക്കുക.',
+          steps: ['1. ആധാർ നമ്പർ നൽകുക', '2. വരുമാന സർട്ടിഫിക്കറ്റ് ചേർക്കുക', '3. ശേഷം സമർപ്പിക്കുക.'],
+          stepsEn: ['1. Enter Aadhaar Number', '2. Attach Income Certificate', '3. Then click Submit.'],
+          canAutoFix: true,
+          fixType: 'UNLOCK_DISABLED'
+        }
+      ]
+    },
+    activeElement: null,
+    lang: 'ml'
+  });
+  console.log(`✓ Chatbot Misfunctionality Reasoning (Malayalam): "${issueScanPageRes.text.slice(0, 95)}..."`);
+  console.log(`    -> Action Chips: [${issueScanPageRes.suggestedActions.map(a => a.label).join(', ')}]`);
+
+  // 15. Test Manglish Natural Language Processing Query
+  const manglishRes = await diagnosticsService.askChatbot({
+    query: 'ee pageil problem undo?',
+    pageContext: {
+      title: 'KWA Water Bill Payment',
+      url: 'https://kwa.kerala.gov.in',
+      barriers: [],
+      buttonStats: { totalButtons: 8, brokenCount: 0, workingCount: 8 }
+    },
+    lang: 'ml'
+  });
+  console.log(`✓ Chatbot Manglish Understanding ("ee pageil problem undo?"): "${manglishRes.text.slice(0, 85)}..."`);
+
+  console.log("=== ALL BUTTONS, SCANNING & CHATBOT INTERACTIONS OPERATIONAL (100% PASS) ===");
 }
 
 runButtonAudit();

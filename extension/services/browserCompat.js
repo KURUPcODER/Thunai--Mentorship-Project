@@ -145,6 +145,22 @@ class BrowserCompat {
           }
           return { success: true, buttons: [], totalButtons: 0, brokenCount: 0, workingCount: 0, hasIssues: false };
 
+        case 'SCAN_PAGE_FUNCTIONALITIES':
+          if (script.scanPageFunctionalitiesDOM) {
+            return script.scanPageFunctionalitiesDOM();
+          } else if (script.diagnoseLivePageBarriers) {
+            const diag = script.diagnoseLivePageBarriers();
+            return {
+              success: true,
+              everythingFunctionsProperly: (diag.barriers || []).length === 0,
+              hasMisfunctionalities: (diag.barriers || []).length > 0,
+              totalIssues: (diag.barriers || []).length,
+              barriers: diag.barriers || [],
+              buttonStats: { totalButtons: 0, brokenCount: 0, workingCount: 0 }
+            };
+          }
+          return { success: true, everythingFunctionsProperly: true, hasMisfunctionalities: false, totalIssues: 0, barriers: [], buttonStats: { totalButtons: 0, brokenCount: 0, workingCount: 0 } };
+
         case 'TRY_AUTO_FIX':
           if (script.tryAutoFixElement) {
             return script.tryAutoFixElement(message.selector, message.fixType);

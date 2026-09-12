@@ -1434,24 +1434,24 @@
   /**
    * Dedicated Button & Action Element Audit for Current Webpage
    * Inspects every button, submit input, and interactive control on the opened page.
-   * Reports health status: Working Normally, Disabled, Missing Required Inputs, or Overlay Blocked.
+   * Reports health status: Working Normally, Disabled, Missing Required Inputs, Dead Link, or Overlay Blocked.
    */
   function auditAllButtonsDOM() {
     const buttons = [];
     const seenSelectors = new Set();
 
     const candidateElements = Array.from(document.querySelectorAll(
-      'button, input[type="submit"], input[type="button"], [role="button"], a.btn, a[class*="button"]'
+      'button, input[type="submit"], input[type="button"], input[type="reset"], input[type="image"], [role="button"], [role="tab"], [role="menuitem"], a.btn, a[class*="btn"], a[class*="button"], a[onclick], [onclick]'
     )).filter(el => {
       // Exclude Thunai internal extension UI elements
-      if (el.closest('#thunai-sidebar-frame, .thunai-picker-banner, .thunai-pointer-arrow-card')) return false;
+      if (el.closest('#thunai-sidebar-frame, .thunai-picker-banner, .thunai-pointer-arrow-card, #thunai-inpage-reading-ruler')) return false;
       return true;
     });
 
     candidateElements.forEach((el, idx) => {
       const tag = el.tagName.toLowerCase();
       let rawText = (el.innerText || el.value || el.getAttribute('aria-label') || el.getAttribute('title') || '').trim();
-      const text = rawText.slice(0, 40) || 'Action Button';
+      const text = rawText.slice(0, 40) || (tag === 'a' ? 'Interactive Link' : 'Action Button');
 
       let selector = el.id ? `#${el.id}` : (el.className && typeof el.className === 'string' ? `${tag}.${el.className.trim().split(/\s+/).filter(c => !c.startsWith('thunai-')).slice(0, 2).join('.')}` : `${tag}:nth-of-type(${idx + 1})`);
       if (seenSelectors.has(selector)) {
@@ -1466,31 +1466,53 @@
       const isDisabledAttr = el.hasAttribute('disabled');
       const isAriaDisabled = el.getAttribute('aria-disabled') === 'true';
       const isPointerNone = computed.pointerEvents === 'none';
-      const isDisabled = isDisabledAttr || isAriaDisabled || isPointerNone;
+      const isLowOpacity = parseFloat(computed.opacity || '1') < 0.25;
+      const isClassDisabled = el.classList.contains('disabled') || el.classList.contains('is-disabled');
+      const isDisabled = isDisabledAttr || isAriaDisabled || isPointerNone || isLowOpacity || isClassDisabled;
 
       // Check 2: Form required fields validation
       const form = el.closest('form') || el.closest('[role="form"]');
       let missingFields = [];
-      if (form) {
+      const isSubmitTrigger = tag === 'button' || el.getAttribute('type') === 'submit' || el.classList.contains('submit-btn');
+      if (form && isSubmitTrigger) {
         const inputs = Array.from(form.querySelectorAll('input:not([type="hidden"]), select, textarea'));
         missingFields = inputs.filter(inp => {
           const isReq = inp.hasAttribute('required') || inp.getAttribute('aria-required') === 'true' || (inp.placeholder && inp.placeholder.includes('*'));
           return isReq && !inp.value.trim();
-        }).map(inp => inp.getAttribute('placeholder') || inp.getAttribute('name') || inp.id || 'Mandatory Field');
+        }).map(inp => {
+          const id = inp.id;
+          const associatedLabel = id ? document.querySelector(`label[for="${id}"]`) : inp.closest('label');
+          const labelText = associatedLabel ? (associatedLabel.innerText || '').trim().replace(/[*:]/g, '') : '';
+          return labelText || inp.getAttribute('placeholder') || inp.getAttribute('aria-label') || inp.getAttribute('name') || 'Mandatory Field';
+        });
       }
 
-      // Check 3: Overlay / Covered check
+      // Check 3: Overlay / Covered check with multi-point verification
       let isCovered = false;
-      if (rect.width > 0 && rect.height > 0) {
-        const cx = rect.left + rect.width / 2;
-        const cy = rect.top + rect.height / 2;
-        if (cx >= 0 && cy >= 0 && cx < window.innerWidth && cy < window.innerHeight) {
-          const topEl = document.elementFromPoint(cx, cy);
-          if (topEl && topEl !== el && !el.contains(topEl) && !topEl.contains(el)) {
-            isCovered = true;
+      if (rect.width > 4 && rect.height > 4) {
+        const points = [
+          { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 },
+          { x: rect.left + 4, y: rect.top + 4 },
+          { x: rect.right - 4, y: rect.bottom - 4 }
+        ];
+        for (const pt of points) {
+          if (pt.x >= 0 && pt.y >= 0 && pt.x < window.innerWidth && pt.y < window.innerHeight) {
+            const topEl = document.elementFromPoint(pt.x, pt.y);
+            if (topEl && topEl !== el && !el.contains(topEl) && !topEl.contains(el)) {
+              // Ensure topEl is not a child or benign pseudo
+              const topComputed = window.getComputedStyle(topEl);
+              if (topComputed.pointerEvents !== 'none') {
+                isCovered = true;
+                break;
+              }
+            }
           }
         }
       }
+
+      // Check 4: Dead link check
+      const href = el.getAttribute('href');
+      const isDeadLink = tag === 'a' && (!href || href === '#' || href === '' || href.startsWith('javascript:void') || href === 'javascript:;');
 
       let status = 'working';
       let statusTextEn = 'Working Normally';
@@ -1512,7 +1534,7 @@
         fixMl = 'തുണ ഓട്ടോ-ഫിക്സ് ഉപയോഗിച്ച് ഈ ബട്ടൺ നേരിട്ട് സജീവമാക്കാം.';
         canAutoFix = true;
         fixType = 'unblock_button';
-      } else if (missingFields.length > 0 && (tag === 'button' || el.getAttribute('type') === 'submit')) {
+      } else if (missingFields.length > 0) {
         status = 'missing_fields';
         statusTextEn = `Form Incomplete (${missingFields.length} fields missing)`;
         statusTextMl = `ഫോമിൽ വിവരങ്ങൾ ബാക്കി (${missingFields.length})`;
@@ -1532,6 +1554,16 @@
         fixMl = 'പോപ്പപ്പ് ക്ലോസ് ചെയ്യുകയോ ഓട്ടോ-ഫിക്സ് ഉപയോഗിക്കുകയോ ചെയ്യുക.';
         canAutoFix = true;
         fixType = 'remove_overlay';
+      } else if (isDeadLink) {
+        status = 'dead_link';
+        statusTextEn = 'Dead / Void Action Link';
+        statusTextMl = 'പ്രവർത്തനരഹിതമായ ലിങ്ക് (Dead Link)';
+        reasonEn = 'Link has empty or void href="#" attribute without destination URL.';
+        reasonMl = 'ഈ ലിങ്കിൽ വെബ്‌സൈറ്റ് വിലാസം നൽകിയിട്ടില്ലാത്തതിനാൽ ക്ലിക്ക് ചെയ്യുമ്പോൾ പേജ് മാറില്ല.';
+        fixEn = 'Use main menu or search bar to navigate to destination.';
+        fixMl = 'മെയിൻ മെനുവിൽ നിന്നോ സെർച്ചിൽ നിന്നോ ഈ വിവരങ്ങൾ കണ്ടെത്തുക.';
+        canAutoFix = false;
+        fixType = 'none';
       } else if (rawText.length === 0) {
         status = 'unlabelled';
         statusTextEn = 'Missing Accessible Label';
@@ -1571,6 +1603,62 @@
       workingCount: buttons.length - brokenCount,
       hasIssues: brokenCount > 0,
       buttons
+    };
+  }
+
+  /**
+   * Unified Webpage Functionality & Barrier Scanner
+   * Combines button audit, dead link inspection, and barrier diagnostics.
+   * Accurately returns whether any misfunctionality exists or everything functions properly.
+   */
+  function scanPageFunctionalitiesDOM() {
+    const buttonAudit = auditAllButtonsDOM();
+    const barrierAudit = diagnoseLivePageBarriers();
+
+    const barriers = [...barrierAudit.barriers];
+    const seenSelectors = new Set(barriers.map(b => b.selector));
+
+    // Incorporate any broken button from buttonAudit
+    buttonAudit.buttons.filter(b => b.isBroken).forEach(b => {
+      if (!seenSelectors.has(b.selector)) {
+        seenSelectors.add(b.selector);
+        barriers.push({
+          id: b.id,
+          tag: b.tag,
+          text: b.text,
+          selector: b.selector,
+          barrierType: b.status,
+          title: b.statusTextMl,
+          titleEn: b.statusTextEn,
+          reason: b.reasonMl,
+          reasonEn: b.reasonEn,
+          solution: b.fixMl,
+          fix: b.fixMl,
+          steps: [b.fixMl],
+          stepsEn: [b.fixEn],
+          canAutoFix: b.canAutoFix,
+          fixType: b.fixType,
+          severity: b.status === 'disabled' || b.status === 'overlay' ? 'CRITICAL' : 'SERIOUS'
+        });
+      }
+    });
+
+    const hasMisfunctionalities = barriers.length > 0;
+    const everythingFunctionsProperly = !hasMisfunctionalities;
+
+    return {
+      success: true,
+      pageTitle: document.title || 'Current Webpage',
+      url: window.location.href,
+      everythingFunctionsProperly,
+      hasMisfunctionalities,
+      totalIssues: barriers.length,
+      barriers,
+      buttonStats: {
+        totalButtons: buttonAudit.totalButtons,
+        brokenCount: buttonAudit.brokenCount,
+        workingCount: buttonAudit.workingCount
+      }
     };
   }
 
@@ -1789,6 +1877,9 @@
       } else if (message.action === 'HIGHLIGHT_SEGMENT') {
         highlightSegment(message.selector);
         sendResponse({ success: true });
+      } else if (message.action === 'SCAN_PAGE_FUNCTIONALITIES') {
+        const result = scanPageFunctionalitiesDOM();
+        sendResponse(result);
       } else if (message.action === 'APPLY_FIX') {
         const result = applyLiveFixToPage(message.fix);
         sendResponse(result);
@@ -1807,6 +1898,7 @@
     scanLivePageDOM,
     diagnoseLivePageBarriers,
     auditAllButtonsDOM,
+    scanPageFunctionalitiesDOM,
     inspectElement,
     inspectElementWithPointer,
     clearActivePointer,
