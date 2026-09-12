@@ -1,6 +1,6 @@
 /**
  * Thunai Background Service Worker (Manifest V3)
- * Manages sidePanel opening on action click and routes messages between UI & Content Scripts.
+ * Manages sidePanel opening on action click, tab navigation events, and routes messages between UI & Content Scripts.
  */
 
 // Configure Chrome Side Panel to open automatically when user clicks extension toolbar icon
@@ -8,6 +8,32 @@ if (typeof chrome !== 'undefined' && chrome.sidePanel && chrome.sidePanel.setPan
   chrome.sidePanel
     .setPanelBehavior({ openPanelOnActionClick: true })
     .catch((error) => console.warn("SidePanel API configuration fallback:", error));
+}
+
+// Track active tab navigation & notify sidepanel/popup to refresh state
+if (typeof chrome !== 'undefined' && chrome.tabs) {
+  chrome.tabs.onUpdated?.addListener((tabId, changeInfo, tab) => {
+    if (changeInfo.status === 'complete' || changeInfo.url) {
+      chrome.runtime.sendMessage({
+        type: 'TAB_NAVIGATED',
+        tabId,
+        url: tab?.url,
+        title: tab?.title
+      }).catch(() => {});
+    }
+  });
+
+  chrome.tabs.onActivated?.addListener((activeInfo) => {
+    chrome.tabs.get(activeInfo.tabId, (tab) => {
+      if (chrome.runtime.lastError || !tab) return;
+      chrome.runtime.sendMessage({
+        type: 'TAB_CHANGED',
+        tabId: activeInfo.tabId,
+        url: tab?.url,
+        title: tab?.title
+      }).catch(() => {});
+    });
+  });
 }
 
 // Global Message Hub for Cross-Context Communication

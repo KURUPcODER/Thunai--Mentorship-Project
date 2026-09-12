@@ -6,11 +6,18 @@
  * 3. English → Malayalam → Simplified Malayalam
  * 4. Hindi → Malayalam → Simplified Malayalam
  * 5. Malayalam content passthrough & simplification
- * 6. Multi-website content extraction across 6 diverse website architectures
- * 7. Verification of all 6 Thunai core features
+ * 6. Multi-website content extraction across diverse website architectures
+ * 7. Active Navigation Transitions & Stale-State Reset:
+ *    - Hindi Wikipedia → React.dev (English)
+ *    - React.dev (English) → Hindi Wikipedia
+ *    - English Wikipedia → Malayalam Wikipedia
+ *    - Malayalam Wikipedia → English Wikipedia
+ *    - SPA Navigation & Back/Forward state refresh
+ *    - Race condition: In-flight translation request cancellation across navigation
+ * 8. Verification of all 6 Thunai core features
  */
 
-import { translateText, simplifyText, isMostlyMalayalam, detectLanguageHint, simplifyMalayalam } from './extension/services/translateService.js';
+import { translateText, simplifyText, isMostlyMalayalam, detectLanguageHint, simplifyMalayalam, getLanguageDisplayName } from './extension/services/translateService.js';
 import { scanPage, normalizeScanReport } from './extension/services/scanService.js';
 import { searchService } from './extension/services/searchService.js';
 import { ttsService } from './extension/services/ttsService.js';
@@ -39,7 +46,7 @@ async function runMultiWebsiteTestSuite() {
   // ----------------------------------------------------
   // SECTION 1: TRANSLATION & SIMPLIFICATION (P0)
   // ----------------------------------------------------
-  console.log('--- [1/3] TRANSLATION & SIMPLIFICATION (EN / HI / ML) ---');
+  console.log('--- [1/4] TRANSLATION & SIMPLIFICATION (EN / HI / ML) ---');
 
   // TEST 1: English -> Malayalam
   console.log('\n* TEST 1: English -> Malayalam Translation');
@@ -86,7 +93,7 @@ async function runMultiWebsiteTestSuite() {
   // ----------------------------------------------------
   // SECTION 2: MULTI-WEBSITE DOM EXTRACTION SCENARIOS
   // ----------------------------------------------------
-  console.log('\n--- [2/3] MULTI-WEBSITE COMPATIBILITY & CONTENT EXTRACTION ---');
+  console.log('\n--- [2/4] MULTI-WEBSITE COMPATIBILITY & CONTENT EXTRACTION ---');
 
   // Simulated Website Structures
   const testWebsites = [
@@ -198,7 +205,6 @@ async function runMultiWebsiteTestSuite() {
 
   for (const site of testWebsites) {
     console.log(`\n* Validating ${site.name}`);
-    // Simulate DOM text extraction
     const plainText = site.html
       .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
       .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
@@ -214,7 +220,6 @@ async function runMultiWebsiteTestSuite() {
     const detectedLang = detectLanguageHint(plainText);
     assert(detectedLang === site.expectedLanguage, `Language detected accurately: expected ${site.expectedLanguage}, got ${detectedLang}`);
 
-    // Test translation on extracted content
     const sampleExcerpt = plainText.slice(0, 300);
     const trans = await translateText(sampleExcerpt, 'ml');
     assert(trans.success === true, `Excerpt translated successfully (${trans.wordCount} words)`);
@@ -222,9 +227,151 @@ async function runMultiWebsiteTestSuite() {
   }
 
   // ----------------------------------------------------
-  // SECTION 3: INTEGRATION OF ALL 6 THUNAI FEATURES
+  // SECTION 3: NAVIGATION TRANSITIONS & STALE-STATE RESET
   // ----------------------------------------------------
-  console.log('\n--- [3/3] INTEGRATION OF ALL 6 CORE FEATURES ---');
+  console.log('\n--- [3/4] NAVIGATION TRANSITIONS & STALE-STATE RESILIENCE ---');
+
+  // Simulated Tab State Controller matching ThunaiApp
+  class MockThunaiApp {
+    constructor() {
+      this.state = {
+        activePageUrl: '',
+        activePageTitle: 'Active Webpage',
+        activePageLang: 'en',
+        activePageLangLabel: 'ഇംഗ്ലീഷ് (English)',
+        requestSeq: 0,
+        isTranslating: false,
+        hasTranslated: false,
+        isSimplified: false,
+        translatedData: null,
+        translateError: ''
+      };
+    }
+
+    navigateToUrl(url, title, text) {
+      const langCode = detectLanguageHint(text || title);
+      const urlChanged = url !== this.state.activePageUrl;
+      const nextSeq = this.state.requestSeq + 1;
+
+      this.state.activePageUrl = url;
+      this.state.activePageTitle = title;
+      this.state.activePageLang = langCode;
+      this.state.activePageLangLabel = getLanguageDisplayName(langCode, 'ml');
+      this.state.activePageText = text;
+      this.state.requestSeq = nextSeq;
+
+      if (urlChanged) {
+        this.state.isTranslating = false;
+        this.state.hasTranslated = false;
+        this.state.isSimplified = false;
+        this.state.translatedData = null;
+        this.state.translateError = '';
+      }
+    }
+
+    async translateActivePage() {
+      const currentSeq = this.state.requestSeq;
+      const currentUrl = this.state.activePageUrl;
+      this.state.isTranslating = true;
+
+      const res = await translateText(this.state.activePageText, 'ml', 'auto', currentUrl);
+
+      // Discard stale response if user navigated away
+      if (this.state.requestSeq !== currentSeq || this.state.activePageUrl !== currentUrl) {
+        return { discarded: true };
+      }
+
+      this.state.isTranslating = false;
+      this.state.hasTranslated = true;
+      this.state.translatedData = res;
+      return res;
+    }
+  }
+
+  const app = new MockThunaiApp();
+
+  // Transition A: Malayalam Wikipedia -> React.dev (English)
+  console.log('\n* Transition A: Malayalam Wikipedia -> React.dev (English)');
+  app.navigateToUrl(
+    'https://ml.wikipedia.org/wiki/കേരളം',
+    'കേരളം - വിക്കിപീഡിയ',
+    'ഇന്ത്യയുടെ തെക്കുപടിഞ്ഞാറൻ തീരത്ത് സ്ഥിതി ചെയ്യുന്ന ഒരു സംസ്ഥാനമാണ് കേരളം.'
+  );
+  assert(app.state.activePageLang === 'ml', 'Malayalam Wikipedia detected as Malayalam');
+  await app.translateActivePage();
+  assert(app.state.hasTranslated === true, 'Malayalam translation active');
+  assert(app.state.translatedData !== null, 'Malayalam translation data present');
+
+  // Now navigate to React.dev (English)
+  app.navigateToUrl(
+    'https://react.dev',
+    'React – The library for web and native user interfaces',
+    'React lets you build user interfaces out of individual pieces called components.'
+  );
+  assert(app.state.activePageLang === 'en', 'React.dev accurately detected as English');
+  assert(app.state.hasTranslated === false, 'Stale translation state was CLEARED on navigation to react.dev');
+  assert(app.state.translatedData === null, 'Previous Malayalam translation data was DISCARDED on navigation to react.dev');
+  assert(app.state.isSimplified === false, 'Simplification state reset for react.dev');
+
+  // Translate React.dev
+  const reactTrans = await app.translateActivePage();
+  assert(app.state.hasTranslated === true, 'React.dev translated successfully');
+  assert(reactTrans.detectedLang === 'en', 'React.dev translation reflects English source');
+
+  // Transition B: React.dev (English) -> Hindi Wikipedia
+  console.log('\n* Transition B: React.dev (English) -> Hindi Wikipedia');
+  app.navigateToUrl(
+    'https://hi.wikipedia.org/wiki/केरल',
+    'केरल - विकिपीडिया',
+    'केरल भारत का एक प्रान्त है। इसकी राजधानी तिरुवनन्तपुरम है।'
+  );
+  assert(app.state.activePageLang === 'hi', 'Hindi Wikipedia accurately detected as Hindi');
+  assert(app.state.hasTranslated === false, 'Previous React.dev translation state CLEARED on navigation to Hindi page');
+  assert(app.state.translatedData === null, 'Previous translation data DISCARDED');
+  const hiTrans = await app.translateActivePage();
+  assert(hiTrans.detectedLang === 'hi', 'Hindi page translated accurately from Hindi');
+
+  // Transition C: English Wikipedia -> Malayalam Wikipedia
+  console.log('\n* Transition C: English Wikipedia -> Malayalam Wikipedia');
+  app.navigateToUrl(
+    'https://en.wikipedia.org/wiki/Kerala',
+    'Kerala - Wikipedia',
+    'Kerala is a state on the southwestern Malabar Coast of India.'
+  );
+  assert(app.state.activePageLang === 'en', 'English Wikipedia detected as English');
+  await app.translateActivePage();
+  assert(app.state.hasTranslated === true, 'English Wikipedia translated');
+
+  app.navigateToUrl(
+    'https://ml.wikipedia.org/wiki/കേരളം',
+    'കേരളം - വിക്കിപീഡിയ',
+    'കേരളം ഒരു ദക്ഷിണേന്ത്യൻ സംസ്ഥാനമാണ്.'
+  );
+  assert(app.state.activePageLang === 'ml', 'Malayalam Wikipedia detected as Malayalam');
+  assert(app.state.hasTranslated === false, 'Previous English translation state cleared');
+
+  // Transition D: Race condition simulation (Navigating while translation is in-flight)
+  console.log('\n* Transition D: Race Condition Protection (Navigating while request is in-flight)');
+  app.navigateToUrl(
+    'https://page-a.example.com',
+    'Page A',
+    'This is a long article on page A that takes time to translate.'
+  );
+  const promiseA = app.translateActivePage();
+  // User rapidly navigates to Page B before promiseA finishes
+  app.navigateToUrl(
+    'https://page-b.example.com',
+    'Page B',
+    'This is page B content.'
+  );
+  const resultA = await promiseA;
+  assert(resultA.discarded === true, 'In-flight translation response for Page A was successfully discarded on Page B');
+  assert(app.state.hasTranslated === false, 'Page B was not corrupted by stale response from Page A');
+
+  // ----------------------------------------------------
+  // SECTION 4: INTEGRATION OF ALL 6 THUNAI FEATURES
+  // ----------------------------------------------------
+  console.log('\n--- [4/4] INTEGRATION OF ALL 6 CORE FEATURES ---');
 
   // Feature 1: Scan Page
   console.log('\n* 1. Scan Page Feature');

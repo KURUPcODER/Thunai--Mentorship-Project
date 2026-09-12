@@ -1,7 +1,7 @@
 /**
  * Translate View Component (Tab: 'translate')
  * Provides bilingual page translation (English/Hindi -> Malayalam), text simplification toggle,
- * audio playback bridge, and dynamic language detection with i18n support.
+ * audio playback bridge, live language detection per active URL, and race-condition protection.
  */
 
 import { translateText } from '../../services/translateService.js';
@@ -21,9 +21,13 @@ export function renderTranslateView(container, state, setState, onNavigate) {
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
   })[character]);
 
-  const detectedLabelText = translatedData?.detectedLangLabel
+  const detectedLabelText = (hasTranslated && translatedData?.detectedLangLabel)
     ? (currentLang === 'ml' ? `കണ്ടെത്തിയത്: ${translatedData.detectedLangLabel}` : `Detected: ${translatedData.detectedLangLabelEn || translatedData.detectedLangLabel}`)
-    : t.detectedLabel;
+    : (state.activePageLangLabel
+        ? (currentLang === 'ml' ? `കണ്ടെത്തിയത്: ${state.activePageLangLabel}` : `Detected: ${state.activePageLangLabelEn}`)
+        : t.detectedLabel);
+
+  const pageTitleDisplay = state.activePageTitle || state.scanReport?.meta?.title || 'Active Webpage';
 
   function render() {
     container.innerHTML = `
@@ -35,7 +39,7 @@ export function renderTranslateView(container, state, setState, onNavigate) {
             <span class="dot-indicator"></span>
             <span class="lang-text">${detectedLabelText}</span>
           </div>
-          <span class="domain-tag" title="${state.scanReport?.url || ''}">${state.scanReport?.meta?.title || 'Active Webpage'}</span>
+          <span class="domain-tag" title="${state.activePageUrl || state.scanReport?.url || ''}">${escapeHTML(pageTitleDisplay)}</span>
         </div>
 
         <!-- Section Title -->
@@ -142,24 +146,42 @@ export function renderTranslateView(container, state, setState, onNavigate) {
     const translateBtn = container.querySelector('#btn-trigger-translate');
     if (translateBtn) {
       translateBtn.addEventListener('click', async () => {
+        const reqSeq = state.requestSeq || 0;
+        const currentActiveUrl = state.activePageUrl;
+
         isTranslating = true;
         translateError = '';
         setState({ isTranslating: true, translateError: '' });
         render();
 
         try {
-          const segments = state.scanReport?.textSegments;
-          const sourceText = (segments && segments.length > 0)
-            ? segments.map(s => s.text).filter(Boolean).join('\n\n')
-            : '';
-          const res = await translateText(sourceText);
+          // Extract and translate fresh content from active page
+          const res = await translateText('', 'ml', 'auto', currentActiveUrl);
+
+          // Stale response / Race condition protection: Discard if URL or requestSeq changed
+          if (state.requestSeq !== reqSeq || (currentActiveUrl && state.activePageUrl && currentActiveUrl !== state.activePageUrl)) {
+            console.warn("Discarded stale translation response from previous tab/navigation");
+            return;
+          }
+
           if (!res?.success || !res.translated || !res.simplified) throw new Error('No translated text was returned.');
           isTranslating = false;
           hasTranslated = true;
           translatedData = res;
-          setState({ isTranslating: false, hasTranslated: true, translatedData: res, translateError: '' });
+          setState({
+            isTranslating: false,
+            hasTranslated: true,
+            translatedData: res,
+            translateError: '',
+            activePageLang: res.detectedLang,
+            activePageLangLabel: res.detectedLangLabel,
+            activePageLangLabelEn: res.detectedLangLabelEn
+          });
           render();
         } catch (e) {
+          if (state.requestSeq !== reqSeq || (currentActiveUrl && state.activePageUrl && currentActiveUrl !== state.activePageUrl)) {
+            return;
+          }
           isTranslating = false;
           hasTranslated = false;
           translateError = e?.userMessage || e?.message || 'Translation could not be completed. Please try again.';

@@ -67,31 +67,65 @@ export function getLanguageDisplayName(langCode, inLang = 'ml') {
   }
 }
 
-async function extractActivePageText() {
+/**
+ * Extracts live page information and automatically detects its language.
+ */
+export async function getActivePageInfo() {
+  let title = 'Active Webpage';
+  let url = '';
+  let fullText = '';
+  let segments = [];
+
   if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.query) {
     try {
       const tabs = await new Promise((resolve) => {
         chrome.tabs.query({ active: true, currentWindow: true }, resolve);
       });
-      if (tabs && tabs[0] && tabs[0].id) {
-        const response = await new Promise((resolve) => {
-          chrome.tabs.sendMessage(tabs[0].id, { action: 'EXTRACT_PAGE_CONTENT' }, (res) => {
-            if (chrome.runtime.lastError) resolve(null);
-            else resolve(res);
+      if (tabs && tabs[0]) {
+        title = tabs[0].title || title;
+        url = tabs[0].url || url;
+
+        if (tabs[0].id) {
+          const response = await new Promise((resolve) => {
+            chrome.tabs.sendMessage(tabs[0].id, { action: 'EXTRACT_PAGE_CONTENT' }, (res) => {
+              if (chrome.runtime.lastError) resolve(null);
+              else resolve(res);
+            });
           });
-        });
-        if (response?.success && response.data?.fullText) {
-          return response.data.fullText;
+          if (response?.success && response.data) {
+            fullText = response.data.fullText || '';
+            segments = response.data.segments || [];
+            if (response.data.title) title = response.data.title;
+            if (response.data.url) url = response.data.url;
+          }
         }
       }
-    } catch (_) {
-      // The page may not permit content scripts (e.g. chrome:// internal pages)
+    } catch (_) {}
+  } else if (typeof window !== 'undefined' && window.parent?.ThunaiContentScript) {
+    const data = window.parent.ThunaiContentScript.extractRealPageContent();
+    if (data) {
+      fullText = data.fullText || '';
+      segments = data.segments || [];
+      title = data.title || title;
+      url = data.url || url;
     }
   }
-  if (typeof window !== 'undefined' && window.parent?.ThunaiContentScript) {
-    return window.parent.ThunaiContentScript.extractRealPageContent()?.fullText || '';
-  }
-  return '';
+
+  const langCode = detectLanguageHint(fullText || title);
+  return {
+    url,
+    title,
+    fullText,
+    segments,
+    langCode,
+    langLabel: getLanguageDisplayName(langCode, 'ml'),
+    langLabelEn: getLanguageDisplayName(langCode, 'en')
+  };
+}
+
+async function extractActivePageText() {
+  const info = await getActivePageInfo();
+  return info.fullText || '';
 }
 
 /**
@@ -233,12 +267,15 @@ export function simplifyMalayalam(text) {
 /**
  * Translates English or Hindi text into natural Malayalam and simplifies it.
  */
-export async function translateText(sourceText = '', targetLang = 'ml', explicitSourceLang = 'auto') {
+export async function translateText(sourceText = '', targetLang = 'ml', explicitSourceLang = 'auto', pageUrl = '') {
   let textToTranslate = normaliseText(sourceText);
+  let detectedPageUrl = pageUrl;
 
   // If no text provided, extract from the active webpage DOM
   if (!textToTranslate) {
-    textToTranslate = normaliseText(await extractActivePageText());
+    const info = await getActivePageInfo();
+    textToTranslate = normaliseText(info.fullText);
+    detectedPageUrl = info.url || pageUrl;
   }
 
   if (!textToTranslate) {
@@ -276,6 +313,7 @@ export async function translateText(sourceText = '', targetLang = 'ml', explicit
 
   return {
     success: true,
+    url: detectedPageUrl,
     original: textToTranslate,
     translated,
     simplified,

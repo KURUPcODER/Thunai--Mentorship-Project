@@ -1,6 +1,7 @@
 /**
  * Thunai Sidebar App Controller
  * Orchestrates views: Scan Page FIRST, Dyslexia Friendly Mode, Keyword Search, Listen, Translate.
+ * Manages active tab synchronization, navigation change detection, and stale state cleanup.
  */
 
 import { renderLauncher } from './components/Launcher.js';
@@ -13,6 +14,7 @@ import { renderDyslexiaModeView } from './components/DyslexiaModeView.js';
 import { renderFixReviewView } from './components/FixReviewView.js';
 import { renderDiagnosticsView } from './components/DiagnosticsView.js';
 import { getLatestScan } from '../services/scanService.js';
+import { getActivePageInfo } from '../services/translateService.js';
 
 class ThunaiApp {
   constructor() {
@@ -24,11 +26,20 @@ class ThunaiApp {
       currentView: 'launcher',
       currentLang: 'ml', // 'ml' (Malayalam) or 'en' (English)
       history: [],
+      // Active Tab & Navigation Tracking
+      activePageUrl: '',
+      activePageTitle: 'Active Webpage',
+      activePageLang: 'en',
+      activePageLangLabel: 'ഇംഗ്ലീഷ് (English)',
+      activePageLangLabelEn: 'English (ഇംഗ്ലീഷ്)',
+      activePageText: '',
+      requestSeq: 0,
       // Translation State
       isTranslating: false,
       hasTranslated: false,
       isSimplified: false,
       translatedData: null,
+      translateError: '',
       // Scan State
       isScanning: false,
       scanReport: null,
@@ -59,6 +70,7 @@ class ThunaiApp {
     this.goBack = this.goBack.bind(this);
     this.setState = this.setState.bind(this);
     this.toggleLanguage = this.toggleLanguage.bind(this);
+    this.syncActiveTab = this.syncActiveTab.bind(this);
 
     this.init();
   }
@@ -78,6 +90,7 @@ class ThunaiApp {
     if (this.state.currentView !== newView) {
       this.state.history.push(this.state.currentView);
       this.state.currentView = newView;
+      this.syncActiveTab();
       this.render();
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
@@ -87,11 +100,55 @@ class ThunaiApp {
     if (this.state.history.length > 0) {
       const prevView = this.state.history.pop();
       this.state.currentView = prevView;
+      this.syncActiveTab();
       this.render();
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } else {
       this.state.currentView = 'launcher';
       this.render();
+    }
+  }
+
+  async syncActiveTab(forced = false) {
+    try {
+      const info = await getActivePageInfo();
+      if (!info) return;
+
+      const urlChanged = info.url && info.url !== this.state.activePageUrl;
+      const initialLoad = !this.state.activePageUrl;
+
+      if (urlChanged || forced || initialLoad) {
+        const nextReqSeq = (this.state.requestSeq || 0) + 1;
+
+        const stateUpdates = {
+          activePageUrl: info.url,
+          activePageTitle: info.title || 'Active Webpage',
+          activePageLang: info.langCode || 'en',
+          activePageLangLabel: info.langLabel || 'ഇംഗ്ലീഷ് (English)',
+          activePageLangLabelEn: info.langLabelEn || 'English (ഇംഗ്ലീഷ്)',
+          activePageText: info.fullText || '',
+          requestSeq: nextReqSeq
+        };
+
+        // Reset stale translation & per-page state when user navigates to a new page
+        if (urlChanged) {
+          stateUpdates.isTranslating = false;
+          stateUpdates.hasTranslated = false;
+          stateUpdates.isSimplified = false;
+          stateUpdates.translatedData = null;
+          stateUpdates.translateError = '';
+
+          // Reset scan report if it belonged to another URL
+          if (this.state.scanReport && this.state.scanReport.url !== info.url) {
+            stateUpdates.scanReport = null;
+          }
+        }
+
+        this.setState(stateUpdates);
+        this.render();
+      }
+    } catch (err) {
+      console.warn("Active tab sync error:", err);
     }
   }
 
@@ -158,10 +215,28 @@ class ThunaiApp {
       }
     });
 
-    // Hydrate latest scan from chrome.storage.local
+    // Listen for tab navigation, tab activation, and SPA transitions
+    if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
+      chrome.runtime.onMessage.addListener((message) => {
+        if (message.type === 'TAB_NAVIGATED' || message.type === 'TAB_CHANGED' || message.type === 'SPA_NAVIGATED') {
+          this.syncActiveTab();
+        }
+      });
+    }
+
+    // Window focus & visibility change hooks for tab sync
+    window.addEventListener('focus', () => this.syncActiveTab());
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) this.syncActiveTab();
+    });
+
+    // Initial Active Tab Sync & Language Detection
+    await this.syncActiveTab(true);
+
+    // Hydrate latest scan if matching current URL
     try {
       const cachedScan = await getLatestScan();
-      if (cachedScan && !this.state.scanReport) {
+      if (cachedScan && !this.state.scanReport && (!this.state.activePageUrl || cachedScan.url === this.state.activePageUrl)) {
         this.state.scanReport = cachedScan;
       }
     } catch(err) {

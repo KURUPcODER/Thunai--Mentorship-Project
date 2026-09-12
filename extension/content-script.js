@@ -998,6 +998,38 @@
     }
   }
 
+  // In-Page SPA Navigation Observer
+  function notifySPANavigation() {
+    if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
+      chrome.runtime.sendMessage({
+        type: 'SPA_NAVIGATED',
+        url: window.location.href,
+        title: document.title || 'Active Webpage'
+      }).catch(() => {});
+    }
+  }
+
+  window.addEventListener('popstate', notifySPANavigation);
+  window.addEventListener('hashchange', notifySPANavigation);
+  try {
+    const origPushState = history.pushState;
+    if (origPushState) {
+      history.pushState = function () {
+        const ret = origPushState.apply(this, arguments);
+        setTimeout(notifySPANavigation, 60);
+        return ret;
+      };
+    }
+    const origReplaceState = history.replaceState;
+    if (origReplaceState) {
+      history.replaceState = function () {
+        const ret = origReplaceState.apply(this, arguments);
+        setTimeout(notifySPANavigation, 60);
+        return ret;
+      };
+    }
+  } catch (_) {}
+
   if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       if (message.action === 'SEARCH_KEYWORD') {
