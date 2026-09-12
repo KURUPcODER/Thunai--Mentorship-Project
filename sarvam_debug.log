@@ -1,0 +1,6 @@
+[2026-09-12T07:34:33.559Z] Sarvam FAILED — HTTP 400 Bad Request
+Body: {"error":{"message":"Validation Error(s):\n- inputs.0: String should have at most 500 characters","code":"invalid_request_error","request_id":"20260912_2b667593-2039-4292-ae3a-a4ba8a0f20eb"}}
+---
+[2026-09-12T07:42:42.389Z] Sarvam FAILED — HTTP 400 Bad Request
+Body: {"error":{"message":"Input texts must contain at least one character from the allowed languages.","code":"invalid_request_error","request_id":"20260912_edbf3ddf-2838-4c8a-bbe7-654ff9731e5d"}}
+---

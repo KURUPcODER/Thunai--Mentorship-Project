@@ -117,6 +117,8 @@ class TTSService {
       } catch(e) {}
     });
     ctx.audioCache.clear();
+    // Null the active audio reference so stale resume-from-paused branch never fires
+    ctx.audioElement = null;
   }
 
   async initRealPageSegments() {
@@ -166,12 +168,25 @@ class TTSService {
 
     // Race protection check: reject late extraction if page already navigated again
     if (ctx.pageSessionUrl !== 'unknown' && pageSessionUrl !== 'unknown' && ctx.pageSessionUrl !== pageSessionUrl) {
-         // Reject late delivery of old segments
-         console.warn(`TTS Race Protection: Rejected segments intended for ${pageSessionUrl}. Current TTS state is already committed to ${ctx.pageSessionUrl}`);
-         return;
+      console.warn(`TTS Race Protection: Rejected segments for ${pageSessionUrl}. Context is committed to ${ctx.pageSessionUrl}`);
+      return;
     }
 
-    this._clearAudioCache(ctx);
+    // Guard: if URL and segment count already match, skip redundant reload to avoid
+    // disrupting active playback (prevents ListenView re-render loop from resetting
+    // currentSegmentIndex while a Sarvam fetch is in-flight for the first segments).
+    if (ctx.pageSessionUrl === pageSessionUrl && ctx.segments.length === textSegments.length) {
+      return;
+    }
+
+    // Stop any active playback before replacing segments
+    if (ctx.isPlaying || ctx.isPaused) {
+      this._stopCurrentAudio(ctx);
+    }
+    ctx.isPlaying = false;
+    ctx.isPaused = false;
+
+    this._clearAudioCache(ctx); // also nulls ctx.audioElement
     ctx.pageSessionUrl = pageSessionUrl;
 
     ctx.segments = textSegments.map((s, idx) => ({
@@ -186,7 +201,7 @@ class TTSService {
     }));
     ctx.totalSegments = ctx.segments.length;
     ctx.currentSegmentIndex = 0;
-    
+
     if (!targetTabId || targetTabId === this.activeTabId) {
       this.notify();
     }
