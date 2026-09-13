@@ -107,13 +107,23 @@ class BrowserCompat {
    * Fallback for simulated preview environments (e.g. preview.html with iframe)
    */
   dispatchToIframe(message) {
-    if (typeof window !== 'undefined' && window.parent && window.parent.ThunaiContentScript) {
-      const script = window.parent.ThunaiContentScript;
+    let script = null;
+    if (typeof window !== 'undefined') {
+      if (window.parent && window.parent.ThunaiContentScript) {
+        script = window.parent.ThunaiContentScript;
+      } else if (window.top && window.top.ThunaiContentScript) {
+        script = window.top.ThunaiContentScript;
+      } else if (window.ThunaiContentScript) {
+        script = window.ThunaiContentScript;
+      }
+    }
+
+    if (script) {
       switch (message.action) {
         case 'INSPECT_ELEMENT':
         case 'INSPECT_ELEMENT_WITH_POINTER':
           if (script.inspectElementWithPointer) {
-            script.inspectElementWithPointer(message.selector, message.label, message.reason, message.fix);
+            script.inspectElementWithPointer(message.selector, message.label, message.reason, message.fix, message.extraInfo);
           } else if (script.inspectElement) {
             script.inspectElement(message.selector, message.label);
           }
@@ -122,8 +132,11 @@ class BrowserCompat {
         case 'START_ELEMENT_PICKER':
           if (script.startElementPicker) {
             script.startElementPicker((picked) => {
-              if (window.ThunaiOnElementPicked) {
+              if (typeof window !== 'undefined' && window.ThunaiOnElementPicked) {
                 window.ThunaiOnElementPicked(picked);
+              }
+              if (typeof window !== 'undefined' && window.parent && window.parent.ThunaiOnElementPicked) {
+                window.parent.ThunaiOnElementPicked(picked);
               }
             });
           }
@@ -169,7 +182,8 @@ class BrowserCompat {
 
         case 'EXTRACT_PAGE_CONTENT':
           if (script.extractRealPageContent) {
-            return { success: true, data: script.extractRealPageContent() };
+            const data = script.extractRealPageContent();
+            if (data) return { success: true, data };
           }
           break;
 

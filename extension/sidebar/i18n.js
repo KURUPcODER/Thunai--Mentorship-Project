@@ -230,7 +230,21 @@ export const translations = {
     chatStatusIssues: 'തകരാറുകൾ കണ്ടെത്തി',
     chatZoomLabel: 'അക്ഷര വലിപ്പം:',
     chatListening: 'ശബ്ദം കേൾക്കുന്നു...',
-    chatVoiceListenBtn: 'ശബ്ദത്തിൽ കേൾക്കുക'
+    chatVoiceListenBtn: 'ശബ്ദത്തിൽ കേൾക്കുക',
+
+    // Specific Button Inspection & Feature Details
+    btnInspectSpecific: 'പ്രത്യേക ബട്ടൺ പരിശോധിക്കുക',
+    btnInspectSpecificSub: 'വെബ്‌പേജിലെ ഏതെങ്കിലും ബട്ടണിൽ ക്ലിക്ക് ചെയ്ത് സവിശേഷതകളും പ്രവർത്തനങ്ങളും അറിയുക',
+    btnInspectActive: '🎯 പരിശോധിക്കേണ്ട ബട്ടണിൽ ക്ലിക്ക് ചെയ്യുക...',
+    btnFeature: 'സവിശേഷത (Feature):',
+    btnFunctionality: 'പ്രവർത്തനം (Functionality):',
+    btnWhyUsed: 'എന്തിനാണ് ഉപയോഗിക്കുന്നത്? (Why this button is used for):',
+    btnErrorDetails: 'തകരാർ (Error Details):',
+    btnWorkingStatus: 'പ്രവർത്തനക്ഷമം: ഈ ബട്ടൺ ക്ലിക്ക് ചെയ്യാൻ പൂർണ്ണമായും തയ്യാറാണ്.',
+    btnPointOnPage: '👉 പേജിൽ കാണിക്കുക',
+    contentWordsUnit: 'വാക്കുകൾ',
+    contentReadTimeMinutes: 'മിനിറ്റ് വായന',
+    inspectSpecificTitle: 'പ്രത്യേക ബട്ടൺ പരിശോധനാ റിപ്പോർട്ട്'
   },
 
   en: {
@@ -437,7 +451,21 @@ export const translations = {
     misfunctionalitiesFoundSub: 'Issues were found affecting interactive elements. Click "Point on Page" to spotlight the problem.',
     clearChat: 'Clear Chat',
     chatStatusClean: 'Everything Functions Properly (100%)',
-    chatStatusIssues: 'Misfunctionalities Detected'
+    chatStatusIssues: 'Misfunctionalities Detected',
+
+    // Specific Button Inspection & Feature Details
+    btnInspectSpecific: 'Inspect Specific Button',
+    btnInspectSpecificSub: 'Click on any button on the webpage to inspect its features & functionality',
+    btnInspectActive: '🎯 Click any button on the webpage...',
+    btnFeature: 'Feature:',
+    btnFunctionality: 'Functionality:',
+    btnWhyUsed: 'Why this button is used for:',
+    btnErrorDetails: 'Error Details:',
+    btnWorkingStatus: 'Working Properly: All requirements satisfied, ready to click.',
+    btnPointOnPage: '👉 Point on Page',
+    contentWordsUnit: 'Words',
+    contentReadTimeMinutes: 'Minutes Read',
+    inspectSpecificTitle: 'Specific Button Diagnostic Details'
   }
 };
 

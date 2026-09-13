@@ -154,6 +154,63 @@ async function runButtonAudit() {
   });
   console.log(`✓ Chatbot Manglish Understanding ("ee pageil problem undo?"): "${manglishRes.text.slice(0, 85)}..."`);
 
+  // 16. Test Content Extraction Metrics (Word Count > 0, Read Time, Headings, Forms)
+  if (!retrievedContent || typeof retrievedContent.wordCount !== 'number' || retrievedContent.wordCount <= 0) {
+    throw new Error(`Content extraction failed: wordCount is invalid or 0 (got ${retrievedContent?.wordCount})`);
+  }
+  if (!retrievedContent.readingTimeMinutes || retrievedContent.readingTimeMinutes < 1) {
+    throw new Error(`Content extraction failed: readingTimeMinutes is invalid (got ${retrievedContent?.readingTimeMinutes})`);
+  }
+  console.log(`✓ Text Extraction & Metrics: Word Count = ${retrievedContent.wordCount} words, Read Time = ~${retrievedContent.readingTimeMinutes} min, Headings = ${retrievedContent.headings.length}, Forms = ${retrievedContent.forms.length || retrievedContent.formsSummary.length}.`);
+
+  // 17. Test Button Diagnosis Classification (Feature, Functionality, Purpose, Error Details / Working Status)
+  const auditedButtons = auditResult.buttons || [];
+  if (auditedButtons.length === 0) {
+    throw new Error('Button audit returned 0 buttons');
+  }
+  for (const b of auditedButtons) {
+    if (!b.feature || !b.featureMl) {
+      throw new Error(`Button "${b.text}" missing feature classification`);
+    }
+    if (!b.functionality || !b.functionalityMl) {
+      throw new Error(`Button "${b.text}" missing functionality description`);
+    }
+    if (!b.purpose || !b.purposeMl) {
+      throw new Error(`Button "${b.text}" missing purpose ("why used for")`);
+    }
+    if (typeof b.isFunctioning !== 'boolean') {
+      throw new Error(`Button "${b.text}" missing boolean isFunctioning`);
+    }
+  }
+  console.log(`✓ Button Diagnosis Classification: Verified ${auditedButtons.length} buttons have Feature, Functionality, Why Used, and Status/Error details.`);
+  const sampleBtn = auditedButtons[0];
+  console.log(`    -> Sample Button Diagnosis:`);
+  console.log(`       - Text: "${sampleBtn.text}"`);
+  console.log(`       - Feature: ${sampleBtn.feature} (${sampleBtn.featureMl})`);
+  console.log(`       - Functionality: ${sampleBtn.functionality}`);
+  console.log(`       - Why Used: ${sampleBtn.purpose}`);
+  console.log(`       - Status: ${sampleBtn.isFunctioning ? '🟢 Working Properly' : '🔴 ' + sampleBtn.errorDetails}`);
+
+  // 18. Test Point to Element On Page with Rich Extra Info
+  const pointRes = await diagnosticsService.pointToElementOnPage(
+    sampleBtn.selector,
+    sampleBtn.text,
+    sampleBtn.reasonEn,
+    sampleBtn.fixEn,
+    {
+      feature: sampleBtn.feature,
+      functionality: sampleBtn.functionality,
+      purpose: sampleBtn.purpose,
+      isFunctioning: sampleBtn.isFunctioning,
+      errorDetails: sampleBtn.errorDetails
+    }
+  );
+  console.log(`✓ In-Page Point-Out Spotlight Function: Dispatched point request successfully.`);
+
+  // 19. Test Element Picker Start Trigger
+  await diagnosticsService.startInPagePicker();
+  console.log(`✓ Inspect Specific Button Picker: Interactive picker trigger executed cleanly.`);
+
   console.log("=== ALL BUTTONS, SCANNING & CHATBOT INTERACTIONS OPERATIONAL (100% PASS) ===");
 }
 

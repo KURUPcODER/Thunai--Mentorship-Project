@@ -175,7 +175,7 @@
       background: #0F172A !important;
       color: #FFFFFF !important;
       border: 2px solid #D97706 !important;
-      padding: 10px 22px !important;
+      padding: 10px 20px !important;
       border-radius: 9999px !important;
       box-shadow: 0 8px 30px rgba(0,0,0,0.6) !important;
       font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Noto Sans Malayalam', sans-serif !important;
@@ -184,19 +184,43 @@
       z-index: 2147483647 !important;
       display: flex !important;
       align-items: center !important;
-      gap: 14px !important;
+      gap: 12px !important;
       cursor: default !important;
+      max-width: 94vw !important;
+      box-sizing: border-box !important;
+    }
+
+    @media (max-width: 600px) {
+      .thunai-picker-banner {
+        top: 10px !important;
+        padding: 8px 12px !important;
+        border-radius: 12px !important;
+        flex-direction: column !important;
+        gap: 6px !important;
+        text-align: center !important;
+        font-size: 12px !important;
+      }
+      .thunai-pointer-arrow-card {
+        width: calc(100vw - 24px) !important;
+        max-width: calc(100vw - 24px) !important;
+        left: 12px !important;
+      }
     }
 
     .thunai-picker-cancel-btn {
       background: #DC2626 !important;
       color: #FFFFFF !important;
       border: none !important;
-      padding: 4px 10px !important;
+      padding: 6px 12px !important;
       border-radius: 9999px !important;
-      font-size: 11px !important;
+      font-size: 11.5px !important;
       font-weight: 700 !important;
       cursor: pointer !important;
+      min-height: 36px !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      touch-action: manipulation !important;
     }
 
     .thunai-picker-hover-highlight {
@@ -423,38 +447,33 @@
     const pageTitle = document.title || 'Current Webpage';
     const rawUrl = window.location.href;
 
-    const mainEl = document.querySelector('main, article, #content, .content, #main') || document.body;
+    const mainEl = document.querySelector('main, article, #content, .content, #main, #mock-webpage-target') || document.body;
     
     // Find all candidate visible readable blocks
-    const candidateElements = Array.from(mainEl.querySelectorAll('h1, h2, h3, h4, h5, h6, p, li, article, section, blockquote'))
+    const candidateElements = Array.from(mainEl.querySelectorAll('h1, h2, h3, h4, h5, h6, p, li, article, section, blockquote, dd, dt, table, td, th, [role="article"], [role="main"], div.wiki-content > p, .thunai-reading-target'))
       .filter(el => {
-        // Strip out boilerplate and navigation
-        if (el.closest('script, style, noscript, svg, nav, footer, .sidebar, #thunai-inpage-styles, .thunai-inspect-box')) {
+        // Strip out internal extension UI and scripts
+        if (el.closest('script, style, noscript, svg, nav, footer, #thunai-sidebar-frame, .thunai-sidebar-pane, #thunai-inpage-styles, .thunai-inspect-box, .thunai-pointer-arrow-card')) {
           return false;
         }
 
-        // Filter out invisible/hidden elements
-        const rect = el.getBoundingClientRect();
-        if (rect.height === 0 || rect.width === 0) return false;
-        
         try {
           const style = window.getComputedStyle(el);
-          if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') {
+          if (style.display === 'none' || style.visibility === 'hidden') {
             return false;
           }
         } catch(e) {}
 
-        const text = (el.innerText || '').trim();
-        // Ignore tiny labels or empty blocks
-        return text.length > 12;
+        const text = (el.innerText || el.textContent || '').trim();
+        return text.length > 2;
       })
-      .slice(0, 40);
+      .slice(0, 60);
 
     const segments = candidateElements.map((el, idx) => {
       const segId = `seg-${idx}`;
       el.setAttribute('data-thunai-seg', segId);
       const tagType = el.tagName.startsWith('H') ? `HEADING ${el.tagName[1]}` : (el.tagName === 'LI' ? 'LIST ITEM' : 'PARAGRAPH');
-      const text = (el.innerText || '').trim();
+      const text = (el.innerText || el.textContent || '').trim();
       return {
         id: segId,
         selector: `[data-thunai-seg="${segId}"]`,
@@ -466,24 +485,39 @@
       };
     });
 
-    const fullOriginalText = segments.map(s => s.text).join('\n\n').slice(0, 4000);
-    const wordCount = fullOriginalText.trim().split(/\s+/).filter(Boolean).length;
+    let fullOriginalText = segments.map(s => s.text).join('\n\n').trim();
+    if (!fullOriginalText || fullOriginalText.length < 30) {
+      const fallbackText = (mainEl.innerText || document.body?.innerText || '')
+        .split('\n')
+        .map(l => l.trim())
+        .filter(l => l.length > 10 && !l.includes('function(') && !l.includes('addEventListener'))
+        .slice(0, 30)
+        .join('\n\n');
+      if (fallbackText) fullOriginalText = fallbackText;
+    }
+
+    const words = fullOriginalText.trim().split(/\s+/).filter(w => w.length > 0);
+    const wordCount = words.length;
     const readingTimeMinutes = Math.max(1, Math.ceil(wordCount / 180));
 
     // Extract Headings structure
-    const headings = Array.from(mainEl.querySelectorAll('h1, h2, h3'))
-      .filter(h => h.innerText && h.innerText.trim().length > 0)
-      .slice(0, 15)
+    const headingElements = Array.from(mainEl.querySelectorAll('h1, h2, h3, h4, h5, h6'))
+      .concat(Array.from(document.querySelectorAll('h1, h2, h3')))
+      .filter((h, idx, arr) => arr.indexOf(h) === idx);
+
+    const headings = headingElements
+      .filter(h => (h.innerText || h.textContent || '').trim().length > 0)
+      .slice(0, 20)
       .map(h => ({
         tag: h.tagName.toUpperCase(),
-        text: h.innerText.trim()
+        text: (h.innerText || h.textContent || '').trim()
       }));
 
     // Extract Forms & Inputs summary
     const forms = Array.from(document.querySelectorAll('form'));
     const formsSummary = forms.map((f, fIdx) => {
       const formInputs = Array.from(f.querySelectorAll('input:not([type="hidden"]), select, textarea'));
-      const inputNames = formInputs.map(inp => inp.placeholder || inp.getAttribute('aria-label') || inp.name || inp.id || 'Field').slice(0, 6);
+      const inputNames = formInputs.map(inp => inp.placeholder || inp.getAttribute('aria-label') || inp.name || inp.id || 'Field').slice(0, 8);
       const hasSubmit = !!f.querySelector('button[type="submit"], input[type="submit"], button:not([type="button"])');
       return {
         id: f.id || `form-${fIdx + 1}`,
@@ -498,7 +532,7 @@
       wordCount,
       readingTimeMinutes,
       headingsCount: headings.length,
-      paragraphsCount: segments.filter(s => s.type === 'PARAGRAPH').length,
+      paragraphsCount: segments.filter(s => s.type === 'PARAGRAPH').length || Math.max(1, Math.floor(wordCount / 40)),
       formsCount: forms.length,
       buttonsCount: document.querySelectorAll('button, input[type="submit"], input[type="button"], [role="button"]').length,
       linksCount: document.querySelectorAll('a[href]').length,
@@ -506,25 +540,26 @@
     };
 
     const keyParagraphs = segments
-      .filter(s => s.type === 'PARAGRAPH' && s.text.length > 40)
-      .slice(0, 5)
+      .filter(s => s.type === 'PARAGRAPH' && s.text.length > 30)
+      .slice(0, 6)
       .map(s => s.text);
 
     return {
       title: pageTitle,
       url: rawUrl,
-      fullText: fullOriginalText || (document.body ? document.body.innerText.slice(0, 1500) : ''),
+      fullText: fullOriginalText,
       wordCount,
       readingTimeMinutes,
       headings,
       formsSummary,
+      forms: formsSummary,
       stats,
-      keyParagraphs,
+      keyParagraphs: keyParagraphs.length > 0 ? keyParagraphs : [fullOriginalText.slice(0, 300)],
       segments: segments.length > 0 ? segments : [
         {
           id: 'seg-0',
           selector: 'body',
-          text: (document.body ? document.body.innerText.slice(0, 300) : '') || 'Webpage content extracted.',
+          text: fullOriginalText.slice(0, 300) || 'Webpage content extracted.',
           mlText: '',
           type: 'PARAGRAPH',
           tag: pageTitle,
@@ -973,17 +1008,38 @@
   /**
    * Visual Pointer pointing directly to broken / non-working area on the webpage
    */
-  function inspectElementWithPointer(selectorOrEl, label = 'Thunai Inspection', reason = '', fix = '') {
+  /**
+   * Visual Pointer pointing directly to broken / non-working area on the webpage
+   */
+  function inspectElementWithPointer(selectorOrEl, label = 'Thunai Inspection', reason = '', fix = '', extraInfo = null) {
     clearActivePointer();
 
     let target = null;
     if (typeof selectorOrEl === 'string') {
+      // Try primary CSS selector
       try { target = selectorOrEl ? document.querySelector(selectorOrEl) : null; } catch (e) {}
+
+      // Fallback: if selector didn't match, try data-thunai-bid attribute
+      if (!target && selectorOrEl && selectorOrEl.startsWith('#thunai-bid-')) {
+        try { target = document.querySelector(`[data-thunai-bid="${selectorOrEl.slice(1)}"]`); } catch(e) {}
+      }
+
+      // Fallback: try to match by the label/text inside clickable elements
+      if (!target && label && label.length > 1) {
+        const cleanLabel = label.replace(/[<>"'&]/g, '').trim().toLowerCase();
+        const interactive = Array.from(document.querySelectorAll(
+          'button, input[type="submit"], input[type="button"], [role="button"], a'
+        )).filter(el => {
+          const elText = (el.innerText || el.value || el.getAttribute('aria-label') || el.getAttribute('title') || '').trim().toLowerCase();
+          return elText.length > 0 && elText.includes(cleanLabel.slice(0, 20));
+        });
+        if (interactive.length > 0) target = interactive[0];
+      }
     } else if (selectorOrEl && selectorOrEl.nodeType === Node.ELEMENT_NODE) {
       target = selectorOrEl;
     }
 
-    if (!target) target = document.querySelector('button, input, a, img') || document.body;
+    if (!target) target = document.querySelector('button, input[type="submit"], a') || document.body;
     if (!target) return;
 
     // Smooth scroll target to comfortable center
@@ -1008,12 +1064,12 @@
     card.className = 'thunai-pointer-arrow-card';
 
     // Position Card above or below based on viewport headroom
-    const cardWidth = 320;
-    let cardLeft = Math.max(12, Math.min(window.innerWidth - cardWidth - 16, rect.left + scrollX));
-    let cardTop = rect.top + scrollY - 145;
+    const cardWidth = Math.min(340, Math.max(260, window.innerWidth - 24));
+    let cardLeft = Math.max(12, Math.min(window.innerWidth - cardWidth - 12, rect.left + scrollX));
+    let cardTop = rect.top + scrollY - 165;
     let isBelow = false;
 
-    if (rect.top < 155) {
+    if (rect.top < 175) {
       // Not enough room above, place below
       cardTop = rect.bottom + scrollY + 14;
       isBelow = true;
@@ -1027,12 +1083,27 @@
     const cleanReason = reason || 'ഈ ഘടകം ക്ലിക്ക് ചെയ്യാനാകാത്തവിധം തടസ്സപ്പെട്ടിരിക്കുന്നു (Element interaction barrier)';
     const cleanFix = fix || 'ഫോം വിവരങ്ങൾ പൂർണ്ണമായി പൂരിപ്പിക്കുക അല്ലെങ്കിൽ തടസ്സം നീക്കുക (Check required fields or remove blocker)';
 
+    const featureBadgeHtml = extraInfo && extraInfo.feature ? `
+      <div style="margin: 4px 0 6px; font-size: 11px; font-weight: 700; color: #38BDF8; display: flex; align-items: center; gap: 4px;">
+        <span>🎯 സവിശേഷത (Feature):</span>
+        <span style="background: rgba(56,189,248,0.15); padding: 2px 6px; border-radius: 4px;">${extraInfo.feature}</span>
+      </div>
+    ` : '';
+
+    const purposeHtml = extraInfo && extraInfo.purpose ? `
+      <div style="margin-bottom: 6px; font-size: 11px; color: #94A3B8; line-height: 1.4;">
+        <strong style="color: #F8FAFC;">❓ എന്തിനാണ് ഉപയോഗിക്കുന്നത്:</strong> ${extraInfo.purpose}
+      </div>
+    ` : '';
+
     card.innerHTML = `
       <div class="thunai-pointer-arrow-indicator">
         <span>${arrowIcon}</span>
         <span>ഇവിടെ ശ്രദ്ധിക്കുക (Look Here)</span>
       </div>
       <div class="thunai-pointer-title">&lt;${target.tagName.toLowerCase()}&gt; ${cleanLabel}</div>
+      ${featureBadgeHtml}
+      ${purposeHtml}
       <div class="thunai-pointer-reason">⚠️ ${cleanReason}</div>
       <div class="thunai-pointer-fix">💡 ${cleanFix}</div>
       <div class="thunai-pointer-actions">
@@ -1059,6 +1130,112 @@
 
   function inspectElement(selector, label = 'Thunai Inspection') {
     inspectElementWithPointer(selector, label);
+  }
+
+  /**
+   * Helper: Classify Button Feature, Functionality, Purpose & Error Status
+   */
+  function classifyButtonDetails(el, text, tag, missingFields, isDisabled, isCovered, isDeadLink) {
+    const lowerText = (text || '').toLowerCase();
+    const typeAttr = (el.getAttribute('type') || '').toLowerCase();
+    const roleAttr = (el.getAttribute('role') || '').toLowerCase();
+    const form = el.closest('form') || el.closest('[role="form"]');
+
+    let feature = 'Interactive Action Control';
+    let featureMl = 'പ്രവർത്തന നിയന്ത്രണ ബട്ടൺ';
+    let functionality = 'Triggers an interactive user action or script update on the page.';
+    let functionalityMl = 'പേജിൽ ആവശ്യമായ പ്രവർത്തനങ്ങൾ നടത്താൻ സഹായിക്കുന്നു.';
+    let purpose = 'This button is used to interact with content or trigger dynamic services on this webpage.';
+    let purposeMl = 'ഈ വെബ്‌പേജിൽ ആവശ്യമായ സേവനങ്ങളോ മാറ്റങ്ങളോ ഉപയോഗിക്കാനാണ് ഈ ബട്ടൺ നൽകിയിട്ടുള്ളത്.';
+
+    // 1. Form Submission
+    if (typeAttr === 'submit' || (form && (tag === 'button' || lowerText.includes('submit') || lowerText.includes('അപേക്ഷ') || lowerText.includes('സമർപ്പിക്കുക') || lowerText.includes('send') || lowerText.includes('apply') || lowerText.includes('register') || lowerText.includes('രജിസ്ട്രേഷൻ')))) {
+      feature = 'Form Submission';
+      featureMl = 'ഫോം സമർപ്പിക്കൽ (Form Submission)';
+      functionality = 'Submits all entered data and attached documents to the server for processing.';
+      functionalityMl = 'ഫോമിൽ ചേർത്ത വിവരങ്ങളും രേഖകളും പരിശോധനയ്ക്കായി സർക്കാരിലേക്ക്/സെർവറിലേക്ക് സമർപ്പിക്കുന്നു.';
+      purpose = 'This button is used to officially submit your application or form so authorities can verify your request.';
+      purposeMl = 'നിങ്ങളുടെ അപേക്ഷ ഔദ്യോഗികമായി സർക്കാരിലേക്ക് സമർപ്പിക്കാനും രേഖകൾ പരിശോധനയ്ക്കായി നൽകാനുമാണ് ഈ ബട്ടൺ ഉപയോഗിക്കുന്നത്.';
+    }
+    // 2. Search
+    else if (roleAttr === 'search' || lowerText.includes('search') || lowerText.includes('തിരയുക') || lowerText.includes('find') || el.closest('form[role="search"]') || el.closest('.search-box, .search-form')) {
+      feature = 'Search Trigger';
+      featureMl = 'തിരച്ചിൽ ബട്ടൺ (Search Trigger)';
+      functionality = 'Searches the database or portal index for your entered keywords.';
+      functionalityMl = 'നിങ്ങൾ നൽകിയ വാക്ക് ഉപയോഗിച്ച് പോർട്ടലിൽ തിരച്ചിൽ നടത്തുന്നു.';
+      purpose = 'This button is used to quickly locate schemes, circulars, or information without manual browsing.';
+      purposeMl = 'ആവശ്യമായ വിവരങ്ങളോ സേവനങ്ങളോ വേഗത്തിൽ തിരഞ്ഞു കണ്ടെത്താനാണ് ഇത് ഉപയോഗിക്കുന്നത്.';
+    }
+    // 3. Navigation Link
+    else if (tag === 'a' || roleAttr === 'link' || lowerText.includes('next') || lowerText.includes('back') || lowerText.includes('goto') || lowerText.includes('മാറ്റങ്ങൾ') || lowerText.includes('കൂടുതൽ') || lowerText.includes('more')) {
+      feature = 'Navigation Action Link';
+      featureMl = 'പേജ് മാറ്റം / ലിങ്ക് (Navigation Link)';
+      functionality = 'Navigates the browser to another section, page, or external portal.';
+      functionalityMl = 'നിങ്ങളെ വെബ്‌സൈറ്റിലെ മറ്റൊരു പേജിലേക്കോ ലിങ്കിലേക്കോ എത്തിക്കുന്നു.';
+      purpose = 'This button is used to view related pages, browse sections, or navigate between application steps.';
+      purposeMl = 'മറ്റ് അനുബന്ധ വിവരങ്ങൾ കാണാനോ അടുത്ത ഘട്ടത്തിലേക്ക് പോകാനോ ആണ് ഈ ലിങ്ക് ഉപയോഗിക്കുന്നത്.';
+    }
+    // 4. Form Reset / Clear
+    else if (typeAttr === 'reset' || lowerText.includes('reset') || lowerText.includes('clear') || lowerText.includes('റദ്ദാക്കുക') || lowerText.includes('മായ്ക്കുക')) {
+      feature = 'Form Reset / Clear';
+      featureMl = 'വിവരങ്ങൾ മായ്ക്കൽ (Form Clear / Reset)';
+      functionality = 'Clears all input fields and resets the form back to empty defaults.';
+      functionalityMl = 'ഫോമിൽ നൽകിയ വിവരങ്ങൾ മുഴുവനായി മായ്ച്ച് ആദ്യത്തെ അവസ്ഥയിലാക്കുന്നു.';
+      purpose = 'This button is used if you entered incorrect details and wish to restart filling the form afresh.';
+      purposeMl = 'ഫോമിൽ തെറ്റായ വിവരങ്ങൾ നൽകിയിട്ടുണ്ടെങ്കിൽ അത് മായ്ച്ച് വീണ്ടും പുതിയതായി പൂരിപ്പിക്കാനാണ് ഇത് ഉപയോഗിക്കുന്നത്.';
+    }
+    // 5. Menu / Modal Control
+    else if (el.hasAttribute('aria-haspopup') || el.hasAttribute('aria-expanded') || lowerText.includes('menu') || lowerText.includes('മെനു') || lowerText.includes('വിപുലീകരിക്കുക') || lowerText.includes('close') || lowerText.includes('അടയ്ക്കുക') || el.hasAttribute('data-toggle') || el.hasAttribute('data-bs-toggle')) {
+      feature = 'Menu / Modal Control';
+      featureMl = 'മെനു / പോപ്പപ്പ് നിയന്ത്രണം (Menu & Modal Control)';
+      functionality = 'Expands, collapses, or dismisses navigation menus, side drawers, or popup dialogs.';
+      functionalityMl = 'മെനു ലിസ്റ്റോ അറിയിപ്പ് ബോക്സോ തുറക്കാനും അടയ്ക്കാനും സഹായിക്കുന്നു.';
+      purpose = 'This button is used to open hidden navigation choices, toggle options, or dismiss popups.';
+      purposeMl = 'കൂടുതൽ മെനു ഓപ്ഷനുകൾ കാണാനും അല്ലെങ്കിൽ ആവശ്യമില്ലാത്ത പോപ്പപ്പുകൾ ഒഴിവാക്കാനുമാണ് ഇത് നൽകിയിട്ടുള്ളത്.';
+    }
+
+    let isFunctioning = true;
+    let errorDetails = '';
+    let errorDetailsMl = '';
+
+    if (isDisabled) {
+      isFunctioning = false;
+      if (missingFields && missingFields.length > 0) {
+        errorDetails = `Button is disabled because ${missingFields.length} mandatory field(s) (${missingFields.join(', ')}) are empty.`;
+        errorDetailsMl = `ഫോമിലെ ${missingFields.length} നിർബന്ധിത കോളങ്ങളിൽ (${missingFields.join(', ')}) വിവരങ്ങൾ നൽകാത്തതിനാൽ ബട്ടൺ നിഷ്ക്രിയമാക്കിയിരിക്കുന്നു (Disabled).`;
+      } else {
+        errorDetails = 'Button is locked in a disabled state (disabled or pointer-events: none) by the webpage.';
+        errorDetailsMl = 'വെബ്‌പേജ് ഈ ബട്ടൺ നിഷ്ക്രിയമാക്കി വെച്ചിരിക്കുകയാണ് (Disabled).';
+      }
+    } else if (missingFields && missingFields.length > 0) {
+      isFunctioning = false;
+      errorDetails = `Parent form has ${missingFields.length} unfulfilled mandatory inputs: ${missingFields.join(', ')}`;
+      errorDetailsMl = `ഫോമിലെ നിർബന്ധിത വിവരങ്ങൾ പൂരിപ്പിക്കാത്തതിനാൽ ബട്ടൺ സമർപ്പിക്കാനാകില്ല (${missingFields.join(', ')}).`;
+    } else if (isCovered) {
+      isFunctioning = false;
+      errorDetails = 'Clicks cannot reach this button because an invisible modal backdrop or popup overlay is intercepting them.';
+      errorDetailsMl = 'പേജിന് മുകളിലുള്ള അദൃശ്യ പാളിയോ പോപ്പപ്പോ കാരണം നിങ്ങളുടെ ക്ലിക്ക് ഈ ബട്ടണിൽ എത്തുന്നില്ല.';
+    } else if (isDeadLink) {
+      isFunctioning = false;
+      errorDetails = 'This link has an empty href="#" attribute and does not navigate anywhere.';
+      errorDetailsMl = 'ഈ ലിങ്കിൽ ശരിയായ വെബ്‌സൈറ്റ് വിലാസം നൽകിയിട്ടില്ലാത്തതിനാൽ ക്ലിക്ക് ചെയ്യുമ്പോൾ പേജ് മാറില്ല.';
+    } else if (!text || text.trim().length === 0) {
+      isFunctioning = false;
+      errorDetails = 'Button lacks descriptive text or an accessible aria-label attribute.';
+      errorDetailsMl = 'ഈ ബട്ടണിൽ എന്ത് ആവശ്യത്തിനുള്ളതാണെന്ന് വ്യക്തമായി എഴുതിയിട്ടില്ല (Unlabelled).';
+    }
+
+    return {
+      feature,
+      featureMl,
+      functionality,
+      functionalityMl,
+      purpose,
+      purposeMl,
+      isFunctioning,
+      errorDetails,
+      errorDetailsMl
+    };
   }
 
   /**
@@ -1113,6 +1290,9 @@
     const isLink = tag === 'a';
     const isDeadLink = isLink && (!el.hasAttribute('href') || el.getAttribute('href') === '#' || el.getAttribute('href') === '' || el.getAttribute('href').startsWith('javascript:void'));
     const isUnlabelled = (tag === 'input' || tag === 'button' || tag === 'select') && !text && !el.getAttribute('aria-label') && !el.getAttribute('id');
+
+    const missingNames = emptyRequired.map(inp => inp.getAttribute('placeholder') || inp.getAttribute('name') || 'Field');
+    const classification = classifyButtonDetails(el, text, tag, missingNames, isDisabled, isCovered, isDeadLink);
 
     // Synthesize failure pattern
     if (emptyRequired.length > 0 && (tag === 'button' || el.getAttribute('type') === 'submit' || isDisabled)) {
@@ -1237,6 +1417,15 @@
       fix: stepsMl.join(' '),
       steps: stepsMl,
       stepsEn: stepsEn,
+      feature: classification.feature,
+      featureMl: classification.featureMl,
+      functionality: classification.functionality,
+      functionalityMl: classification.functionalityMl,
+      purpose: classification.purpose,
+      purposeMl: classification.purposeMl,
+      isFunctioning: classification.isFunctioning,
+      errorDetails: classification.errorDetails || (classification.isFunctioning ? '' : reasonEn),
+      errorDetailsMl: classification.errorDetailsMl || (classification.isFunctioning ? '' : reasonMl),
       canAutoFix: canAutoFix,
       fixType: fixType,
       severity: isDisabled || isCovered ? 'CRITICAL' : (barrierType === 'functional' ? 'INFO' : 'SERIOUS')
@@ -1292,7 +1481,11 @@
 
       // Show in-page pointer spotlight immediately
       if (diag) {
-        inspectElementWithPointer(target, diag.title, diag.reason, diag.fix);
+        inspectElementWithPointer(target, diag.title, diag.reason, diag.fix, {
+          feature: diag.feature,
+          functionality: diag.functionality,
+          purpose: diag.purpose
+        });
       }
 
       // Notify Sidebar
@@ -1306,13 +1499,29 @@
       }
     }
 
+    function handlePickerTouch(e) {
+      if (!isPickerActive) return;
+      if (e.changedTouches && e.changedTouches.length > 0) {
+        const touch = e.changedTouches[0];
+        const target = document.elementFromPoint(touch.clientX, touch.clientY);
+        if (!target || target.closest('.thunai-picker-banner') || target.closest('.thunai-pointer-arrow-card')) return;
+        handlePickerClick({
+          target: target,
+          preventDefault: () => e.preventDefault(),
+          stopPropagation: () => e.stopPropagation()
+        });
+      }
+    }
+
     document.addEventListener('mouseover', handlePickerHover, true);
     document.addEventListener('click', handlePickerClick, true);
+    document.addEventListener('touchend', handlePickerTouch, { capture: true, passive: false });
 
     // Save references for cleanup
     window.__thunaiPickerCleanup = () => {
       document.removeEventListener('mouseover', handlePickerHover, true);
       document.removeEventListener('click', handlePickerClick, true);
+      document.removeEventListener('touchend', handlePickerTouch, { capture: true, passive: false });
       if (lastHoveredEl) lastHoveredEl.classList.remove('thunai-picker-hover-highlight');
       lastHoveredEl = null;
       if (pickerBannerEl && pickerBannerEl.parentNode) pickerBannerEl.remove();
@@ -1453,10 +1662,12 @@
       let rawText = (el.innerText || el.value || el.getAttribute('aria-label') || el.getAttribute('title') || '').trim();
       const text = rawText.slice(0, 40) || (tag === 'a' ? 'Interactive Link' : 'Action Button');
 
-      let selector = el.id ? `#${el.id}` : (el.className && typeof el.className === 'string' ? `${tag}.${el.className.trim().split(/\s+/).filter(c => !c.startsWith('thunai-')).slice(0, 2).join('.')}` : `${tag}:nth-of-type(${idx + 1})`);
-      if (seenSelectors.has(selector)) {
-        selector = `${selector}[data-btn-idx="${idx}"]`;
-      }
+      // Assign a unique data-thunai-bid attribute to guarantee exact re-finding on pointer
+      const thunaiId = `thunai-bid-${idx}`;
+      el.setAttribute('data-thunai-bid', thunaiId);
+
+      // Build selector: prefer id, then data-thunai-bid (always unique)
+      let selector = el.id ? `#${el.id}` : `[data-thunai-bid="${thunaiId}"]`;
       seenSelectors.add(selector);
 
       const computed = window.getComputedStyle(el);
@@ -1576,11 +1787,19 @@
         fixType = 'inject_label';
       }
 
+      const classification = classifyButtonDetails(el, text, tag, missingFields, isDisabled, isCovered, isDeadLink);
+
       buttons.push({
         id: `btn-${idx}`,
         tag,
         text,
         selector,
+        feature: classification.feature,
+        featureMl: classification.featureMl,
+        functionality: classification.functionality,
+        functionalityMl: classification.functionalityMl,
+        purpose: classification.purpose,
+        purposeMl: classification.purposeMl,
         status,
         statusTextEn,
         statusTextMl,
@@ -1588,6 +1807,9 @@
         reasonMl,
         fixEn,
         fixMl,
+        isFunctioning: status === 'working',
+        errorDetails: classification.errorDetails || (status !== 'working' ? reasonEn : ''),
+        errorDetailsMl: classification.errorDetailsMl || (status !== 'working' ? reasonMl : ''),
         canAutoFix,
         fixType,
         isBroken: status !== 'working'
@@ -1632,6 +1854,15 @@
           titleEn: b.statusTextEn,
           reason: b.reasonMl,
           reasonEn: b.reasonEn,
+          feature: b.feature,
+          featureMl: b.featureMl,
+          functionality: b.functionality,
+          functionalityMl: b.functionalityMl,
+          purpose: b.purpose,
+          purposeMl: b.purposeMl,
+          isFunctioning: b.isFunctioning,
+          errorDetails: b.errorDetails,
+          errorDetailsMl: b.errorDetailsMl,
           solution: b.fixMl,
           fix: b.fixMl,
           steps: [b.fixMl],
@@ -1854,7 +2085,7 @@
         const report = scanLivePageDOM();
         sendResponse({ success: true, ...report, report });
       } else if (message.action === 'INSPECT_ELEMENT' || message.action === 'INSPECT_ELEMENT_WITH_POINTER') {
-        inspectElementWithPointer(message.selector, message.label, message.reason, message.fix);
+        inspectElementWithPointer(message.selector, message.label, message.reason, message.fix, message.extraInfo || null);
         sendResponse({ success: true });
       } else if (message.action === 'START_ELEMENT_PICKER') {
         startElementPicker();

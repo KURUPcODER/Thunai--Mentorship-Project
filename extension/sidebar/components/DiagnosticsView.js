@@ -117,6 +117,7 @@ export function renderDiagnosticsView(container, state, setState, onNavigate) {
   if (typeof window !== 'undefined') {
     window.ThunaiOnElementPicked = (pickedDiag) => {
       if (pickedDiag) {
+        isPickingElement = false;
         activeInspectedItem = pickedDiag;
         const exists = barriers.find(b => b.selector === pickedDiag.selector);
         if (!exists) {
@@ -124,6 +125,21 @@ export function renderDiagnosticsView(container, state, setState, onNavigate) {
         }
         activeSubTab = 'inspector';
         render();
+
+        // Also trigger live pointing spotlight on page with rich feature & purpose metadata
+        diagnosticsService.pointToElementOnPage(
+          pickedDiag.selector,
+          pickedDiag.title || pickedDiag.text || 'Selected Element',
+          isEn ? (pickedDiag.reasonEn || pickedDiag.reason) : pickedDiag.reason,
+          isEn ? (pickedDiag.fixEn || pickedDiag.solution) : (pickedDiag.solution || pickedDiag.fix),
+          {
+            feature: isEn ? pickedDiag.feature : (pickedDiag.featureMl || pickedDiag.feature),
+            functionality: isEn ? pickedDiag.functionality : (pickedDiag.functionalityMl || pickedDiag.functionality),
+            purpose: isEn ? pickedDiag.purpose : (pickedDiag.purposeMl || pickedDiag.purpose),
+            isFunctioning: pickedDiag.isFunctioning,
+            errorDetails: isEn ? pickedDiag.errorDetails : (pickedDiag.errorDetailsMl || pickedDiag.errorDetails)
+          }
+        );
       }
     };
   }
@@ -176,7 +192,10 @@ export function renderDiagnosticsView(container, state, setState, onNavigate) {
       ...pageContext,
       barriers: barriers,
       buttonStats: buttonAudit || { totalButtons: 8, brokenCount: barriers.length, workingCount: Math.max(0, 8 - barriers.length) },
-      totalButtons: buttonAudit?.totalButtons || 8
+      totalButtons: buttonAudit?.totalButtons || 8,
+      // Pass retrieved page content for data-driven chatbot answers
+      pageContent: pageContent || null,
+      allButtons: buttonAudit?.buttons || []
     };
 
     const botResponse = await diagnosticsService.askChatbot({
@@ -230,12 +249,12 @@ export function renderDiagnosticsView(container, state, setState, onNavigate) {
           </div>
         </header>
 
-        <!-- Hero Primary "Scan Webpage" Action Button -->
-        <div class="diag-scan-hero-strip">
+        <!-- Hero Dual Actions Strip: 1. Scan Webpage + 2. Inspect Specific Button -->
+        <div class="diag-hero-actions-container">
           <button class="btn-scan-webpage-hero ${isScanningPage ? 'is-scanning' : ''}" id="btn-hero-scan-webpage" aria-label="${t.scanWebpageHero}">
             <div class="hero-scan-left">
               <div class="hero-scan-icon-bubble">
-                <svg class="scan-radar-svg ${isScanningPage ? 'anim-radar-spin' : ''}" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <svg class="scan-radar-svg ${isScanningPage ? 'anim-radar-spin' : ''}" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                   <circle cx="12" cy="12" r="10"></circle>
                   <path d="M12 2a10 10 0 0 1 10 10"></path>
                   <circle cx="12" cy="12" r="4"></circle>
@@ -247,8 +266,25 @@ export function renderDiagnosticsView(container, state, setState, onNavigate) {
               </div>
             </div>
             <div class="hero-scan-badge-cta">
-              <span>${isScanningPage ? (isEn ? 'Scanning...' : 'സ്കാൻ ചെയ്യുന്നു...') : (isEn ? 'Scan Webpage' : 'സ്കാൻ ചെയ്യുക')}</span>
+              <span>${isScanningPage ? (isEn ? 'Scanning...' : 'സ്കാൻ ചെയ്യുന്നു...') : (isEn ? 'Scan All' : 'മുഴുവൻ സ്കാൻ')}</span>
               <span class="cta-arrow-icon">▶</span>
+            </div>
+          </button>
+
+          <!-- Inspect Specific Button Action -->
+          <button class="btn-inspect-specific-hero ${isPickingElement ? 'is-picking' : ''}" id="btn-hero-inspect-specific" aria-label="${t.btnInspectSpecific}">
+            <div class="hero-inspect-left">
+              <div class="hero-inspect-icon-bubble">
+                <span class="inspect-target-emoji">🎯</span>
+              </div>
+              <div class="hero-inspect-copy">
+                <span class="hero-inspect-title">${t.btnInspectSpecific}</span>
+                <span class="hero-inspect-sub">${isPickingElement ? t.btnInspectActive : t.btnInspectSpecificSub}</span>
+              </div>
+            </div>
+            <div class="hero-inspect-badge-cta">
+              <span>${isPickingElement ? (isEn ? 'Pick Button...' : 'ക്ലിക്ക് ചെയ്യുക...') : (isEn ? 'Pick & Inspect' : 'പരിശോധിക്കുക')}</span>
+              <span class="cta-arrow-icon">👉</span>
             </div>
           </button>
         </div>
@@ -323,6 +359,10 @@ export function renderDiagnosticsView(container, state, setState, onNavigate) {
                     <span class="action-icon">🔄</span>
                     <span>${isEn ? 'Rescan Webpage' : 'വീണ്ടും സ്കാൻ ചെയ്യുക'}</span>
                   </button>
+                  <button class="btn-clean-action btn-clean-pick" id="btn-trigger-picker-clean" title="${t.btnInspectSpecific}">
+                    <span class="action-icon">🎯</span>
+                    <span>${t.btnInspectSpecific}</span>
+                  </button>
                   <button class="btn-clean-action btn-clean-contents" id="btn-goto-contents-clean" title="${t.diagOptContents}">
                     <span class="action-icon">📄</span>
                     <span>${t.diagOptContents}</span>
@@ -330,10 +370,6 @@ export function renderDiagnosticsView(container, state, setState, onNavigate) {
                   <button class="btn-clean-action btn-clean-buttons" id="btn-goto-buttons-clean" title="${t.diagOptButtons}">
                     <span class="action-icon">🔘</span>
                     <span>${t.diagOptButtons}</span>
-                  </button>
-                  <button class="btn-clean-action btn-clean-pick" id="btn-trigger-picker-clean" title="${t.diagNoIssuesPick}">
-                    <span class="action-icon">🎯</span>
-                    <span>${t.diagNoIssuesPick}</span>
                   </button>
                   <button class="btn-clean-action btn-clean-chat" id="btn-goto-chat-clean" title="${t.diagNoIssuesAsk}">
                     <span class="action-icon">💬</span>
@@ -361,7 +397,7 @@ export function renderDiagnosticsView(container, state, setState, onNavigate) {
 
               <!-- Hero Interactive Pointer Action CTA -->
               <div class="diag-hero-pointer-cta">
-                <button class="btn-hero-picker ${isPickingElement ? 'picking-active' : ''}" id="btn-trigger-picker" aria-label="${t.diagPickBtn}">
+                <button class="btn-hero-picker ${isPickingElement ? 'picking-active' : ''}" id="btn-trigger-picker" aria-label="${t.btnInspectSpecific}">
                   <div class="picker-icon-ring">
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                       <circle cx="12" cy="12" r="10"></circle>
@@ -373,8 +409,8 @@ export function renderDiagnosticsView(container, state, setState, onNavigate) {
                     </svg>
                   </div>
                   <div class="picker-text-wrap">
-                    <div class="picker-title-main">${t.diagPickBtn}</div>
-                    <div class="picker-desc-sub">${t.diagPickHelp}</div>
+                    <div class="picker-title-main">${t.btnInspectSpecific}</div>
+                    <div class="picker-desc-sub">${isPickingElement ? t.btnInspectActive : t.btnInspectSpecificSub}</div>
                   </div>
                   <div class="picker-arrow-sign">👉</div>
                 </button>
@@ -384,45 +420,84 @@ export function renderDiagnosticsView(container, state, setState, onNavigate) {
               ${activeInspectedItem ? `
                 <div class="diag-active-spotlight-card">
                   <div class="spotlight-header-row">
-                    <span class="spotlight-pointer-badge">👉 ${isEn ? 'CURRENT FOCUS' : 'നിലവിലെ ശ്രദ്ധാകേന്ദ്രം'}</span>
-                    <span class="severity-pill severity-${(activeInspectedItem.severity || 'serious').toLowerCase()}">${activeInspectedItem.severity || 'SERIOUS'}</span>
+                    <span class="spotlight-pointer-badge">👉 ${isEn ? 'SPECIFIC BUTTON DIAGNOSIS' : 'പ്രത്യേക ബട്ടൺ പരിശോധന'}</span>
+                    <span class="severity-pill ${activeInspectedItem.isFunctioning === false ? 'severity-serious' : 'severity-working'}">
+                      ${activeInspectedItem.isFunctioning === false ? (isEn ? '🔴 ISSUE DETECTED' : '🔴 തകരാർ കണ്ടെത്തി') : (isEn ? '🟢 WORKING PROPERLY' : '🟢 പ്രവർത്തനക്ഷമം')}
+                    </span>
                   </div>
 
-                  <div class="spotlight-element-tag">&lt;${activeInspectedItem.tag}&gt; ${activeInspectedItem.text || activeInspectedItem.selector}</div>
+                  <div class="spotlight-element-tag">&lt;${activeInspectedItem.tag || 'button'}&gt; ${activeInspectedItem.text || activeInspectedItem.title || activeInspectedItem.selector}</div>
 
-                  <div class="spotlight-section-box section-why">
-                    <div class="section-label-row">
-                      <span class="section-emoji">❓</span>
-                      <strong class="section-title">${t.diagWhyTitle}</strong>
+                  <!-- 1. Feature -->
+                  <div class="spotlight-prop-box">
+                    <div class="prop-title-row">
+                      <span class="prop-icon">🏷️</span>
+                      <strong>${t.btnFeature}</strong>
+                      <span class="prop-badge">${isEn ? (activeInspectedItem.feature || 'Interactive Action') : (activeInspectedItem.featureMl || 'പ്രവർത്തന നിയന്ത്രണം')}</span>
                     </div>
-                    <p class="section-body-text">${isEn ? (activeInspectedItem.reasonEn || activeInspectedItem.reason) : activeInspectedItem.reason}</p>
                   </div>
 
-                  <div class="spotlight-section-box section-solution">
-                    <div class="section-label-row">
-                      <span class="section-emoji">💡</span>
-                      <strong class="section-title">${t.diagFixTitle}</strong>
+                  <!-- 2. Functionality -->
+                  <div class="spotlight-prop-box">
+                    <div class="prop-title-row">
+                      <span class="prop-icon">⚙️</span>
+                      <strong>${t.btnFunctionality}</strong>
                     </div>
-                    <div class="section-steps-list">
-                      ${(isEn ? (activeInspectedItem.stepsEn || activeInspectedItem.steps) : activeInspectedItem.steps || [activeInspectedItem.solution]).map(step => `
-                        <div class="step-item-pill">${step}</div>
-                      `).join('')}
-                    </div>
+                    <p class="prop-body-text">${isEn ? (activeInspectedItem.functionality || activeInspectedItem.titleEn || activeInspectedItem.title) : (activeInspectedItem.functionalityMl || activeInspectedItem.title)}</p>
                   </div>
+
+                  <!-- 3. Why the specific button is used for -->
+                  <div class="spotlight-prop-box spotlight-purpose-box">
+                    <div class="prop-title-row">
+                      <span class="prop-icon">💡</span>
+                      <strong>${t.btnWhyUsed}</strong>
+                    </div>
+                    <p class="prop-body-text">${isEn ? (activeInspectedItem.purpose || 'Allows citizens and users to interact with this form or feature.') : (activeInspectedItem.purposeMl || 'ഈ ഫോമിലോ പേജിലോ ഉള്ള പ്രവർത്തനം പൂർത്തിയാക്കാൻ സഹായിക്കുന്നു.')}</p>
+                  </div>
+
+                  <!-- 4. Error Details if not functioning OR Working Status if functional -->
+                  ${activeInspectedItem.isFunctioning === false ? `
+                    <div class="spotlight-section-box section-why error-spotlight-box">
+                      <div class="section-label-row">
+                        <span class="section-emoji">⚠️</span>
+                        <strong class="section-title">${t.btnErrorDetails}</strong>
+                      </div>
+                      <p class="section-body-text error-highlight">${isEn ? (activeInspectedItem.errorDetails || activeInspectedItem.reasonEn || activeInspectedItem.reason) : (activeInspectedItem.errorDetailsMl || activeInspectedItem.reason)}</p>
+                      
+                      <div class="section-solution-sub">
+                        <strong class="fix-sub-title">💡 ${t.diagFixTitle}:</strong>
+                        <div class="section-steps-list">
+                          ${(isEn ? (activeInspectedItem.stepsEn || activeInspectedItem.steps) : activeInspectedItem.steps || [activeInspectedItem.solution || activeInspectedItem.fix]).map(step => `
+                            <div class="step-item-pill">${step}</div>
+                          `).join('')}
+                        </div>
+                      </div>
+                    </div>
+                  ` : `
+                    <div class="spotlight-working-box">
+                      <span class="working-icon">✅</span>
+                      <div class="working-text">
+                        <strong>${isEn ? 'Button is Working Properly' : 'ബട്ടൺ ശരിയായി പ്രവർത്തിക്കുന്നു'}</strong>
+                        <p>${t.btnWorkingStatus}</p>
+                      </div>
+                    </div>
+                  `}
 
                   <!-- Primary Action Buttons for Active Element -->
                   <div class="spotlight-actions-toolbar">
                     <button class="btn-spotlight-action btn-point-on-page" 
                             data-selector="${activeInspectedItem.selector}"
-                            data-title="${activeInspectedItem.title}"
-                            data-reason="${activeInspectedItem.reason}"
-                            data-fix="${activeInspectedItem.solution || activeInspectedItem.fix}">
+                            data-title="${activeInspectedItem.title || activeInspectedItem.text || 'Button'}"
+                            data-reason="${activeInspectedItem.reason || ''}"
+                            data-fix="${activeInspectedItem.solution || activeInspectedItem.fix || ''}">
                       <span class="btn-act-icon">👉</span>
-                      <span>${t.diagPointBtn}</span>
+                      <span>${t.btnPointOnPage}</span>
                     </button>
 
                     <button class="btn-spotlight-action btn-listen-explanation"
-                            data-text="${isEn ? (activeInspectedItem.reasonEn + '. ' + (activeInspectedItem.stepsEn ? activeInspectedItem.stepsEn.join('. ') : '')) : (activeInspectedItem.reason + '. ' + (activeInspectedItem.steps ? activeInspectedItem.steps.join('. ') : ''))}">
+                            data-text="${isEn 
+                              ? (`${activeInspectedItem.feature || ''}. ${activeInspectedItem.functionality || ''}. ${activeInspectedItem.purpose || ''}. ${activeInspectedItem.isFunctioning === false ? (activeInspectedItem.errorDetails || activeInspectedItem.reasonEn || '') : t.btnWorkingStatus}`)
+                              : (`${activeInspectedItem.featureMl || ''}. ${activeInspectedItem.functionalityMl || ''}. ${activeInspectedItem.purposeMl || ''}. ${activeInspectedItem.isFunctioning === false ? (activeInspectedItem.errorDetailsMl || activeInspectedItem.reason || '') : t.btnWorkingStatus}`)}">
                       <span class="btn-act-icon">${isSpeaking ? '⏹️' : '🔊'}</span>
                       <span>${isSpeaking ? (isEn ? 'Stop' : 'നിർത്തുക') : t.diagListenBtn}</span>
                     </button>
@@ -460,8 +535,8 @@ export function renderDiagnosticsView(container, state, setState, onNavigate) {
                     ${barriers.map((item, idx) => `
                       <div class="barrier-item-card ${activeInspectedItem && activeInspectedItem.selector === item.selector ? 'item-selected' : ''}" data-idx="${idx}">
                         <div class="barrier-card-top">
-                          <span class="severity-mini-badge tag-${item.severity.toLowerCase()}">${item.severity}</span>
-                          <span class="barrier-tag-name">&lt;${item.tag}&gt; ${item.selector}</span>
+                          <span class="severity-mini-badge tag-${(item.severity || 'serious').toLowerCase()}">${item.severity || 'SERIOUS'}</span>
+                          <span class="barrier-tag-name">&lt;${item.tag || 'button'}&gt; ${item.selector}</span>
                         </div>
 
                         <h3 class="barrier-card-title">${isEn ? (item.titleEn || item.title) : item.title}</h3>
@@ -471,10 +546,10 @@ export function renderDiagnosticsView(container, state, setState, onNavigate) {
                         <div class="barrier-card-actions-row">
                           <button class="btn-card-point" data-selector="${item.selector}" data-title="${item.title}" data-reason="${item.reason}" data-fix="${item.solution}">
                             <span>👉</span>
-                            <span>${t.diagPointBtn}</span>
+                            <span>${t.btnPointOnPage}</span>
                           </button>
                           <button class="btn-card-select" data-idx="${idx}">
-                            <span>🔍 ${isEn ? 'View Reason' : 'വിശദമായി കാണുക'}</span>
+                            <span>🔍 ${isEn ? 'Inspect Details' : 'വിശദമായി പരിശോധിക്കുക'}</span>
                           </button>
                         </div>
                       </div>
@@ -497,17 +572,27 @@ export function renderDiagnosticsView(container, state, setState, onNavigate) {
                 <p class="diag-loading-text">${isEn ? 'Extracting readable webpage contents...' : 'പേജിലെ വിവരങ്ങൾ ശേഖരിക്കുന്നു...'}</p>
               </div>
             ` : `
+              <!-- Highlight Stats Ribbon: Word Count & Reading Time -->
+              <div class="content-highlight-ribbon">
+                <span class="ribbon-icon">📖</span>
+                <span class="ribbon-text">
+                  <strong>${pageContent?.wordCount || 0} ${t.contentWordsUnit}</strong>
+                  <span class="ribbon-sep">•</span>
+                  <span>~${pageContent?.readingTimeMinutes || 1} ${t.contentReadTimeMinutes}</span>
+                </span>
+              </div>
+
               <!-- Content Overview Statistics Card -->
               <div class="content-stats-grid">
                 <div class="content-stat-card">
                   <span class="stat-icon">📝</span>
                   <span class="stat-val">${pageContent?.wordCount || 0}</span>
-                  <span class="stat-label">${isEn ? 'Words' : 'വാക്കുകൾ'}</span>
+                  <span class="stat-label">${t.contentWordsUnit}</span>
                 </div>
                 <div class="content-stat-card">
                   <span class="stat-icon">⏱️</span>
                   <span class="stat-val">~${pageContent?.readingTimeMinutes || 1}m</span>
-                  <span class="stat-label">${isEn ? 'Read Time' : 'വായന'}</span>
+                  <span class="stat-label">${isEn ? 'Read Time' : 'വായന സമയം'}</span>
                 </div>
                 <div class="content-stat-card">
                   <span class="stat-icon">📑</span>
@@ -617,6 +702,18 @@ export function renderDiagnosticsView(container, state, setState, onNavigate) {
                 <p class="diag-loading-text">${isEn ? 'Auditing all webpage buttons & action triggers...' : 'പേജിലെ എല്ലാ ബട്ടണുകളും പരിശോധിക്കുന്നു...'}</p>
               </div>
             ` : `
+              <!-- Top Banner: Inspect Specific Button Action -->
+              <div class="btn-audit-top-banner">
+                <button class="btn-inspect-specific-banner ${isPickingElement ? 'is-picking' : ''}" id="btn-inspect-specific-btn-top">
+                  <span class="banner-icon">🎯</span>
+                  <div class="banner-copy">
+                    <strong class="banner-title">${t.btnInspectSpecific}</strong>
+                    <span class="banner-sub">${isPickingElement ? t.btnInspectActive : t.btnInspectSpecificSub}</span>
+                  </div>
+                  <span class="banner-arrow">👉</span>
+                </button>
+              </div>
+
               <!-- Button Audit Overview Strip -->
               <div class="btn-audit-summary-strip">
                 <div class="audit-summary-stat">
@@ -648,38 +745,69 @@ export function renderDiagnosticsView(container, state, setState, onNavigate) {
                 </div>
               ` : ''}
 
-              <!-- Buttons Cards Grid -->
+              <!-- Buttons Cards Grid: Showing Feature, Functionality, Purpose & Error Details -->
               <div class="btn-audit-cards-grid">
                 ${(buttonAudit?.buttons || []).map((btn, idx) => `
-                  <div class="button-audit-card card-status-${btn.status}" data-btn-idx="${idx}">
+                  <div class="button-audit-card card-status-${btn.status || (btn.isFunctioning === false ? 'broken' : 'working')}" data-btn-idx="${idx}">
                     <div class="btn-card-top-row">
-                      <span class="btn-status-pill pill-${btn.status}">
-                        ${btn.status === 'working' ? '🟢' : '🔴'} ${isEn ? btn.statusTextEn : btn.statusTextMl}
+                      <span class="btn-status-pill ${btn.isFunctioning === false || btn.status !== 'working' ? 'pill-broken' : 'pill-working'}">
+                        ${btn.isFunctioning === false || btn.status !== 'working' ? '🔴' : '🟢'} ${btn.isFunctioning === false || btn.status !== 'working' ? (isEn ? (btn.statusTextEn || 'Barrier') : (btn.statusTextMl || 'തടസ്സം')) : (isEn ? 'Working Normally' : 'പ്രവർത്തനക്ഷമം')}
                       </span>
-                      <span class="btn-tag-code">&lt;${btn.tag}&gt; ${btn.selector}</span>
+                      <span class="btn-tag-code">&lt;${btn.tag || 'button'}&gt; ${btn.selector}</span>
                     </div>
 
-                    <h4 class="btn-label-title">"${btn.text}"</h4>
+                    <h4 class="btn-label-title">"${btn.text || btn.title}"</h4>
 
-                    <div class="btn-reason-box">
-                      <span class="reason-icon">❓</span>
-                      <p class="reason-text">${isEn ? btn.reasonEn : btn.reasonMl}</p>
+                    <!-- 1. Feature -->
+                    <div class="btn-card-prop-row">
+                      <span class="prop-mini-label">🏷️ ${t.btnFeature}</span>
+                      <span class="prop-mini-val">${isEn ? (btn.feature || 'Interactive Control') : (btn.featureMl || 'പ്രവർത്തന നിയന്ത്രണം')}</span>
                     </div>
 
-                    <div class="btn-solution-box">
-                      <span class="solution-icon">💡</span>
-                      <p class="solution-text">${isEn ? btn.fixEn : btn.fixMl}</p>
+                    <!-- 2. Functionality -->
+                    <div class="btn-card-prop-row">
+                      <span class="prop-mini-label">⚙️ ${t.btnFunctionality}</span>
+                      <p class="prop-mini-text">${isEn ? (btn.functionality || btn.reasonEn) : (btn.functionalityMl || btn.reasonMl)}</p>
                     </div>
+
+                    <!-- 3. Why this specific button is used for -->
+                    <div class="btn-card-prop-row">
+                      <span class="prop-mini-label">💡 ${t.btnWhyUsed}</span>
+                      <p class="prop-mini-text">${isEn ? (btn.purpose || 'Allows users to interact with this page.') : (btn.purposeMl || 'ഈ പേജിലെ വിവരങ്ങൾ കൈകാര്യം ചെയ്യാൻ സഹായിക്കുന്നു.')}</p>
+                    </div>
+
+                    <!-- 4. Error details if not functioning OR Working status -->
+                    ${btn.isFunctioning === false || btn.status !== 'working' ? `
+                      <div class="btn-card-error-box">
+                        <span class="error-icon">⚠️</span>
+                        <div class="error-content">
+                          <strong class="error-heading">${t.btnErrorDetails}</strong>
+                          <p class="error-reason">${isEn ? (btn.errorDetails || btn.reasonEn) : (btn.errorDetailsMl || btn.reasonMl)}</p>
+                          <p class="error-fix">💡 ${isEn ? btn.fixEn : btn.fixMl}</p>
+                        </div>
+                      </div>
+                    ` : `
+                      <div class="btn-card-working-box">
+                        <span class="working-icon">✅</span>
+                        <p class="working-msg">${t.btnWorkingStatus}</p>
+                      </div>
+                    `}
 
                     <!-- Action buttons toolbar -->
                     <div class="btn-card-actions-toolbar">
                       <button class="btn-action-trigger btn-point-btn" 
+                              data-btn-idx="${idx}"
                               data-selector="${btn.selector}" 
-                              data-title="${btn.text}" 
-                              data-reason="${isEn ? btn.reasonEn : btn.reasonMl}" 
+                              data-title="${btn.text || btn.title}" 
+                              data-reason="${isEn ? (btn.errorDetails || btn.reasonEn) : (btn.errorDetailsMl || btn.reasonMl)}" 
                               data-fix="${isEn ? btn.fixEn : btn.fixMl}">
                         <span>👉</span>
-                        <span>${t.diagPointBtn}</span>
+                        <span>${t.btnPointOnPage}</span>
+                      </button>
+
+                      <button class="btn-action-trigger btn-focus-inspect-btn" data-btn-idx="${idx}">
+                        <span>🔍</span>
+                        <span>${isEn ? 'Inspect Details' : 'വിശദമായി പരിശോധിക്കുക'}</span>
                       </button>
 
                       ${btn.canAutoFix ? `
@@ -692,7 +820,9 @@ export function renderDiagnosticsView(container, state, setState, onNavigate) {
                       ` : ''}
 
                       <button class="btn-action-trigger btn-listen-btn" 
-                              data-text="${isEn ? (btn.reasonEn + '. ' + btn.fixEn) : (btn.reasonMl + '. ' + btn.fixMl)}">
+                              data-text="${isEn 
+                                ? (`${btn.feature || ''}. ${btn.functionality || ''}. ${btn.purpose || ''}. ${btn.isFunctioning === false ? (btn.errorDetails || btn.reasonEn) : t.btnWorkingStatus}`)
+                                : (`${btn.featureMl || ''}. ${btn.functionalityMl || ''}. ${btn.purposeMl || ''}. ${btn.isFunctioning === false ? (btn.errorDetailsMl || btn.reasonMl) : t.btnWorkingStatus}`)}">
                         <span>🔊</span>
                         <span>${t.diagListenBtn}</span>
                       </button>
@@ -853,7 +983,7 @@ export function renderDiagnosticsView(container, state, setState, onNavigate) {
       contentsTabBtn.addEventListener('click', () => {
         activeSubTab = 'contents';
         setState({ diagnosticsSubTab: 'contents' });
-        if (!pageContent) {
+        if (!pageContent || !pageContent.wordCount || pageContent.wordCount === 0) {
           loadContents();
         } else {
           render();
@@ -879,17 +1009,23 @@ export function renderDiagnosticsView(container, state, setState, onNavigate) {
       });
     }
 
-    // 2. Trigger In-Page Element Picker
-    const pickerBtn = container.querySelector('#btn-trigger-picker');
-    if (pickerBtn) {
-      pickerBtn.addEventListener('click', async () => {
-        isPickingElement = true;
-        render();
-        await diagnosticsService.startInPagePicker();
-      });
+    // 2. Trigger In-Page Element Picker for Specific Button Inspection
+    async function triggerPicker() {
+      isPickingElement = true;
+      render();
+      await diagnosticsService.startInPagePicker();
     }
 
-    // 3. Point on Page from Spotlight Card
+    const pickerBtn = container.querySelector('#btn-trigger-picker');
+    if (pickerBtn) pickerBtn.addEventListener('click', triggerPicker);
+
+    const heroInspectBtn = container.querySelector('#btn-hero-inspect-specific');
+    if (heroInspectBtn) heroInspectBtn.addEventListener('click', triggerPicker);
+
+    const topInspectBannerBtn = container.querySelector('#btn-inspect-specific-btn-top');
+    if (topInspectBannerBtn) topInspectBannerBtn.addEventListener('click', triggerPicker);
+
+    // 3. Point on Page from Spotlight Card (with rich button metadata)
     const pointBtn = container.querySelector('.btn-point-on-page');
     if (pointBtn) {
       pointBtn.addEventListener('click', async () => {
@@ -897,7 +1033,14 @@ export function renderDiagnosticsView(container, state, setState, onNavigate) {
         const title = pointBtn.getAttribute('data-title');
         const reason = pointBtn.getAttribute('data-reason');
         const fix = pointBtn.getAttribute('data-fix');
-        await diagnosticsService.pointToElementOnPage(selector, title, reason, fix);
+        const extraInfo = activeInspectedItem ? {
+          feature: isEn ? activeInspectedItem.feature : (activeInspectedItem.featureMl || activeInspectedItem.feature),
+          functionality: isEn ? activeInspectedItem.functionality : (activeInspectedItem.functionalityMl || activeInspectedItem.functionality),
+          purpose: isEn ? activeInspectedItem.purpose : (activeInspectedItem.purposeMl || activeInspectedItem.purpose),
+          isFunctioning: activeInspectedItem.isFunctioning,
+          errorDetails: isEn ? activeInspectedItem.errorDetails : (activeInspectedItem.errorDetailsMl || activeInspectedItem.errorDetails)
+        } : null;
+        await diagnosticsService.pointToElementOnPage(selector, title, reason, fix, extraInfo);
       });
     }
 
@@ -1002,11 +1145,7 @@ export function renderDiagnosticsView(container, state, setState, onNavigate) {
 
     const cleanPickBtn = container.querySelector('#btn-trigger-picker-clean');
     if (cleanPickBtn) {
-      cleanPickBtn.addEventListener('click', async () => {
-        isPickingElement = true;
-        render();
-        await diagnosticsService.startInPagePicker();
-      });
+      cleanPickBtn.addEventListener('click', triggerPicker);
     }
 
     const cleanChatBtn = container.querySelector('#btn-goto-chat-clean');
@@ -1057,13 +1196,41 @@ export function renderDiagnosticsView(container, state, setState, onNavigate) {
       });
     }
 
+    // Point on Page from specific button cards with rich classification metadata
     container.querySelectorAll('.btn-point-btn').forEach(btn => {
       btn.addEventListener('click', async () => {
+        const btnIdx = parseInt(btn.getAttribute('data-btn-idx'), 10);
+        const targetBtn = buttonAudit?.buttons?.[btnIdx];
         const selector = btn.getAttribute('data-selector');
         const title = btn.getAttribute('data-title');
         const reason = btn.getAttribute('data-reason');
         const fix = btn.getAttribute('data-fix');
-        await diagnosticsService.pointToElementOnPage(selector, title, reason, fix);
+        const extraInfo = targetBtn ? {
+          feature: isEn ? targetBtn.feature : (targetBtn.featureMl || targetBtn.feature),
+          functionality: isEn ? targetBtn.functionality : (targetBtn.functionalityMl || targetBtn.functionality),
+          purpose: isEn ? targetBtn.purpose : (targetBtn.purposeMl || targetBtn.purpose),
+          isFunctioning: targetBtn.isFunctioning,
+          errorDetails: isEn ? targetBtn.errorDetails : (targetBtn.errorDetailsMl || targetBtn.errorDetails)
+        } : null;
+        await diagnosticsService.pointToElementOnPage(selector, title, reason, fix, extraInfo);
+      });
+    });
+
+    // Inspect Details in Focus from Button card
+    container.querySelectorAll('.btn-focus-inspect-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const idx = parseInt(btn.getAttribute('data-btn-idx'), 10);
+        if (buttonAudit?.buttons?.[idx]) {
+          const b = buttonAudit.buttons[idx];
+          activeInspectedItem = {
+            ...b,
+            severity: b.status === 'working' ? 'INFO' : 'SERIOUS'
+          };
+          setState({ currentInspectedElement: activeInspectedItem });
+          activeSubTab = 'inspector';
+          setState({ diagnosticsSubTab: 'inspector' });
+          render();
+        }
       });
     });
 
