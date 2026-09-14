@@ -4,3 +4,90 @@ Body: {"error":{"message":"Validation Error(s):\n- inputs.0: String should have 
 [2026-09-12T07:42:42.389Z] Sarvam FAILED — HTTP 400 Bad Request
 Body: {"error":{"message":"Input texts must contain at least one character from the allowed languages.","code":"invalid_request_error","request_id":"20260912_edbf3ddf-2838-4c8a-bbe7-654ff9731e5d"}}
 ---
+[2026-09-12T09:46:08.550Z] Sarvam FAILED — HTTP 403 Forbidden
+Body: {"error":{"message":"Invalid or missing authentication credentials","code":"invalid_api_key_error","request_id":"20260912_027fe349-5119-4c36-b288-f923fff7035c"}}
+---
+[2026-09-12T09:46:08.570Z] Sarvam primary failed: Sarvam API request failed with status 403. Attempting local Piper fallback...
+[2026-09-12T09:46:44.857Z] Sarvam FAILED — HTTP 403 Forbidden
+Body: {"error":{"message":"Invalid or missing authentication credentials","code":"invalid_api_key_error","request_id":"20260912_38b7a8c3-6f2f-4b5a-a36e-99e1f29f2f98"}}
+---
+[2026-09-12T09:46:44.861Z] Sarvam primary failed: Sarvam API request failed with status 403. Attempting local Piper fallback...
+[2026-09-12T09:47:21.042Z] Sarvam FAILED — HTTP 403 Forbidden
+Body: {"error":{"message":"Invalid or missing authentication credentials","code":"invalid_api_key_error","request_id":"20260912_a8dbb689-cec0-4543-8d7e-9b2af6e06ab8"}}
+---
+[2026-09-12T09:47:21.047Z] Sarvam primary failed: Sarvam API request failed with status 403. Attempting local Piper fallback...
+[2026-09-12T09:48:14.896Z] Sarvam FAILED — HTTP 403 Forbidden
+Body: {"error":{"message":"Invalid or missing authentication credentials","code":"invalid_api_key_error","request_id":"20260912_38c7abff-2fe5-48aa-9370-6c158993281c"}}
+---
+[2026-09-12T09:48:14.898Z] Sarvam primary failed: Sarvam API request failed with status 403. Attempting local Piper fallback...
+[2026-09-12T09:54:10.122Z] Sarvam FAILED — HTTP 403 Forbidden
+Body: {"error":{"message":"Invalid or missing authentication credentials","code":"invalid_api_key_error","request_id":"20260912_01bf02b8-d0b5-49ea-a80a-a023a02093b2"}}
+---
+[2026-09-12T09:54:10.128Z] Sarvam primary failed: Sarvam API request failed with status 403. Attempting local Piper fallback...
+[2026-09-12T10:01:58.619Z] Sarvam FAILED — HTTP 403 Forbidden
+Body: {"error":{"message":"Invalid or missing authentication credentials","code":"invalid_api_key_error","request_id":"20260912_a3fdb229-cf11-4454-b796-bb7a6ea0c69f"}}
+---
+[2026-09-12T10:01:58.623Z] Sarvam primary failed: Sarvam API request failed with status 403. Attempting local Piper fallback...
+[2026-09-12T10:02:39.336Z] Sarvam FAILED — HTTP 403 Forbidden
+Body: {"error":{"message":"Invalid or missing authentication credentials","code":"invalid_api_key_error","request_id":"20260912_aba8a77f-86b6-4baa-bf9d-cb107b52bf7c"}}
+---
+[2026-09-12T10:02:39.342Z] Sarvam primary failed: Sarvam API request failed with status 403. Attempting local Piper fallback...
+[2026-09-12T10:10:42.608Z] Sarvam FAILED — HTTP 403 Forbidden
+Body: {"error":{"message":"Invalid or missing authentication credentials","code":"invalid_api_key_error","request_id":"20260912_bde49d8d-b357-47f2-b39d-8427c5c68556"}}
+---
+[2026-09-12T10:10:42.612Z] Sarvam primary failed: Sarvam API request failed with status 403. Attempting local Piper fallback...
+[2026-09-12T10:14:18.619Z] Sarvam FAILED — HTTP 403 Forbidden
+Body: {"error":{"message":"Invalid or missing authentication credentials","code":"invalid_api_key_error","request_id":"20260912_fd3555c9-1fbd-4599-bcc3-753fb8442ff9"}}
+---
+[2026-09-12T10:14:18.625Z] Sarvam primary failed: Sarvam API request failed with status 403. Attempting local Piper fallback...
+[2026-09-12T10:15:56.811Z] Sarvam FAILED — HTTP 403 Forbidden
+Body: {"error":{"message":"Invalid or missing authentication credentials","code":"invalid_api_key_error","request_id":"20260912_d46fffcc-4cd3-49f1-a8b9-83e5bbb9474b"}}
+---
+[2026-09-12T10:15:56.815Z] Sarvam primary failed: Sarvam API request failed with status 403. Attempting local Piper fallback...
+[2026-09-12T11:00:06.131Z] Sarvam FAILED — HTTP 403 Forbidden
+Body: {"error":{"message":"Invalid or missing authentication credentials","code":"invalid_api_key_error","request_id":"20260912_cf85c948-0a22-439c-9917-c886a973bac8"}}
+---
+[2026-09-12T11:00:06.136Z] Sarvam primary failed: Sarvam API request failed with status 403. Attempting local Piper fallback...
+[2026-09-12T11:13:32.725Z] Sarvam FAILED — HTTP 403 Forbidden
+Body: {"error":{"message":"Invalid or missing authentication credentials","code":"invalid_api_key_error","request_id":"20260912_daf9be8f-68aa-4378-a163-20b08927b241"}}
+---
+[2026-09-12T11:13:32.735Z] Sarvam primary failed: Sarvam API request failed with status 403. Attempting local Piper fallback...
+[2026-09-12T11:13:32.872Z] Sarvam FAILED — HTTP 403 Forbidden
+Body: {"error":{"message":"Invalid or missing authentication credentials","code":"invalid_api_key_error","request_id":"20260912_22fa58d5-65f4-4969-9735-dd71f2d0ac4a"}}
+---
+[2026-09-12T11:13:32.976Z] Sarvam FAILED — HTTP 403 Forbidden
+Body: {"error":{"message":"Invalid or missing authentication credentials","code":"invalid_api_key_error","request_id":"20260912_0dcdc027-d9c5-4eef-9d47-106e59654dc6"}}
+---
+[2026-09-12T11:13:46.119Z] Sarvam FAILED — HTTP 403 Forbidden
+Body: {"error":{"message":"Invalid or missing authentication credentials","code":"invalid_api_key_error","request_id":"20260912_620cb25c-1741-4bab-a801-108dfb3a64b3"}}
+---
+[2026-09-12T11:13:46.138Z] Sarvam primary failed: Sarvam API request failed with status 403. Attempting local Piper fallback...
+[2026-09-12T11:13:46.177Z] Sarvam FAILED — HTTP 403 Forbidden
+Body: {"error":{"message":"Invalid or missing authentication credentials","code":"invalid_api_key_error","request_id":"20260912_e8f622ca-51c0-4846-a5b7-85c303553e59"}}
+---
+[2026-09-12T11:13:46.205Z] Sarvam FAILED — HTTP 403 Forbidden
+Body: {"error":{"message":"Invalid or missing authentication credentials","code":"invalid_api_key_error","request_id":"20260912_156541f2-5eae-4d29-a123-a9b841fd2897"}}
+---
+[2026-09-12T11:14:29.376Z] Sarvam FAILED — HTTP 403 Forbidden
+Body: {"error":{"message":"Invalid or missing authentication credentials","code":"invalid_api_key_error","request_id":"20260912_f6c214c8-709f-406e-97cf-6919b3e15649"}}
+---
+[2026-09-12T11:14:29.378Z] Sarvam primary failed: Sarvam API request failed with status 403. Attempting local Piper fallback...
+[2026-09-12T11:14:29.401Z] Sarvam FAILED — HTTP 403 Forbidden
+Body: {"error":{"message":"Invalid or missing authentication credentials","code":"invalid_api_key_error","request_id":"20260912_62fd96e7-3ffd-48f6-b000-bd198bc391d8"}}
+---
+[2026-09-12T11:14:29.406Z] Sarvam FAILED — HTTP 403 Forbidden
+Body: {"error":{"message":"Invalid or missing authentication credentials","code":"invalid_api_key_error","request_id":"20260912_5e0af788-0dc2-4ef2-8175-0ce13dd2a4f4"}}
+---
+[2026-09-12T11:14:42.749Z] Sarvam FAILED — HTTP 403 Forbidden
+Body: {"error":{"message":"Invalid or missing authentication credentials","code":"invalid_api_key_error","request_id":"20260912_0d167083-89b8-43b9-84a4-b1343b084bb4"}}
+---
+[2026-09-12T11:14:42.753Z] Sarvam primary failed: Sarvam API request failed with status 403. Attempting local Piper fallback...
+[2026-09-12T11:14:42.778Z] Sarvam FAILED — HTTP 403 Forbidden
+Body: {"error":{"message":"Invalid or missing authentication credentials","code":"invalid_api_key_error","request_id":"20260912_6790fec9-3c61-4174-8b30-1cb6e2810767"}}
+---
+[2026-09-12T11:14:42.781Z] Sarvam FAILED — HTTP 403 Forbidden
+Body: {"error":{"message":"Invalid or missing authentication credentials","code":"invalid_api_key_error","request_id":"20260912_97f1d6b2-36d9-4d35-82c5-8e459b1a2f13"}}
+---
+[2026-09-14T13:30:40.921Z] Sarvam FAILED — HTTP 400 Bad Request
+Body: {"error":{"message":"Input texts must contain at least one character from the allowed languages.","code":"invalid_request_error","request_id":"20260914_f5e83aef-6733-4ab3-9028-e4d55f39436b"}}
+---

@@ -1,0 +1,7 @@
+Exit Code: 0
+Generated WAV Size: 119340 bytes
+RIFF Header String: RIFF
+RIFF Header Hex: 5249464624d2010057415645666d7420
+Sample Rate (Bytes 24-27 LE): 22050 Hz
+Num Channels (Bytes 22-23 LE): 1
+Bits Per Sample (Bytes 34-35 LE): 16 bits
