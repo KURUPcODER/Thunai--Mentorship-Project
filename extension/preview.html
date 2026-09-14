@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Thunai (തുണ) — Live Extension & Webpage Preview Testbed</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+Malayalam:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: #060911;
+      color: #E2E8F0;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      height: 100dvh;
+      overflow: hidden;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    /* Top Mock Browser Chrome Toolbar */
+    .browser-toolbar {
+      height: 52px;
+      background: #0B0F19;
+      border-bottom: 1px solid #1E293B;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      gap: 16px;
+      flex-shrink: 0;
+    }
+
+    .browser-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+    .dot-red { background: #EF4444; }
+    .dot-yellow { background: #F59E0B; }
+    .dot-green { background: #10B981; }
+
+    .browser-nav-arrows {
+      display: flex;
+      gap: 6px;
+      margin-left: 10px;
+      color: #64748B;
+      font-size: 14px;
+    }
+
+    .browser-omnibox {
+      flex: 1;
+      max-width: 680px;
+      background: #121827;
+      border: 1px solid #1E293B;
+      border-radius: 8px;
+      padding: 6px 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: #94A3B8;
+    }
+
+    .browser-omnibox .url-protocol { color: #10B981; }
+    .browser-omnibox .url-domain { color: #F8FAFC; font-weight: 600; }
+
+    .browser-extension-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .btn-extension-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: #1A2234;
+      border: 1px solid #F5C518;
+      color: #F5C518;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 0 10px rgba(245, 197, 24, 0.2);
+      touch-action: manipulation;
+    }
+
+    /* Mobile Segmented Switcher (Visible on screens <= 860px) */
+    .mobile-view-tabs {
+      display: none;
+      background: #121827;
+      border-bottom: 1px solid #1E293B;
+      padding: 6px 10px;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .mobile-view-tab {
+      flex: 1;
+      padding: 8px 10px;
+      border-radius: 8px;
+      background: transparent;
+      border: 1.5px solid transparent;
+      color: #94A3B8;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+      touch-action: manipulation;
+      min-height: 40px;
+    }
+
+    .mobile-view-tab.active {
+      background: #1E293B;
+      border-color: #F5C518;
+      color: #F5C518;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+    }
+
+    /* Floating Action Button (FAB) on mobile */
+    .mobile-thunai-fab {
+      display: none;
+      position: fixed;
+      bottom: max(22px, env(safe-area-inset-bottom, 22px));
+      right: 18px;
+      background: linear-gradient(135deg, #D97706 0%, #DC2626 100%);
+      color: #FFFFFF;
+      border: 2px solid #FEF3C7;
+      border-radius: 9999px;
+      padding: 10px 18px;
+      box-shadow: 0 8px 24px rgba(217, 119, 6, 0.5);
+      cursor: pointer;
+      z-index: 99999;
+      font-weight: 800;
+      font-size: 13.5px;
+      align-items: center;
+      gap: 8px;
+      touch-action: manipulation;
+      transition: all 0.2s ease;
+    }
+
+    .mobile-thunai-fab:active {
+      transform: scale(0.95);
+    }
+
+    .fab-bubble {
+      background: rgba(255, 255, 255, 0.25);
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+    }
+
+    /* Main Workspace Layout (Page on left, Thunai SidePanel on right) */
+    .workspace-split {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* Simulated Webpage (Wikipedia / Government Portal) */
+    .simulated-webpage-pane {
+      flex: 1;
+      background: #FFFFFF;
+      color: #202122;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      padding: 40px 60px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      position: relative;
+    }
+
+    .wiki-header {
+      border-bottom: 1px solid #A2A9B1;
+      padding-bottom: 8px;
+      margin-bottom: 20px;
+    }
+
+    .wiki-title {
+      font-size: 28px;
+      font-family: 'Linux Libertine', 'Georgia', Times, serif;
+      font-weight: 400;
+    }
+
+    .wiki-content {
+      line-height: 1.7;
+      font-size: 15px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .wiki-img-card {
+      float: right;
+      margin: 0 0 20px 20px;
+      background: #F8F9FA;
+      border: 1px solid #C8CCD1;
+      padding: 8px;
+      max-width: 240px;
+      border-radius: 4px;
+    }
+
+    .wiki-img-card img {
+      width: 100%;
+      height: 140px;
+      background: #CBD5E1;
+      display: block;
+      border-radius: 2px;
+      object-fit: cover;
+    }
+
+    .wiki-img-caption {
+      font-size: 12px;
+      color: #54595D;
+      margin-top: 6px;
+    }
+
+    /* Thunai SidePanel Container */
+    .thunai-sidebar-pane {
+      width: 400px;
+      min-width: 380px;
+      max-width: 420px;
+      background: #0B0F19;
+      border-left: 1px solid #1E293B;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
+
+    .sidebar-frame {
+      width: 100%;
+      height: 100%;
+      border: none;
+      background: #0B0F19;
+    }
+
+    /* Responsive Styles for Mobile & Tablets (<= 860px) */
+    @media (max-width: 860px) {
+      .browser-toolbar {
+        height: auto;
+        padding: 8px 12px;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .browser-omnibox {
+        order: 3;
+        width: 100%;
+        max-width: 100%;
+      }
+
+      .browser-extension-actions {
+        margin-left: auto;
+      }
+
+      .mobile-view-tabs {
+        display: flex;
+      }
+
+      .simulated-webpage-pane {
+        padding: 20px 16px max(80px, env(safe-area-inset-bottom, 80px)) 16px;
+        width: 100%;
+        display: block;
+      }
+
+      .wiki-title {
+        font-size: 22px;
+      }
+
+      .wiki-img-card {
+        float: none;
+        max-width: 100%;
+        margin: 0 0 16px 0;
+      }
+
+      .thunai-sidebar-pane {
+        width: 100%;
+        max-width: 100%;
+        min-width: 100%;
+        border-left: none;
+        display: none;
+        height: 100%;
+      }
+
+      /* View Switching States on Mobile */
+      .workspace-split.view-mode-thunai .simulated-webpage-pane {
+        display: none;
+      }
+
+      .workspace-split.view-mode-thunai .thunai-sidebar-pane {
+        display: flex;
+      }
+
+      .workspace-split.view-mode-page .mobile-thunai-fab {
+        display: inline-flex;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Mock Browser Toolbar -->
+  <header class="browser-toolbar">
+    <div class="browser-controls">
+      <span class="dot dot-red"></span>
+      <span class="dot dot-yellow"></span>
+      <span class="dot dot-green"></span>
+      <div class="browser-nav-arrows">
+        <span>←</span>
+        <span>→</span>
+        <span>⟳</span>
+      </div>
+    </div>
+
+    <div class="browser-omnibox">
+      <span class="url-protocol">🔒 https://</span>
+      <span class="url-domain">ml.wikipedia.org/wiki/കേരളം</span>
+    </div>
+
+    <div class="browser-extension-actions">
+      <div class="btn-extension-badge" title="Toggle Thunai Assistant">
+        <span>തു</span>
+        <span>Thunai SidePanel Active</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Mobile Segmented Switcher (Visible on mobile/tablets <= 860px) -->
+  <nav class="mobile-view-tabs" id="mobile-view-switcher" role="tablist" aria-label="Mobile View Switcher">
+    <button class="mobile-view-tab active" id="btn-tab-page" role="tab" aria-selected="true">
+      <span>📄</span>
+      <span>വെബ്‌പേജ് (Webpage)</span>
+    </button>
+    <button class="mobile-view-tab" id="btn-tab-thunai" role="tab" aria-selected="false">
+      <span>🤖</span>
+      <span>തുണ അസിസ്റ്റന്റ് (Thunai)</span>
+    </button>
+  </nav>
+
+  <!-- Workspace Split: Live Page + Thunai Sidebar -->
+  <div class="workspace-split view-mode-page" id="workspace-split-container">
+    
+    <!-- Left: Simulated Active Webpage -->
+    <main class="simulated-webpage-pane" id="mock-webpage-target">
+      <div class="wiki-header">
+        <h1 class="wiki-title" id="firstHeading">കേരളം (Kerala)</h1>
+        <div id="siteSub" class="noprint" style="font-size: 12px; color: #54595D;">വിക്കിപീഡിയ, ഒരു സ്വതന്ത്ര വിജ്ഞാനകോശം.</div>
+      </div>
+
+      <div class="wiki-content">
+        <div class="wiki-img-card">
+          <!-- Missing Alt text for axe-core scan demonstration -->
+          <img src="https://images.unsplash.com/photo-1602216056096-3b40cc0c9944?w=400&q=80" class="mw-file-element" />
+          <p class="wiki-img-caption">കേരളത്തിലെ കായൽ സൗന്ദര്യം (Alappuzha Backwaters)</p>
+        </div>
+
+        <p class="thunai-reading-target">
+          ഇന്ത്യയുടെ തെക്കുപടിഞ്ഞാറൻ മലബാർ തീരത്ത് സ്ഥിതി ചെയ്യുന്ന ഒരു സംസ്ഥാനമാണ് കേരളം. സംസ്ഥാന പുനഃസംഘടനാ നിയമം പാസാക്കിയതിനെത്തുടർന്ന് 1956 നവംബർ 1-നാണ് ഇത് രൂപീകൃതമായത്.
+        </p>
+
+        <p class="thunai-reading-target">
+          38,863 ചതുരശ്ര കിലോമീറ്റർ വിസ്തീർണ്ണമുള്ള കേരളം വിസ്തീർണ്ണത്തിൽ ഇന്ത്യയിലെ ഇരുപത്തിയൊന്നാമത്തെ വലിയ സംസ്ഥാനമാണ്. വടക്കും വടക്കുകിഴക്കും കർണാടകവും കിഴക്കും തെക്കും തമിഴ്‌നാടും പടിഞ്ഞാറ് ലക്ഷദ്വീപ് കടലുമാണ് ഇതിന്റെ അതിരുകൾ.
+        </p>
+
+        <h3>ചരിത്രം (History)</h3>
+        <h5 class="mw-headline" id="ഭരണകാലം">ചേര സാമ്രാജ്യം (Chera Dynasty)</h5>
+        <p>
+          സംഘകാലത്ത് ചേര രാജവംശത്തിന്റെ അധീനതയിലായിരുന്നു കേരളത്തിന്റെ ഭൂരിഭാഗം പ്രദേശങ്ങളും. വിദേശ വ്യാപാര ബന്ധങ്ങളിൽ സുഗന്ധവ്യഞ്ജന വ്യാപാരം വളരെ പ്രാധാന്യമർഹിക്കുന്നതായിരുന്നു.
+        </p>
+
+        <!-- Government Portal Application & Service Test Area -->
+        <div style="margin-top: 25px; padding: 18px; background: #F8FAFC; border: 1.5px solid #E2E8F0; border-radius: 8px;">
+          <h4 style="color: #0F172A; margin-bottom: 8px;">ഇ-സർവീസ് അപേക്ഷാ പോർട്ടൽ (E-Service Portal)</h4>
+          <p style="font-size: 13px; color: #475569; margin-bottom: 12px;">
+            പൊതുജനങ്ങൾക്ക് സർട്ടിഫിക്കറ്റുകൾക്കായി ഓൺലൈൻ അപേക്ഷ (Application) സമർപ്പിക്കാം. അവസാന തീയതി (Date): 30 സെപ്റ്റംബർ. അപേക്ഷാ ഫീസ് (Fee): ₹50.
+          </p>
+          <form onsubmit="return false;" style="display: flex; flex-direction: column; gap: 10px;">
+            <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+              <input type="text" id="applicant-reg-no" required placeholder="രജിസ്ട്രേഷൻ നമ്പർ / Reg No (*)" style="padding: 8px 10px; border: 1.5px solid #CBD5E1; border-radius: 6px; font-size: 13px; min-width: 220px; flex: 1;">
+              <button id="btn-portal-submit" disabled style="background: #94A3B8; color: white; border: none; padding: 8px 16px; border-radius: 6px; font-weight: 700; cursor: not-allowed;">
+                അപേക്ഷ സമർപ്പിക്കുക (Submit Application)
+              </button>
+            </div>
+            <div style="font-size: 12px; color: #DC2626; display: flex; align-items: center; gap: 5px;">
+              <span>⚠️</span>
+              <span>രജിസ്ട്രേഷൻ നമ്പർ നൽകാത്തതിനാൽ സബ്മിറ്റ് ബട്ടൺ നിഷ്ക്രിയമാക്കിയിരിക്കുന്നു (Disabled). 'Why doesn't this work?' ഉപയോഗിച്ച് പരിശോധിക്കാം.</span>
+            </div>
+          </form>
+        </div>
+
+        <div style="margin-top: 15px;">
+          <input type="checkbox" id="vector-main-menu-dropdown-checkbox" role="button" aria-haspopup="true" />
+          <label for="vector-main-menu-dropdown-checkbox" style="font-size: 13px; margin-left: 6px;">മെനു വിപുലീകരിക്കുക (Expand Menu)</label>
+        </div>
+
+        <div style="margin-top: 20px; padding: 10px; background: #F8F9FA; border-radius: 4px;">
+          <a href="#" class="vector-menu-content-item" style="color: #72777d; font-size: 13px; text-decoration: none;">
+            സമീപകാല മാറ്റങ്ങൾ (Recent Changes) — Low Contrast Link
+          </a>
+        </div>
+      </div>
+    </main>
+
+    <!-- Right: Thunai SidePanel (Embedded Sidebar) -->
+    <aside class="thunai-sidebar-pane" aria-label="Thunai Accessibility Extension SidePanel">
+      <iframe src="sidebar/index.html" class="sidebar-frame" id="thunai-sidebar-frame" title="Thunai SidePanel"></iframe>
+    </aside>
+
+  </div>
+
+  <!-- Load content-script.js for live in-page inspection & heatmap testbed hooks -->
+  <script src="content-script.js"></script>
+
+</body>
+</html>
