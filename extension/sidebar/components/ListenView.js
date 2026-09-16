@@ -7,6 +7,20 @@
 import { ttsService } from '../../services/ttsService.js';
 
 export function renderListenView(container, state, setState) {
+  // If scan report is loading/null, render neutral loading state to prevent stale content flash
+  if (!state.scanReport || state.isScanning) {
+    const isEn = state.currentLang === 'en';
+    container.innerHTML = `
+      <div class="view-panel listen-view animate-fade-in" id="panel-listen" role="tabpanel" aria-labelledby="tab-listen">
+        <div class="scan-pipeline-progress-card animate-fade-in" style="margin: 30px auto; text-align: center;">
+          <div class="spinner-large"></div>
+          <h3 class="loading-title" style="margin-top: 14px;">${isEn ? 'Loading Page Audio...' : 'പേജ് ഉള്ളടക്കം ലഭ്യമാക്കുന്നു...'}</h3>
+        </div>
+      </div>
+    `;
+    return;
+  }
+
   // Hydrate segment-by-segment playback from universal scanReport
   if (state.scanReport?.textSegments && state.scanReport.textSegments.length > 0) {
     ttsService.loadSegments(state.scanReport.textSegments);
@@ -31,6 +45,10 @@ export function renderListenView(container, state, setState) {
   }
 
   function render() {
+    const existingPanel = container.querySelector('#panel-listen');
+    const savedScrollTop = existingPanel ? existingPanel.scrollTop : 0;
+    const savedContainerScrollTop = container ? container.scrollTop : 0;
+
     ttsState = ttsService.getState();
     const seg = ttsState.currentSegment || {
       tag: "കേരളം - വിക്കിപീഡിയ",
@@ -150,22 +168,6 @@ export function renderListenView(container, state, setState) {
           </div>
         </div>
 
-        <!-- Voice Selection Dropdown -->
-        <div class="voice-picker-card">
-          <label class="voice-picker-label" for="select-tts-voice">
-            <span class="label-ml">ശബ്ദം തിരഞ്ഞെടുക്കുക (Voice)</span>
-          </label>
-          <div class="custom-select-wrapper">
-            <select id="select-tts-voice" class="custom-select" aria-label="Select Malayalam Speech Voice">
-              ${ttsState.voices.map(v => `
-                <option value="${v.id}" ${v.id === ttsState.selectedVoice ? 'selected' : ''}>
-                  ${v.name}
-                </option>
-              `).join('')}
-            </select>
-          </div>
-        </div>
-
         <!-- In-Page Sync Explanatory Note -->
         <div class="sync-info-footer">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#38BDF8" stroke-width="2">
@@ -180,6 +182,15 @@ export function renderListenView(container, state, setState) {
     `;
 
     attachEvents();
+
+    const newPanel = container.querySelector('#panel-listen');
+    if (newPanel && savedScrollTop > 0) {
+      newPanel.scrollTop = savedScrollTop;
+    }
+    if (container && savedContainerScrollTop > 0) {
+      container.scrollTop = savedContainerScrollTop;
+    }
+
     if (ttsState.isPlaying) {
       triggerInPageHighlight(seg.selector);
     }
@@ -228,14 +239,6 @@ export function renderListenView(container, state, setState) {
         const readout = container.querySelector('#speed-val-readout');
         if (readout) readout.textContent = `${parseFloat(val).toFixed(1)}x`;
         ttsService.setSpeed(val);
-      });
-    }
-
-    // Voice Selector
-    const voiceSelect = container.querySelector('#select-tts-voice');
-    if (voiceSelect) {
-      voiceSelect.addEventListener('change', (e) => {
-        ttsService.setVoice(e.target.value);
       });
     }
   }

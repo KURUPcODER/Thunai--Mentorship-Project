@@ -112,7 +112,7 @@ export function renderScanView(container, state, setState, onNavigate) {
   }
 
   function render() {
-    const report = scanReport || mockScanReport;
+    const report = scanReport || (isScanning ? { meta: { title: isEn ? 'Scanning Webpage...' : 'പേജ് പരിശോധിക്കുന്നു...' }, url: '' } : mockScanReport);
     const score = report.score ?? (report.summary?.score ?? 78);
     // Green: 85+, Amber: 60-84, Red: <60
     const scoreColor = score >= 85 ? '#16A34A' : (score >= 60 ? '#D97706' : '#DC2626');
@@ -132,7 +132,7 @@ export function renderScanView(container, state, setState, onNavigate) {
         <div class="scan-top-strip">
           <div class="page-title-badge" title="${report.url || 'Active Page'}">
             <span class="page-dot"></span>
-            <span class="page-name-text">${report.meta?.title || report.pageTitle || 'Active Webpage'}</span>
+            <span class="page-name-text">${isScanning ? (isEn ? 'Scanning Active Page...' : 'തത്സമയം പേജ് പരിശോധിക്കുന്നു...') : (report.meta?.title || report.pageTitle || 'Active Webpage')}</span>
           </div>
 
           <button class="btn-rescan-pill" id="btn-rescan-page" ${isScanning ? 'disabled' : ''}>

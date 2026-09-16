@@ -13,12 +13,17 @@ import { renderDyslexiaModeView } from './components/DyslexiaModeView.js';
 import { renderFixReviewView } from './components/FixReviewView.js';
 import { renderDiagnosticsView } from './components/DiagnosticsView.js';
 import { renderGovPortalView } from './components/GovPortalView.js';
-import { getLatestScan } from '../services/scanService.js';
+import { scanPage, getLatestScan } from '../services/scanService.js';
 
 class ThunaiApp {
   constructor() {
     this.navRoot = document.getElementById('nav-root');
     this.viewRoot = document.getElementById('view-root');
+
+    // Tab & Page Identity Tracking for Dynamic Synchronization
+    this.currentTabId = null;
+    this.currentTabUrl = null;
+    this.scanRequestId = 0;
 
     // Global State
     this.state = {
@@ -60,6 +65,7 @@ class ThunaiApp {
     this.goBack = this.goBack.bind(this);
     this.setState = this.setState.bind(this);
     this.toggleLanguage = this.toggleLanguage.bind(this);
+    this.refreshActiveTabState = this.refreshActiveTabState.bind(this);
 
     this.init();
   }
@@ -93,6 +99,66 @@ class ThunaiApp {
     } else {
       this.state.currentView = 'launcher';
       this.render();
+    }
+  }
+
+  /**
+   * Dynamically refreshes sidebar state when user navigates pages or switches tabs
+   */
+  async refreshActiveTabState() {
+    if (typeof chrome === 'undefined' || !chrome.tabs || !chrome.tabs.query) {
+      return;
+    }
+
+    try {
+      const tabs = await new Promise((resolve) => {
+        chrome.tabs.query({ active: true, currentWindow: true }, resolve);
+      });
+
+      if (!tabs || !tabs[0]) return;
+
+      const activeTab = tabs[0];
+      const tabId = activeTab.id;
+      const url = activeTab.url || '';
+
+      // Skip non-web extension internal pages (e.g. chrome://, about:blank)
+      if (url.startsWith('chrome://') || url.startsWith('chrome-extension://') || url.startsWith('about:')) {
+        return;
+      }
+
+      // Deduplication: Skip scan if tab ID & URL have not changed and valid scan exists
+      if (tabId === this.currentTabId && url === this.currentTabUrl && this.state.scanReport && this.state.scanReport.url === url) {
+        return;
+      }
+
+      // Record active tab identity
+      this.currentTabId = tabId;
+      this.currentTabUrl = url;
+
+      // Increment request ID for race condition protection
+      const requestId = ++this.scanRequestId;
+
+      // Invalidate stale page-specific state
+      this.state.scanReport = null;
+      this.state.isScanning = true;
+      this.state.translatedData = null;
+      this.state.hasTranslated = false;
+      this.state.isTranslating = false;
+
+      // Render updated loading state
+      this.render();
+
+      // Retrieve fresh scan using existing scanPage service
+      const freshReport = await scanPage();
+
+      // Guard against stale async results (race condition protection)
+      if (requestId === this.scanRequestId && freshReport && (freshReport.url === url || !url || url === this.currentTabUrl)) {
+        this.state.scanReport = freshReport;
+        this.state.isScanning = false;
+        this.render();
+      }
+    } catch (err) {
+      console.warn("Sidebar tab refresh error:", err);
     }
   }
 
@@ -163,7 +229,24 @@ class ThunaiApp {
       }
     });
 
-    // Hydrate latest scan from chrome.storage.local
+    // Register Chrome extension event listeners for dynamic page & tab synchronization
+    if (typeof chrome !== 'undefined' && chrome.tabs) {
+      chrome.tabs.onActivated.addListener(() => {
+        this.refreshActiveTabState();
+      });
+
+      chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
+        if (changeInfo.status === 'complete' || changeInfo.url) {
+          chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+            if (tabs && tabs[0] && tabs[0].id === tabId) {
+              this.refreshActiveTabState();
+            }
+          });
+        }
+      });
+    }
+
+    // Hydrate cached scan initially if offline/preview
     try {
       const cachedScan = await getLatestScan();
       if (cachedScan && !this.state.scanReport) {
@@ -172,6 +255,9 @@ class ThunaiApp {
     } catch(err) {
       console.warn("Could not hydrate cached scan:", err);
     }
+
+    // Perform initial active tab sync
+    await this.refreshActiveTabState();
 
     this.render();
   }
