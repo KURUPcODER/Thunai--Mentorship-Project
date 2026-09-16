@@ -1,0 +1,32 @@
+[
+  {
+    "idx": 0,
+    "tagName": "H1",
+    "originalText": "ബസ് അപകടം റിപ്പോർട്ട് ചെയ്യുന്നതിനിടെ ന്യൂസ് ഹെലിക",
+    "structuralSelector": "div#article-body > div:nth-of-type(1) > div:nth-of-type(1) > h1",
+    "foundPostHydration": true,
+    "stillHasAttribute": false,
+    "textMatches": true,
+    "textAfter": "ബസ് അപകടം റിപ്പോർട്ട് ചെയ്യുന്നതിനിടെ ന്യൂസ് ഹെലിക"
+  },
+  {
+    "idx": 1,
+    "tagName": "H2",
+    "originalText": "ഹെലികോപ്റ്റർ തകർന്നുവീഴുന്നതിന് തൊട്ടുമുമ്പുള്ള അസ",
+    "structuralSelector": "div#article-body > div:nth-of-type(1) > div:nth-of-type(1) > h2",
+    "foundPostHydration": true,
+    "stillHasAttribute": false,
+    "textMatches": true,
+    "textAfter": "ഹെലികോപ്റ്റർ തകർന്നുവീഴുന്നതിന് തൊട്ടുമുമ്പുള്ള അസ"
+  },
+  {
+    "idx": 2,
+    "tagName": "DIV",
+    "originalText": "Impact Shorts\nഗേറ്റ് വേ ഏറ്റവും പുതിയ വാർത്തയ്ക്കാ",
+    "structuralSelector": "a#radidRead > div",
+    "foundPostHydration": true,
+    "stillHasAttribute": false,
+    "textMatches": true,
+    "textAfter": "Impact Shorts\nഗേറ്റ് വേ ഏറ്റവും പുതിയ വാർത്തയ്ക്കാ"
+  }
+]

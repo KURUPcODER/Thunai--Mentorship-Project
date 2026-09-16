@@ -1,0 +1,42 @@
+[
+  {
+    "segId": "seg-9",
+    "originalTextSnippet": "ബസ് അപകടം റിപ്പോർട്ട് ചെയ്യുന്...",
+    "exactMatchesFound": 3,
+    "substringMatchesFound": 0,
+    "matchSamples": [
+      {
+        "tag": "H1",
+        "textMatch": "EXACT"
+      },
+      {
+        "tag": "DIV",
+        "textMatch": "EXACT"
+      }
+    ]
+  },
+  {
+    "segId": "seg-13",
+    "originalTextSnippet": "Impact Shorts\nഗേറ്റ് വേ ഏറ്റവു...",
+    "exactMatchesFound": 1,
+    "substringMatchesFound": 0,
+    "matchSamples": [
+      {
+        "tag": "DIV",
+        "textMatch": "EXACT"
+      }
+    ]
+  },
+  {
+    "segId": "seg-47",
+    "originalTextSnippet": "അടൂരിലും അജ്ഞാതർ ഫ്യൂസ് ഊരി മാ...",
+    "exactMatchesFound": 1,
+    "substringMatchesFound": 0,
+    "matchSamples": [
+      {
+        "tag": "DIV",
+        "textMatch": "EXACT"
+      }
+    ]
+  }
+]

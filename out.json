@@ -1,0 +1,56 @@
+{
+  "directTagMatchesFound": 30,
+  "top10": [
+    {
+      "tag": "title",
+      "textLen": 113,
+      "textSnippet": "ബസ് അപകടം റിപ്പോർട്ട് ചെയ്യുന്"
+    },
+    {
+      "tag": "script",
+      "textLen": 676,
+      "textSnippet": "{\"@context\":\"https://schema.or"
+    },
+    {
+      "tag": "script",
+      "textLen": 842,
+      "textSnippet": "{\"@context\":\"https://schema.or"
+    },
+    {
+      "tag": "script",
+      "textLen": 4890,
+      "textSnippet": "{\"author\":[{\"@type\":\"Person\",\""
+    },
+    {
+      "tag": "script",
+      "textLen": 771,
+      "textSnippet": "{\"@context\":\"https://schema.or"
+    },
+    {
+      "tag": "script",
+      "textLen": 4168,
+      "textSnippet": "if (typeof _GAParams !== 'unde"
+    },
+    {
+      "tag": "h1",
+      "textLen": 81,
+      "textSnippet": "ബസ് അപകടം റിപ്പോർട്ട് ചെയ്യുന്"
+    },
+    {
+      "tag": "h2",
+      "textLen": 124,
+      "textSnippet": "ഹെലികോപ്റ്റർ തകർന്നുവീഴുന്നതിന"
+    },
+    {
+      "tag": "div",
+      "textLen": 473,
+      "textSnippet": "ലോസ് ഏഞ്ചൽസിലെ ചാറ്റ്സ്‌വർത്തി"
+    },
+    {
+      "tag": "div",
+      "textLen": 125,
+      "textSnippet": "ഹെലികോപ്റ്റർ തകർന്നുവീഴുന്നതിന"
+    }
+  ],
+  "hasHydrationScripts": true
+}

@@ -1,0 +1,66 @@
+
+--- Wikipedia Malayalam ---
+{
+  "totalSegsFound": 566,
+  "countImmediate": 734,
+  "countDelayed": 734,
+  "highlights": [
+    {
+      "id": "seg-0",
+      "selectorTested": "[data-thunai-seg=\"seg-0\"], div#siteSub",
+      "foundTarget": true,
+      "highlightTagName": "DIV",
+      "usedArbitraryFallback": false,
+      "textMatchedCorrectly": true
+    },
+    {
+      "id": "seg-1",
+      "selectorTested": "[data-thunai-seg=\"seg-1\"], p#mwFQ",
+      "foundTarget": true,
+      "highlightTagName": "P",
+      "usedArbitraryFallback": false,
+      "textMatchedCorrectly": true
+    },
+    {
+      "id": "seg-2",
+      "selectorTested": "[data-thunai-seg=\"seg-2\"], p#mwHA",
+      "foundTarget": true,
+      "highlightTagName": "P",
+      "usedArbitraryFallback": false,
+      "textMatchedCorrectly": true
+    }
+  ]
+}
+
+--- News18 Malayalam ---
+{
+  "totalSegsFound": 31,
+  "countImmediate": 49,
+  "countDelayed": 0,
+  "highlights": [
+    {
+      "id": "seg-9",
+      "selectorTested": "[data-thunai-seg=\"seg-9\"], div#__next > section > div:nth-of-type(3) > div > div > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > h1",
+      "foundTarget": true,
+      "highlightTagName": "H1",
+      "usedArbitraryFallback": false,
+      "textMatchedCorrectly": true
+    },
+    {
+      "id": "seg-11",
+      "selectorTested": "[data-thunai-seg=\"seg-11\"], div#__next > section > div:nth-of-type(3) > div > div > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2)",
+      "foundTarget": true,
+      "highlightTagName": "DIV",
+      "usedArbitraryFallback": false,
+      "textMatchedCorrectly": false
+    },
+    {
+      "id": "seg-12",
+      "selectorTested": "[data-thunai-seg=\"seg-12\"], div#__next > section > div:nth-of-type(3) > div > div > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > h2",
+      "foundTarget": true,
+      "highlightTagName": "H2",
+      "usedArbitraryFallback": false,
+      "textMatchedCorrectly": true
+    }
+  ]
+}

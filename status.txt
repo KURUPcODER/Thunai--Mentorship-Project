@@ -1,0 +1,12 @@
+ M extension/content-script.js
+M  extension/preview.html
+M  extension/sidebar/components/GovPortalView.js
+M  extension/sidebar/components/ScanView.js
+M  extension/sidebar/i18n.js
+M  extension/sidebar/index.html
+M  extension/sidebar/styles.css
+?? diff.txt
+?? diff2.txt
+?? fix.js
+?? fix2.js
+?? status.txt

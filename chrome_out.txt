@@ -1,0 +1,17 @@
+
+--- Wikipedia Malayalam ---
+Total Extracted Segments: 734
+Meaningful Malayalam Segments (>30 chars): 566
+Meaningful English Segments (>30 chars): 0
+
+--- News18 Malayalam ---
+Total Extracted Segments: 3
+Meaningful Malayalam Segments (>30 chars): 0
+Meaningful English Segments (>30 chars): 2
+--- LIVE DOM DIAGNOSTIC ---
+{ psFound: 0, reasons: [] }
+
+--- Wikipedia English ---
+Total Extracted Segments: 813
+Meaningful Malayalam Segments (>30 chars): 0
+Meaningful English Segments (>30 chars): 725

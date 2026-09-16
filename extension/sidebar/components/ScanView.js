@@ -229,7 +229,7 @@ export function renderScanView(container, state, setState, onNavigate) {
               <div class="pipeline-action-item">
                 <div class="pipeline-item-icon">🔊</div>
                 <div class="pipeline-item-info">
-                  <div class="pipeline-item-title">${isEn ? 'Read in Malayalam' : 'മലയാളത്തിൽ കേൾക്കുക'}</div>
+                  <div class="pipeline-item-title">${isEn ? 'Speak' : 'കേൾക്കുക'}</div>
                   <div class="pipeline-item-desc">${totalSegments} ${isEn ? 'paragraphs extracted for live TTS read-along' : 'ഖണ്ഡികകൾ ഓഡിയോ ആയി കേൾക്കാം'}</div>
                 </div>
                 <button class="btn-pipeline-cta" id="btn-pipeline-listen">
