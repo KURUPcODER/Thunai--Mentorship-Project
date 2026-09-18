@@ -4,9 +4,33 @@
  * audio playback bridge, live language detection per active URL, and race-condition protection.
  */
 
-import { translateText } from '../../services/translateService.js';
+import { translateText, getActivePageInfo } from '../../services/translateService.js';
 import { ttsService } from '../../services/ttsService.js';
 import { getT } from '../i18n.js';
+
+export function extractSentenceSegments(translatedText, originalText = '', pageTitle = 'പരിഭാഷ') {
+  if (!translatedText) return [];
+  const transSentences = translatedText
+    .split(/(?<=[.!?।])(?!\d)(?:\s+|\n+)|(?<=[.!?।])(?=[\u0D00-\u0D7F\u0900-\u097FA-Z])|\n+/)
+    .map(s => s.trim())
+    .filter(s => s.length > 0);
+
+  const origSentences = (originalText || '')
+    .split(/(?<=[.!?।])(?!\d)(?:\s+|\n+)|(?<=[.!?।])(?=[\u0D00-\u0D7F\u0900-\u097FA-Z])|\n+/)
+    .map(s => s.trim())
+    .filter(s => s.length > 0);
+
+  return transSentences.map((sent, idx) => ({
+    id: `trans-seg-${idx}`,
+    type: 'PARAGRAPH',
+    tag: `${pageTitle} (${idx + 1})`,
+    malayalamText: sent,
+    englishText: origSentences[idx] || sent,
+    text: sent,
+    selector: `[data-thunai-seg="seg-${idx}"]`,
+    durationMs: Math.max(3000, sent.length * 65)
+  }));
+}
 
 export function renderTranslateView(container, state, setState, onNavigate) {
   let isTranslating = state.isTranslating || false;
@@ -94,9 +118,13 @@ export function renderTranslateView(container, state, setState, onNavigate) {
                 <div class="skeleton-line short"></div>
               </div>
             ` : hasTranslated ? `
-              <p class="translated-text-content ${isSimplified ? 'simplified-mode' : ''}" lang="ml">
-                ${escapeHTML(isSimplified ? translatedData?.simplified : translatedData?.translated)}
-              </p>
+              <div class="translated-text-container" lang="ml">
+                ${(isSimplified ? (translatedData?.simplified || '') : (translatedData?.translated || ''))
+                  .split('\n\n')
+                  .filter(Boolean)
+                  .map(para => `<p class="translated-text-content ${isSimplified ? 'simplified-mode' : ''}">${escapeHTML(para)}</p>`)
+                  .join('') || `<p class="translated-text-content">${escapeHTML(translatedData?.translated || '')}</p>`}
+              </div>
             ` : translateError ? `
               <div class="placeholder-state" role="alert">
                 <p class="placeholder-text-en">${escapeHTML(translateError)}</p>
@@ -143,11 +171,17 @@ export function renderTranslateView(container, state, setState, onNavigate) {
   }
 
   function attachEvents() {
+    const isStaleNavigation = (startedUrl) => {
+      const liveState = window.ThunaiInstance?.state || state;
+      const currentUrl = liveState.activePageUrl || '';
+      // Translation is stale ONLY when the user actually navigated away to a different non-empty URL
+      return Boolean(startedUrl && currentUrl && startedUrl !== currentUrl);
+    };
+
     const translateBtn = container.querySelector('#btn-trigger-translate');
     if (translateBtn) {
       translateBtn.addEventListener('click', async () => {
-        const reqSeq = state.requestSeq || 0;
-        const currentActiveUrl = state.activePageUrl;
+        let startedUrl = state.activePageUrl || window.ThunaiInstance?.state?.activePageUrl || '';
 
         isTranslating = true;
         translateError = '';
@@ -155,12 +189,24 @@ export function renderTranslateView(container, state, setState, onNavigate) {
         render();
 
         try {
-          // Extract and translate fresh content from active page
-          const res = await translateText('', 'ml', 'auto', currentActiveUrl);
+          // Explicitly extract fresh page content from active tab
+          const pageInfo = await getActivePageInfo();
+          const sourceText = pageInfo?.fullText || state.activePageText || '';
+          startedUrl = pageInfo?.url || startedUrl;
 
-          // Stale response / Race condition protection: Discard if URL or requestSeq changed
-          if (state.requestSeq !== reqSeq || (currentActiveUrl && state.activePageUrl && currentActiveUrl !== state.activePageUrl)) {
-            console.warn("Discarded stale translation response from previous tab/navigation");
+          console.log('[Thunai Translate] source length:', sourceText.length);
+          console.log('[Thunai Translate] source preview:', sourceText.slice(0, 300));
+          console.log('[Thunai Translate] source URL:', startedUrl);
+
+          const res = await translateText(sourceText, 'ml', 'auto', startedUrl);
+
+          console.log('[Thunai Translate] translated length:', res.translated?.length);
+          console.log('[Thunai Translate] translated preview:', res.translated?.slice(0, 300));
+          console.log('[Thunai Translate] detectedLang:', res.detectedLang);
+
+          // Stale response / Race condition protection: Discard ONLY if user navigated to a different page URL
+          if (isStaleNavigation(startedUrl)) {
+            console.warn('[Thunai Translate] Discarded stale translation response because active page URL changed from', startedUrl, 'to', window.ThunaiInstance?.state?.activePageUrl);
             return;
           }
 
@@ -168,6 +214,16 @@ export function renderTranslateView(container, state, setState, onNavigate) {
           isTranslating = false;
           hasTranslated = true;
           translatedData = res;
+
+          // Prime translated sentence segments into TTS service
+          const transSegs = extractSentenceSegments(res.translated, res.original, pageTitleDisplay || 'പരിഭാഷ');
+          if (transSegs.length > 0) {
+            ttsService.loadSegments(transSegs);
+            console.log('[Thunai TTS] totalSegments:', ttsService.getState().totalSegments);
+            console.log('[Thunai TTS] first:', ttsService.getState().segments?.[0]?.malayalamText);
+            console.log('[Thunai TTS] last:', ttsService.getState().segments?.at(-1)?.malayalamText);
+          }
+
           setState({
             isTranslating: false,
             hasTranslated: true,
@@ -179,7 +235,7 @@ export function renderTranslateView(container, state, setState, onNavigate) {
           });
           render();
         } catch (e) {
-          if (state.requestSeq !== reqSeq || (currentActiveUrl && state.activePageUrl && currentActiveUrl !== state.activePageUrl)) {
+          if (isStaleNavigation(startedUrl)) {
             return;
           }
           isTranslating = false;
@@ -205,17 +261,10 @@ export function renderTranslateView(container, state, setState, onNavigate) {
       quickListenBtn.addEventListener('click', () => {
         const textToListen = isSimplified ? (translatedData?.simplified || translatedData?.translated) : (translatedData?.translated || translatedData?.simplified);
         if (textToListen) {
-          const lines = textToListen.split('\n').map(s => s.trim()).filter(Boolean);
-          const ttsSegs = lines.map((sent, idx) => ({
-            id: `trans-seg-${idx}`,
-            type: 'PARAGRAPH',
-            tag: `പരിഭാഷ (${idx + 1})`,
-            malayalamText: sent,
-            englishText: sent,
-            selector: `[data-thunai-seg="seg-${idx}"]`,
-            durationMs: Math.max(3000, sent.length * 65)
-          }));
-          ttsService.loadSegments(ttsSegs);
+          const ttsSegs = extractSentenceSegments(textToListen, translatedData?.original, pageTitleDisplay || 'പരിഭാഷ');
+          if (ttsSegs.length > 0) {
+            ttsService.loadSegments(ttsSegs);
+          }
         }
         if (onNavigate) onNavigate('listen');
       });

@@ -14,7 +14,7 @@ function userFacingError(message) {
 }
 
 function normaliseText(text) {
-  return String(text || '').replace(/\s+/g, ' ').replace(/\u00ad/g, '').trim();
+  return String(text || '').replace(/[ \t\r]+/g, ' ').replace(/\n\s*\n/g, '\n\n').replace(/\u00ad/g, '').trim();
 }
 
 function splitIntoChunks(text) {
@@ -92,11 +92,14 @@ export async function getActivePageInfo() {
               else resolve(res);
             });
           });
-          if (response?.success && response.data) {
-            fullText = response.data.fullText || '';
-            segments = response.data.segments || [];
-            if (response.data.title) title = response.data.title;
-            if (response.data.url) url = response.data.url;
+          if (response && response.success !== false) {
+            // Content scripts normally return { success, data }, while relayed
+            // responses may expose the same payload directly. Support both.
+            const pageData = response.data || response;
+            segments = Array.isArray(pageData.segments) ? pageData.segments : [];
+            fullText = pageData.fullText || segments.map((segment) => segment?.text || '').filter(Boolean).join('\n\n');
+            if (pageData.title) title = pageData.title;
+            if (pageData.url) url = pageData.url;
           }
         }
       }
@@ -190,27 +193,78 @@ async function translateWithMyMemory(chunk, targetLang = 'ml', sourceLang = 'aut
 }
 
 /**
+ * Resolves any untranslated Devanagari text remaining in Malayalam output (from mixed-language inputs)
+ */
+async function resolveRemainingDevanagari(text, targetLang = 'ml') {
+  if (targetLang !== 'ml' || !text || !/[\u0900-\u097F]/.test(text)) {
+    return text;
+  }
+
+  const devanagariRegex = /[\u0900-\u097F]+(?:\s+[\u0900-\u097F]+)*/g;
+  const matches = [...new Set(text.match(devanagariRegex) || [])];
+  let resolved = text;
+
+  for (const match of matches) {
+    try {
+      const url = new URL('https://translate.googleapis.com/translate_a/single');
+      url.searchParams.set('client', 'dict-chrome-ex');
+      url.searchParams.set('sl', 'hi');
+      url.searchParams.set('tl', 'ml');
+      url.searchParams.set('dt', 't');
+      url.searchParams.set('q', match);
+
+      const response = await fetch(url.toString(), {
+        headers: { 'Accept': 'application/json, text/plain, */*' }
+      });
+      if (response.ok) {
+        const payload = await response.json();
+        const translatedPart = payload?.[0]?.map((p) => p?.[0] || '').join('').trim();
+        if (translatedPart) {
+          resolved = resolved.replaceAll(match, translatedPart);
+        }
+      }
+    } catch (_) {}
+  }
+
+  return resolved;
+}
+
+/**
  * Resilient Chunk Translator with Multi-Provider Fallback
  */
 async function translateChunk(chunk, targetLang = 'ml', sourceLang = 'auto') {
   const norm = normaliseText(chunk);
   if (!norm) return { translated: '', detectedLang: 'unknown' };
 
+  let result = null;
+
   // 1. Try Google Translation API first
   try {
-    return await translateWithGoogle(norm, targetLang, sourceLang);
+    result = await translateWithGoogle(norm, targetLang, sourceLang);
   } catch (primaryError) {
     console.warn('Primary translation engine fallback triggered:', primaryError.message);
   }
 
   // 2. Fallback to MyMemory Translation API
-  try {
-    return await translateWithMyMemory(norm, targetLang, sourceLang);
-  } catch (secondaryError) {
-    console.warn('Secondary translation engine failed:', secondaryError.message);
+  if (!result) {
+    try {
+      result = await translateWithMyMemory(norm, targetLang, sourceLang);
+    } catch (secondaryError) {
+      console.warn('Secondary translation engine failed:', secondaryError.message);
+    }
   }
 
-  throw userFacingError('വിവർത്തന സേവനവുമായി ബന്ധപ്പെടാൻ കഴിഞ്ഞില്ല. ദയവായി നിങ്ങളുടെ ഇന്റർനെറ്റ് കണക്ഷൻ പരിശോധിക്കുക.');
+  if (!result) {
+    throw userFacingError('വിവർത്തന സേവനവുമായി ബന്ധപ്പെടാൻ കഴിഞ്ഞില്ല. ദയവായി നിങ്ങളുടെ ഇന്റർനെറ്റ് കണക്ഷൻ പരിശോധിക്കുക.');
+  }
+
+  // If target is Malayalam and output still contains untranslated Devanagari fragments from mixed text,
+  // resolve them to Malayalam so no Devanagari words are left behind
+  if (targetLang === 'ml' && /[\u0900-\u097F]/.test(result.translated)) {
+    result.translated = await resolveRemainingDevanagari(result.translated, targetLang);
+  }
+
+  return result;
 }
 
 /**
@@ -274,7 +328,7 @@ export async function translateText(sourceText = '', targetLang = 'ml', explicit
   // If no text provided, extract from the active webpage DOM
   if (!textToTranslate) {
     const info = await getActivePageInfo();
-    textToTranslate = normaliseText(info.fullText);
+    textToTranslate = normaliseText(info.fullText || info.segments.map((segment) => segment?.text || '').filter(Boolean).join('\n\n'));
     detectedPageUrl = info.url || pageUrl;
   }
 
