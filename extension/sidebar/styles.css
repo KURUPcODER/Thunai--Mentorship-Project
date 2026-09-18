@@ -1565,6 +1565,9 @@ a:focus-visible {
   color: var(--text-primary);
   line-height: 1.8;
   font-weight: 500;
+  white-space: pre-line;
+  word-break: break-word;
+  margin-bottom: 8px;
 }
 
 .translated-text-content.simplified-mode {

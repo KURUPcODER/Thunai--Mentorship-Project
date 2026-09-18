@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="UTF-8">
+  <title>केरल - विकिपीडिया (Hindi Test Page)</title>
+  <link rel="stylesheet" href="/extension/sidebar/styles.css">
+  <style>
+    body {
+      font-family: sans-serif;
+      margin: 0;
+      padding: 20px;
+      display: flex;
+      gap: 20px;
+      background: #f1f5f9;
+    }
+    #webpage-content {
+      flex: 1;
+      background: white;
+      padding: 24px;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    #sidebar-container {
+      width: 420px;
+      background: #0f172a;
+      border-radius: 12px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      height: 700px;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+    }
+    .controls {
+      margin-bottom: 20px;
+      display: flex;
+      gap: 10px;
+    }
+    .controls button {
+      padding: 8px 16px;
+      border: none;
+      background: #2563eb;
+      color: white;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    #console-log-box {
+      margin-top: 20px;
+      background: #1e293b;
+      color: #38bdf8;
+      padding: 16px;
+      border-radius: 8px;
+      font-family: monospace;
+      font-size: 13px;
+      white-space: pre-wrap;
+      max-height: 250px;
+      overflow-y: auto;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="webpage-content">
+    <div class="controls">
+      <button id="btn-set-hindi" onclick="loadContent('hi')">Load Hindi Page</button>
+      <button id="btn-set-english" onclick="loadContent('en')">Load English Page</button>
+      <button id="btn-set-mixed" onclick="loadContent('mixed')">Load Mixed (EN+HI) Page</button>
+    </div>
+
+    <div id="page-body">
+      <h1 id="page-title">केरल का परिचय</h1>
+      <p id="hindi-para">केरल भारत का एक राज्य है। इसकी राजधानी तिरुवनंतपुरम है। केरल में मलयालम बोली जाती है।</p>
+    </div>
+
+    <h3>Browser Test Console Logs</h3>
+    <div id="console-log-box"></div>
+  </div>
+
+  <div id="sidebar-container">
+    <div id="nav-root"></div>
+    <div id="view-root" style="flex:1; overflow-y:auto;"></div>
+  </div>
+
+  <!-- Content script injection -->
+  <script src="/extension/content-script.js"></script>
+
+  <script type="module">
+    import { renderTranslateView } from '/extension/sidebar/components/TranslateView.js';
+    import { getActivePageInfo, translateText } from '/extension/services/translateService.js';
+
+    const logBox = document.getElementById('console-log-box');
+    const originalLog = console.log;
+    const originalWarn = console.warn;
+    const originalError = console.error;
+
+    function appendLog(type, ...args) {
+      const msg = args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ');
+      logBox.textContent += `[${type}] ${msg}\n`;
+      logBox.scrollTop = logBox.scrollHeight;
+    }
+
+    console.log = function(...args) { originalLog(...args); appendLog('LOG', ...args); };
+    console.warn = function(...args) { originalWarn(...args); appendLog('WARN', ...args); };
+    console.error = function(...args) { originalError(...args); appendLog('ERROR', ...args); };
+
+    // App state simulation matching app.js
+    window.testState = {
+      currentView: 'translate',
+      currentLang: 'ml',
+      activePageUrl: window.location.href,
+      activePageTitle: document.title,
+      activePageLang: 'hi',
+      activePageLangLabel: 'ഹിന്ദി (Hindi)',
+      activePageLangLabelEn: 'Hindi (ഹിന്ദി)',
+      activePageText: document.getElementById('page-body').innerText,
+      requestSeq: 1,
+      isTranslating: false,
+      hasTranslated: false,
+      isSimplified: false,
+      translatedData: null,
+      translateError: ''
+    };
+
+    window.ThunaiInstance = {
+      state: window.testState,
+      setState(updates) {
+        Object.assign(window.testState, updates);
+      }
+    };
+
+    function renderUI() {
+      const viewRoot = document.getElementById('view-root');
+      renderTranslateView(
+        viewRoot,
+        window.testState,
+        (updates) => {
+          Object.assign(window.testState, updates);
+          renderUI();
+        },
+        (nav) => console.log('Navigate to:', nav)
+      );
+    }
+
+    window.loadContent = function(type) {
+      const titleEl = document.getElementById('page-title');
+      const paraEl = document.getElementById('hindi-para');
+
+      if (type === 'hi') {
+        document.title = 'केरल - विकिपीडिया (Hindi)';
+        titleEl.textContent = 'केरल का परिचय';
+        paraEl.textContent = 'केरल भारत का एक राज्य है। इसकी राजधानी तिरुवनंतपुरम है। केरल में मलयालम बोली जाती है।';
+      } else if (type === 'en') {
+        document.title = 'Kerala - Wikipedia (English)';
+        titleEl.textContent = 'Introduction to Kerala';
+        paraEl.textContent = 'Kerala is a state in India. Its capital is Thiruvananthapuram. Malayalam is spoken in Kerala.';
+      } else if (type === 'mixed') {
+        document.title = 'Kerala Overview (Mixed)';
+        titleEl.textContent = 'Kerala Information';
+        paraEl.textContent = 'Kerala is a state in India. इसकी राजधानी तिरुवनंतपुरम है। Malayalam is spoken in Kerala.';
+      }
+
+      window.testState.activePageTitle = document.title;
+      window.testState.activePageText = document.getElementById('page-body').innerText;
+      window.testState.hasTranslated = false;
+      window.testState.translatedData = null;
+      window.testState.isTranslating = false;
+      renderUI();
+      console.log('Loaded content for:', type, '-> text:', window.testState.activePageText);
+    };
+
+    // Initial render
+    renderUI();
+    console.log('TranslateView initialized and ready for browser testing.');
+  </script>
+</body>
+</html>

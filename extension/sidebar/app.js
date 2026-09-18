@@ -110,28 +110,41 @@ class ThunaiApp {
     }
   }
 
+  normalizeUrl(url) {
+    if (!url) return '';
+    try {
+      const parsed = new URL(url);
+      const path = parsed.pathname.replace(/\/+$/, '') || '/';
+      return `${parsed.protocol}//${parsed.host}${path}${parsed.search}`.toLowerCase();
+    } catch (_) {
+      return String(url).trim().replace(/\/+$/, '').toLowerCase();
+    }
+  }
+
   async syncActiveTab(forced = false) {
     try {
       const info = await getActivePageInfo();
       if (!info) return;
 
-      const urlChanged = info.url && info.url !== this.state.activePageUrl;
-      const initialLoad = !this.state.activePageUrl;
+      const currentNorm = this.normalizeUrl(this.state.activePageUrl);
+      const newNorm = this.normalizeUrl(info.url);
+      const urlChanged = Boolean(currentNorm && newNorm && currentNorm !== newNorm);
+      const initialLoad = !currentNorm;
 
       if (urlChanged || forced || initialLoad) {
         const nextReqSeq = (this.state.requestSeq || 0) + 1;
 
         const stateUpdates = {
-          activePageUrl: info.url,
-          activePageTitle: info.title || 'Active Webpage',
-          activePageLang: info.langCode || 'en',
-          activePageLangLabel: info.langLabel || 'ഇംഗ്ലീഷ് (English)',
-          activePageLangLabelEn: info.langLabelEn || 'English (ഇംഗ്ലീഷ്)',
-          activePageText: info.fullText || '',
+          activePageUrl: info.url || this.state.activePageUrl,
+          activePageTitle: info.title || this.state.activePageTitle || 'Active Webpage',
+          activePageLang: info.langCode || this.state.activePageLang || 'en',
+          activePageLangLabel: info.langLabel || this.state.activePageLangLabel || 'ഇംഗ്ലീഷ് (English)',
+          activePageLangLabelEn: info.langLabelEn || this.state.activePageLangLabelEn || 'English (ഇംഗ്ലീഷ്)',
+          activePageText: info.fullText || this.state.activePageText || '',
           requestSeq: nextReqSeq
         };
 
-        // Reset stale translation & per-page state when user navigates to a new page
+        // Reset per-page state ONLY when the active tab has genuinely navigated to a different URL
         if (urlChanged) {
           stateUpdates.isTranslating = false;
           stateUpdates.hasTranslated = false;
@@ -140,7 +153,7 @@ class ThunaiApp {
           stateUpdates.translateError = '';
 
           // Reset scan report if it belonged to another URL
-          if (this.state.scanReport && this.state.scanReport.url !== info.url) {
+          if (this.state.scanReport && this.normalizeUrl(this.state.scanReport.url) !== newNorm) {
             stateUpdates.scanReport = null;
           }
         }

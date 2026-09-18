@@ -5,11 +5,28 @@
  */
 
 import { ttsService } from '../../services/ttsService.js';
+import { extractSentenceSegments } from './TranslateView.js';
 
 export function renderListenView(container, state, setState) {
-  // Hydrate segment-by-segment playback from universal scanReport
-  if (state.scanReport?.textSegments && state.scanReport.textSegments.length > 0) {
-    ttsService.loadSegments(state.scanReport.textSegments);
+  // If webpage has active Malayalam translation data, load ALL translated sentence segments for TTS!
+  if (state.hasTranslated && state.translatedData && (state.translatedData.translated || state.translatedData.simplified)) {
+    const textToRead = state.isSimplified 
+      ? (state.translatedData.simplified || state.translatedData.translated)
+      : (state.translatedData.translated || state.translatedData.simplified);
+    const transSegs = extractSentenceSegments(textToRead, state.translatedData.original, state.activePageTitle || 'പരിഭാഷ');
+    if (transSegs.length > 0) {
+      const cur = ttsService.getState();
+      const alreadyLoaded = cur.segments.length === transSegs.length && cur.segments[0]?.malayalamText === transSegs[0]?.malayalamText;
+      if (!alreadyLoaded) {
+        ttsService.loadSegments(transSegs);
+      }
+    }
+  } else if (!state.hasTranslated && state.scanReport?.textSegments && state.scanReport.textSegments.length > 0) {
+    // Otherwise hydrate segment-by-segment playback from universal scanReport ONLY if not translated
+    const cur = ttsService.getState();
+    if (cur.segments.length === 0) {
+      ttsService.loadSegments(state.scanReport.textSegments);
+    }
   }
 
   let ttsState = ttsService.getState();

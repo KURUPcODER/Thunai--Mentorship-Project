@@ -128,8 +128,9 @@ class TTSService {
         const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
         if (tabs && tabs[0] && tabs[0].id) {
           const res = await chrome.tabs.sendMessage(tabs[0].id, { action: 'EXTRACT_PAGE_CONTENT' });
-          if (res && res.success && res.data) {
-            data = res.data;
+          const responseData = res?.data || res;
+          if (responseData && (responseData.segments || responseData.fullText)) {
+            data = responseData;
           }
         }
       } catch(e) {}
@@ -147,11 +148,11 @@ class TTSService {
         id: s.id,
         type: s.type,
         tag: s.tag,
-        malayalamText: s.mlText || (/[\u0D00-\u0D7F]/.test(s.text) ? s.text : ''),
-        englishText: s.enText || (!/[\u0D00-\u0D7F]/.test(s.text) ? s.text : ''),
-        text: s.text,
+        malayalamText: s.malayalamText || s.mlText || (/[\u0D00-\u0D7F]/.test(s.text) ? s.text : ''),
+        englishText: s.englishText || s.enText || (!/[\u0D00-\u0D7F]/.test(s.text) ? s.text : ''),
+        text: s.text || s.malayalamText || s.englishText || '',
         selector: s.selector,
-        durationMs: s.durationMs
+        durationMs: s.durationMs || Math.max(3000, (s.text || '').length * 65)
       }));
       ctx.totalSegments = ctx.segments.length;
       ctx.currentSegmentIndex = 0;
@@ -189,16 +190,21 @@ class TTSService {
     this._clearAudioCache(ctx); // also nulls ctx.audioElement
     ctx.pageSessionUrl = pageSessionUrl;
 
-    ctx.segments = textSegments.map((s, idx) => ({
-      id: s.id || idx + 1,
-      type: s.type || 'PARAGRAPH',
-      tag: s.tag || `ഖണ്ഡിക ${idx + 1}`,
-      malayalamText: s.mlText || s.text || '',
-      englishText: s.text || '',
-      text: s.text || '',
-      selector: s.selector || `[data-thunai-seg="${s.id || 'seg-' + idx}"]`,
-      durationMs: s.durationMs || Math.max(3000, (s.text || '').length * 65)
-    }));
+    ctx.segments = textSegments.map((s, idx) => {
+      const ml = s.malayalamText || s.mlText || (/[\u0D00-\u0D7F]/.test(s.text) ? s.text : '');
+      const en = s.englishText || s.enText || (!/[\u0D00-\u0D7F]/.test(s.text) ? s.text : '');
+      const txt = s.text || ml || en || '';
+      return {
+        id: s.id || idx + 1,
+        type: s.type || 'PARAGRAPH',
+        tag: s.tag || `ഖണ്ഡിക ${idx + 1}`,
+        malayalamText: ml,
+        englishText: en,
+        text: txt,
+        selector: s.selector || `[data-thunai-seg="${s.id || 'seg-' + idx}"]`,
+        durationMs: s.durationMs || Math.max(3000, txt.length * 65)
+      };
+    });
     ctx.totalSegments = ctx.segments.length;
     ctx.currentSegmentIndex = 0;
 

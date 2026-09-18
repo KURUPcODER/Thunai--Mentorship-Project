@@ -171,11 +171,27 @@ export function renderTranslateView(container, state, setState, onNavigate) {
   }
 
   function attachEvents() {
+    // Normalize a URL for comparison: lower-case, strip trailing slash.
+    // Reuses ThunaiInstance.normalizeUrl when available so behaviour stays in sync
+    // with syncActiveTab(); falls back to a simple inline version.
+    const _normUrl = (u) => {
+      if (!u) return '';
+      const fn = window.ThunaiInstance?.normalizeUrl?.bind(window.ThunaiInstance);
+      if (fn) return fn(u);
+      try {
+        const p = new URL(u);
+        return `${p.protocol}//${p.host}${p.pathname.replace(/\/+$/, '') || '/'}${p.search}`.toLowerCase();
+      } catch (_) {
+        return String(u).trim().replace(/\/+$/, '').toLowerCase();
+      }
+    };
+
     const isStaleNavigation = (startedUrl) => {
       const liveState = window.ThunaiInstance?.state || state;
       const currentUrl = liveState.activePageUrl || '';
-      // Translation is stale ONLY when the user actually navigated away to a different non-empty URL
-      return Boolean(startedUrl && currentUrl && startedUrl !== currentUrl);
+      // Translation is stale ONLY when the user actually navigated away to a different non-empty URL.
+      // Use normalized comparison so trailing-slash / protocol differences do not produce false positives.
+      return Boolean(startedUrl && currentUrl && _normUrl(startedUrl) !== _normUrl(currentUrl));
     };
 
     const translateBtn = container.querySelector('#btn-trigger-translate');
@@ -197,8 +213,19 @@ export function renderTranslateView(container, state, setState, onNavigate) {
           console.log('[Thunai Translate] source length:', sourceText.length);
           console.log('[Thunai Translate] source preview:', sourceText.slice(0, 300));
           console.log('[Thunai Translate] source URL:', startedUrl);
+          console.log('[Thunai Translate] page langCode:', pageInfo?.langCode);
 
-          const res = await translateText(sourceText, 'ml', 'auto', startedUrl);
+          // EXPLICIT HINDI → MALAYALAM ROUTING
+          // When the page is already identified as Hindi (hi), pass 'hi' as the explicit
+          // source language so translateText always uses sl=hi&tl=ml.
+          // This prevents auto-detection failures on real Hindi Wikipedia pages where
+          // English navigation/category text can outnumber Devanagari characters and
+          // cause detectLanguageHint() to return 'en' instead of 'hi'.
+          // For all other source languages we keep 'auto' (existing behaviour preserved).
+          const explicitSourceLang = (pageInfo?.langCode === 'hi') ? 'hi' : 'auto';
+          console.log('[Thunai Translate] explicitSourceLang:', explicitSourceLang);
+
+          const res = await translateText(sourceText, 'ml', explicitSourceLang, startedUrl);
 
           console.log('[Thunai Translate] translated length:', res.translated?.length);
           console.log('[Thunai Translate] translated preview:', res.translated?.slice(0, 300));

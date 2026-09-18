@@ -4,7 +4,10 @@ const path = require('path');
 const dotenv = require('dotenv');
 const fs = require('fs');
 
-dotenv.config();
+dotenv.config({ path: path.resolve(__dirname, '.env') });
+if (!process.env.SARVAM_API_KEY && fs.existsSync(path.resolve(__dirname, '.env.example'))) {
+  dotenv.config({ path: path.resolve(__dirname, '.env.example') });
+}
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -127,7 +130,16 @@ app.post('/api/tts', async (req, res) => {
       });
     }
 
-    const apiKey = (process.env.SARVAM_API_KEY || '').trim();
+    let apiKey = (process.env.SARVAM_API_KEY || '').trim();
+    if (!apiKey) {
+      if (fs.existsSync(path.resolve(__dirname, '.env'))) {
+        dotenv.config({ path: path.resolve(__dirname, '.env'), override: true });
+      }
+      if (!process.env.SARVAM_API_KEY && fs.existsSync(path.resolve(__dirname, '.env.example'))) {
+        dotenv.config({ path: path.resolve(__dirname, '.env.example'), override: true });
+      }
+      apiKey = (process.env.SARVAM_API_KEY || '').trim();
+    }
     let sarvamError = null;
 
     // STEP A: Try Sarvam Primary if API key exists

@@ -2,6 +2,12 @@ const { spawnSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const dotenv = require('dotenv');
+
+dotenv.config({ path: path.resolve(__dirname, '.env') });
+if (!process.env.PIPER_MODEL_PATH && fs.existsSync(path.resolve(__dirname, '.env.example'))) {
+  dotenv.config({ path: path.resolve(__dirname, '.env.example') });
+}
 
 /**
  * Resolves the appropriate python executable command on the machine.
