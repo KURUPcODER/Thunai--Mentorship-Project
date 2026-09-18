@@ -13,6 +13,7 @@ import { renderSearchView } from './components/SearchView.js';
 import { renderDyslexiaModeView } from './components/DyslexiaModeView.js';
 import { renderFixReviewView } from './components/FixReviewView.js';
 import { renderDiagnosticsView } from './components/DiagnosticsView.js';
+import { renderGovPortalView } from './components/GovPortalView.js';
 import { getLatestScan } from '../services/scanService.js';
 import { getActivePageInfo } from '../services/translateService.js';
 
@@ -200,6 +201,10 @@ class ThunaiApp {
 
       case 'diagnostics':
         renderDiagnosticsView(this.viewRoot, this.state, this.setState, this.navigate);
+        break;
+
+      case 'portal':
+        renderGovPortalView(this.viewRoot, this.state, this.setState, this.navigate);
         break;
 
       default:

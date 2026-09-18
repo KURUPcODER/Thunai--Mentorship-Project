@@ -363,13 +363,13 @@ export function normalizeScanReport(report) {
     ? report.keywords
     : (report.pipeline?.topKeywords || defaultMockReport.keywords);
 
-  const wcagViolations = (report.wcagViolations && report.wcagViolations.length > 0)
+  const wcagViolations = Array.isArray(report.wcagViolations)
     ? report.wcagViolations
     : defaultMockReport.wcagViolations;
 
-  const brokenElements = (report.brokenElements && report.brokenElements.length > 0)
+  const brokenElements = Array.isArray(report.brokenElements)
     ? report.brokenElements
-    : defaultMockReport.brokenElements;
+    : [];
 
   const stats = report.stats || {
     critical: report.summary?.critical ?? 1,

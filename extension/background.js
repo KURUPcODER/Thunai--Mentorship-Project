@@ -53,6 +53,56 @@ if (typeof chrome !== 'undefined' && chrome.runtime) {
       return true; // Keep message channel open for async response
     }
 
+    if (message.type === 'TRANSLITERATE') {
+      const word = (message.word || '').trim();
+
+      if (!word) {
+        sendResponse({ success: true, result: [] });
+        return;
+      }
+
+      fetch(
+        `https://api.varnamproject.com/tl/ml/${encodeURIComponent(word)}`
+      )
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error(`Varnam HTTP ${response.status}`);
+          }
+          return response.json();
+        })
+        .then((data) => {
+          const results = Array.isArray(data.result)
+            ? data.result
+            : [];
+
+          const cleanedResults = results
+            .map((item) => {
+              if (typeof item === 'string') return item;
+
+              if (item && typeof item === 'object') {
+                return item.word || item.text || item.value || '';
+              }
+
+              return '';
+            })
+            .filter(Boolean);
+
+          sendResponse({
+            success: true,
+            result: cleanedResults
+          });
+        })
+        .catch((error) => {
+          console.warn('Varnam transliteration error:', error);
+          sendResponse({
+            success: false,
+            result: []
+          });
+        });
+
+      return true;
+    }
+
     if (message.type === 'PING') {
       sendResponse({ status: 'PONG', version: '1.0.0' });
     }

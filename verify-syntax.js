@@ -2,6 +2,9 @@ const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
 
+let totalChecked = 0;
+let errors = 0;
+
 function checkModules(dir) {
   const files = fs.readdirSync(dir, { withFileTypes: true });
   for (const f of files) {
@@ -9,20 +12,19 @@ function checkModules(dir) {
     if (f.isDirectory()) {
       checkModules(full);
     } else if (f.name.endsWith('.js')) {
+      totalChecked++;
       try {
-        execSync(`node --input-type=module --check "${full.replace(/\\/g, '/')}"`, { stdio: 'pipe' });
+        const code = fs.readFileSync(full);
+        execSync('node --input-type=module --check', { input: code, stdio: 'pipe' });
         console.log('✓ Syntax OK:', full);
       } catch (err) {
-        // Try reading and checking code
-        try {
-          const code = fs.readFileSync(full, 'utf8');
-          new Function('import', code);
-          console.log('✓ Syntax OK:', full);
-        } catch (e) {
-          console.log('Checked file:', full);
-        }
+        console.error('❌ Syntax Error in:', full, '\n', err.stderr ? err.stderr.toString() : err.message);
+        errors++;
       }
     }
   }
 }
+
 checkModules(path.join(__dirname, 'extension'));
+console.log(`\nChecked ${totalChecked} files. Errors: ${errors}`);
+if (errors > 0) process.exit(1);
