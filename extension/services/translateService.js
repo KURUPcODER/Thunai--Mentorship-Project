@@ -4,6 +4,8 @@
  * Uses secure dual-engine fallback (Google Client + MyMemory Engine) without client-side API keys.
  */
 
+import { browserCompat } from './browserCompat.js';
+
 const MAX_INPUT_CHARS = 20000;
 const REQUEST_CHUNK_CHARS = 2500;
 
@@ -75,6 +77,7 @@ export async function getActivePageInfo() {
   let url = '';
   let fullText = '';
   let segments = [];
+  let areas = [];
 
   if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.query) {
     try {
@@ -97,6 +100,7 @@ export async function getActivePageInfo() {
             // responses may expose the same payload directly. Support both.
             const pageData = response.data || response;
             segments = Array.isArray(pageData.segments) ? pageData.segments : [];
+            areas = Array.isArray(pageData.areas) ? pageData.areas : [];
             fullText = pageData.fullText || segments.map((segment) => segment?.text || '').filter(Boolean).join('\n\n');
             if (pageData.title) title = pageData.title;
             if (pageData.url) url = pageData.url;
@@ -104,13 +108,22 @@ export async function getActivePageInfo() {
         }
       }
     } catch (_) {}
-  } else if (typeof window !== 'undefined' && window.parent?.ThunaiContentScript) {
-    const data = window.parent.ThunaiContentScript.extractRealPageContent();
-    if (data) {
-      fullText = data.fullText || '';
-      segments = data.segments || [];
-      title = data.title || title;
-      url = data.url || url;
+  } else if (typeof window !== 'undefined') {
+    let script = null;
+    try {
+      if (window.parent && window.parent.ThunaiContentScript) script = window.parent.ThunaiContentScript;
+      else if (window.top && window.top.ThunaiContentScript) script = window.top.ThunaiContentScript;
+    } catch (_) {}
+    if (!script && window.ThunaiContentScript) script = window.ThunaiContentScript;
+    if (script && script.extractRealPageContent) {
+      const data = script.extractRealPageContent();
+      if (data) {
+        fullText = data.fullText || '';
+        segments = data.segments || [];
+        areas = data.areas || [];
+        title = data.title || title;
+        url = data.url || url;
+      }
     }
   }
 
@@ -120,10 +133,40 @@ export async function getActivePageInfo() {
     title,
     fullText,
     segments,
+    areas,
     langCode,
     langLabel: getLanguageDisplayName(langCode, 'ml'),
     langLabelEn: getLanguageDisplayName(langCode, 'en')
   };
+}
+
+/**
+ * Spotlight an identified content area on the live webpage.
+ */
+export async function spotlightArea(selector, areaName = 'Selected Content Area') {
+  try {
+    return await browserCompat.sendMessageToActiveTab({
+      action: 'SPOTLIGHT_PAGE_AREA',
+      selector,
+      areaName
+    });
+  } catch (err) {
+    console.warn('Could not spotlight page area:', err);
+    return { success: false };
+  }
+}
+
+/**
+ * Clears the active area spotlight from the webpage.
+ */
+export async function clearAreaSpotlight() {
+  try {
+    return await browserCompat.sendMessageToActiveTab({
+      action: 'CLEAR_AREA_SPOTLIGHT'
+    });
+  } catch (err) {
+    return { success: false };
+  }
 }
 
 async function extractActivePageText() {

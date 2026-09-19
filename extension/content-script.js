@@ -88,6 +88,37 @@
       animation: thunaiSpotlightPulse 1.6s infinite ease-in-out !important;
     }
 
+    /* Area Spotlight for Targeted Translation & Simplification */
+    .thunai-area-spotlight-ring {
+      position: absolute !important;
+      border: 3.5px solid #0284C7 !important;
+      background: rgba(2, 132, 199, 0.12) !important;
+      box-shadow: 0 0 0 6px rgba(2, 132, 199, 0.3), 0 0 35px rgba(2, 132, 199, 0.45) !important;
+      border-radius: 10px !important;
+      pointer-events: none !important;
+      z-index: 2147483638 !important;
+      transition: all 0.3s ease !important;
+      animation: thunaiSpotlightPulse 1.6s infinite ease-in-out !important;
+    }
+
+    .thunai-area-pointer-card {
+      position: absolute !important;
+      background: #0B132B !important;
+      color: #FFFFFF !important;
+      border: 2px solid #38BDF8 !important;
+      border-radius: 12px !important;
+      padding: 12px 16px !important;
+      font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Noto Sans Malayalam', sans-serif !important;
+      font-size: 13px !important;
+      box-shadow: 0 10px 32px rgba(0, 0, 0, 0.7) !important;
+      z-index: 2147483647 !important;
+      width: 320px !important;
+      max-width: 90vw !important;
+      pointer-events: auto !important;
+      animation: thunaiBounceIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+      line-height: 1.5 !important;
+    }
+
     /* Rich Explainability Pointer Arrow Card */
     .thunai-pointer-arrow-card {
       position: absolute !important;
@@ -317,10 +348,81 @@
   `;
   document.head.appendChild(styleEl);
 
+  let activeSearchSpotlightRing = null;
+  let activeSearchSpotlightCard = null;
+
+  function removeSearchSpotlight() {
+    if (activeSearchSpotlightRing && activeSearchSpotlightRing.parentNode) {
+      activeSearchSpotlightRing.remove();
+    }
+    if (activeSearchSpotlightCard && activeSearchSpotlightCard.parentNode) {
+      activeSearchSpotlightCard.remove();
+    }
+    activeSearchSpotlightRing = null;
+    activeSearchSpotlightCard = null;
+  }
+
+  function showSearchMatchSpotlight(targetMark, matchIndex, totalMatches) {
+    removeSearchSpotlight();
+    if (!targetMark) return;
+
+    const rect = targetMark.getBoundingClientRect();
+    const scrollX = window.scrollX || window.pageXOffset;
+    const scrollY = window.scrollY || window.pageYOffset;
+
+    // 1. Create Spotlight Ring around target mark
+    activeSearchSpotlightRing = document.createElement('div');
+    activeSearchSpotlightRing.className = 'thunai-pointer-spotlight';
+    activeSearchSpotlightRing.style.left = `${Math.max(0, rect.left + scrollX - 6)}px`;
+    activeSearchSpotlightRing.style.top = `${Math.max(0, rect.top + scrollY - 4)}px`;
+    activeSearchSpotlightRing.style.width = `${Math.max(rect.width + 12, 40)}px`;
+    activeSearchSpotlightRing.style.height = `${Math.max(rect.height + 8, 24)}px`;
+
+    // 2. Create Pointer Arrow Card
+    activeSearchSpotlightCard = document.createElement('div');
+    activeSearchSpotlightCard.className = 'thunai-pointer-arrow-card';
+    
+    let topPos = rect.top + scrollY - 105;
+    if (topPos < scrollY + 10) {
+      topPos = rect.bottom + scrollY + 12;
+    }
+    const leftPos = Math.max(12, Math.min(rect.left + scrollX, window.innerWidth - 340));
+
+    activeSearchSpotlightCard.style.top = `${topPos}px`;
+    activeSearchSpotlightCard.style.left = `${leftPos}px`;
+
+    const matchedWord = targetMark.textContent || '';
+
+    activeSearchSpotlightCard.innerHTML = `
+      <div class="thunai-pointer-arrow-indicator">
+        <span>👉</span>
+        <span>Word Match #${matchIndex + 1} / ${totalMatches}</span>
+      </div>
+      <div class="thunai-pointer-title">"${matchedWord}"</div>
+      <div class="thunai-pointer-fix" style="color: #FEF08A; background: rgba(217, 119, 6, 0.25); border-left: 3px solid #D97706; padding: 4px 8px; border-radius: 4px; font-weight: 700; margin-bottom: 8px;">
+        📍 Word "${matchedWord}" spotlighted on this webpage
+      </div>
+      <div class="thunai-pointer-actions" style="display: flex; justify-content: flex-end;">
+        <button class="thunai-pointer-btn-dismiss" id="thunai-btn-dismiss-spotlight">✕ Dismiss (മറയ്ക്കുക)</button>
+      </div>
+    `;
+
+    document.body.appendChild(activeSearchSpotlightRing);
+    document.body.appendChild(activeSearchSpotlightCard);
+
+    const dismissBtn = activeSearchSpotlightCard.querySelector('#thunai-btn-dismiss-spotlight');
+    if (dismissBtn) {
+      dismissBtn.addEventListener('click', removeSearchSpotlight);
+    }
+
+    setTimeout(removeSearchSpotlight, 8000);
+  }
+
   /**
    * 1. In-Page Keyword Search & Excerpt Locator on ANY Website
    */
   function clearSearchHighlights() {
+    removeSearchSpotlight();
     searchMarks.forEach(mark => {
       const parent = mark.parentNode;
       if (parent) {
@@ -482,7 +584,7 @@
     return matches;
   }
 
-  function scrollToKeywordMatch(matchIndex) {
+  function scrollToKeywordMatch(matchIndex, enableSpotlight = false) {
     searchMarks.forEach(m => m.classList.remove('active-match'));
 
     const target = searchMarks[matchIndex];
@@ -492,6 +594,10 @@
         behavior: 'smooth',
         block: 'center'
       });
+
+      if (enableSpotlight) {
+        showSearchMatchSpotlight(target, matchIndex, searchMarks.length);
+      }
     }
   }
 
@@ -624,6 +730,125 @@
       imagesCount: document.querySelectorAll('img').length
     };
 
+    // -------------------------------------------------------------
+    // Multi-Area Detection for Targeted Translation & Simplification
+    // -------------------------------------------------------------
+    const areas = [];
+    const wholePageSnippet = fullOriginalText.slice(0, 160).replace(/\s+/g, ' ').trim() + (fullOriginalText.length > 160 ? '...' : '');
+
+    // Area 0: Whole Page (always first option)
+    areas.push({
+      id: 'all',
+      name: 'മുഴുവൻ പേജ് (Whole Page)',
+      nameEn: 'Whole Webpage',
+      selector: 'body',
+      text: fullOriginalText,
+      wordCount,
+      snippet: wholePageSnippet || 'മുഴുവൻ വെബ്‌പേജ് ഉള്ളടക്കവും'
+    });
+
+    // Strategy 1: Group candidateElements by heading or distinct sections
+    const rawHeadingGroups = [];
+    let curHeadingGroup = null;
+
+    for (let i = 0; i < candidateElements.length; i++) {
+      const el = candidateElements[i];
+      const isHeading = el.tagName.startsWith('H');
+      const text = (el.innerText || el.textContent || '').trim();
+      const parentContainer = el.closest('article, section, form, [role="region"], [role="article"], .card, .content-section, .post-body, .entry-content');
+
+      if (isHeading) {
+        if (curHeadingGroup && curHeadingGroup.elements.length > 0 && curHeadingGroup.words >= 6) {
+          rawHeadingGroups.push(curHeadingGroup);
+        }
+        curHeadingGroup = {
+          title: text,
+          container: parentContainer || null,
+          elements: [el],
+          words: text.split(/\s+/).filter(Boolean).length
+        };
+      } else {
+        if (!curHeadingGroup) {
+          curHeadingGroup = {
+            title: pageTitle.slice(0, 32),
+            container: parentContainer || null,
+            elements: [el],
+            words: text.split(/\s+/).filter(Boolean).length
+          };
+        } else {
+          curHeadingGroup.elements.push(el);
+          curHeadingGroup.words += text.split(/\s+/).filter(Boolean).length;
+          if (!curHeadingGroup.container && parentContainer) {
+            curHeadingGroup.container = parentContainer;
+          }
+        }
+      }
+    }
+
+    if (curHeadingGroup && curHeadingGroup.elements.length > 0 && curHeadingGroup.words >= 6) {
+      rawHeadingGroups.push(curHeadingGroup);
+    }
+
+    let detectedGroups = [];
+    if (rawHeadingGroups.length >= 2) {
+      detectedGroups = rawHeadingGroups;
+    } else {
+      // Strategy 2: Distinct semantic containers (<article>, <section>, <form>, etc.)
+      const semanticContainers = Array.from(mainContainer.querySelectorAll('article, section, form, [role="region"], [role="article"], .card, .content-section'))
+        .concat(Array.from(document.querySelectorAll('article, section, form')))
+        .filter((c, idx, arr) => arr.indexOf(c) === idx && !c.closest(excludeSelector));
+
+      const containerGroups = [];
+      semanticContainers.forEach((container, cIdx) => {
+        const cText = (container.innerText || container.textContent || '').trim();
+        const cWords = cText.split(/\s+/).filter(Boolean).length;
+        if (cWords >= 12 && cWords < wordCount * 0.95) {
+          const heading = container.querySelector('h1, h2, h3, h4, h5, h6');
+          const title = heading ? (heading.innerText || heading.textContent || '').trim() : `Section ${cIdx + 1}`;
+          containerGroups.push({
+            title,
+            container,
+            elements: [container],
+            words: cWords
+          });
+        }
+      });
+
+      if (containerGroups.length >= 2) {
+        detectedGroups = containerGroups;
+      }
+    }
+
+    // Stamp detected groups and build areas list
+    if (detectedGroups.length >= 2) {
+      detectedGroups.forEach((grp, idx) => {
+        const areaId = `area-${idx + 1}`;
+        const selector = `[data-thunai-area="${areaId}"]`;
+
+        // Stamp elements
+        grp.elements.forEach(el => {
+          el.setAttribute('data-thunai-area', areaId);
+        });
+        if (grp.container && grp.container !== document.body && grp.container !== mainContainer) {
+          grp.container.setAttribute('data-thunai-area', areaId);
+        }
+
+        const areaText = grp.elements.map(e => (e.innerText || e.textContent || '').trim()).filter(Boolean).join('\n\n');
+        const areaWords = areaText.split(/\s+/).filter(Boolean).length;
+        const areaSnippet = areaText.slice(0, 160).replace(/\s+/g, ' ').trim() + (areaText.length > 160 ? '...' : '');
+
+        areas.push({
+          id: areaId,
+          name: grp.title || `ഭാഗം ${idx + 1}`,
+          nameEn: grp.title || `Area ${idx + 1}`,
+          selector: selector,
+          text: areaText,
+          wordCount: areaWords,
+          snippet: areaSnippet
+        });
+      });
+    }
+
     const keyParagraphs = segments
       .filter(s => s.type === 'PARAGRAPH' && s.text.length > 30)
       .slice(0, 6)
@@ -639,6 +864,7 @@
       formsSummary,
       forms: formsSummary,
       stats,
+      areas,
       keyParagraphs: keyParagraphs.length > 0 ? keyParagraphs : [fullOriginalText.slice(0, 300)],
       segments: segments.length > 0 ? segments : [
         {
@@ -1081,6 +1307,8 @@
   // Active Pointer & Spotlight State
   let activeSpotlightEl = null;
   let activePointerCardEl = null;
+  let activeAreaSpotlightEl = null;
+  let activeAreaCardEl = null;
   let isPickerActive = false;
   let pickerBannerEl = null;
   let lastHoveredEl = null;
@@ -1094,9 +1322,13 @@
     activeOverlay = null;
   }
 
-  /**
-   * Visual Pointer pointing directly to broken / non-working area on the webpage
-   */
+  function clearAreaSpotlight() {
+    if (activeAreaSpotlightEl && activeAreaSpotlightEl.parentNode) activeAreaSpotlightEl.remove();
+    if (activeAreaCardEl && activeAreaCardEl.parentNode) activeAreaCardEl.remove();
+    activeAreaSpotlightEl = null;
+    activeAreaCardEl = null;
+  }
+
   /**
    * Visual Pointer pointing directly to broken / non-working area on the webpage
    */
@@ -1219,6 +1451,141 @@
 
   function inspectElement(selector, label = 'Thunai Inspection') {
     inspectElementWithPointer(selector, label);
+  }
+
+  /**
+   * Visual Spotlight Ring and Pointer Card pointing to an identified content area
+   * for Translation and Simplification on the live webpage.
+   */
+  function spotlightPageArea(selector, areaName = 'Selected Content Area') {
+    clearAreaSpotlight();
+    clearActivePointer();
+
+    let elements = [];
+    if (selector) {
+      try {
+        elements = Array.from(document.querySelectorAll(selector));
+      } catch (_) {}
+    }
+
+    // Fallback: if selector didn't match directly, try by id or data attribute
+    if (elements.length === 0 && selector && selector.startsWith('#')) {
+      const byId = document.getElementById(selector.slice(1));
+      if (byId) elements = [byId];
+    }
+    if (elements.length === 0 && selector) {
+      try {
+        const byData = document.querySelector(`[data-thunai-area="${selector}"]`);
+        if (byData) elements = [byData];
+      } catch (_) {}
+    }
+
+    if (elements.length === 0) {
+      // Fallback: match by mainContainer or body
+      const fallbackTarget = document.querySelector('main, article, [role="main"]') || document.body;
+      if (fallbackTarget) elements = [fallbackTarget];
+    }
+
+    if (elements.length === 0) return false;
+
+    // Smooth scroll the first element into view
+    try {
+      elements[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+    } catch (_) {}
+
+    // Calculate union bounding box of all elements in this area
+    const scrollX = window.scrollX || window.pageXOffset || 0;
+    const scrollY = window.scrollY || window.pageYOffset || 0;
+
+    let minTop = Infinity;
+    let minLeft = Infinity;
+    let maxBottom = -Infinity;
+    let maxRight = -Infinity;
+
+    elements.forEach(el => {
+      const r = el.getBoundingClientRect();
+      if (r.width > 0 || r.height > 0) {
+        if (r.top < minTop) minTop = r.top;
+        if (r.left < minLeft) minLeft = r.left;
+        if (r.bottom > maxBottom) maxBottom = r.bottom;
+        if (r.right > maxRight) maxRight = r.right;
+      }
+    });
+
+    if (minTop === Infinity) {
+      const r = elements[0].getBoundingClientRect();
+      minTop = r.top;
+      minLeft = r.left;
+      maxBottom = r.bottom;
+      maxRight = r.right;
+    }
+
+    const areaWidth = Math.max(50, maxRight - minLeft);
+    const areaHeight = Math.max(30, maxBottom - minTop);
+
+    // 1. Create Glowing Spotlight Ring around the area
+    const ring = document.createElement('div');
+    ring.className = 'thunai-area-spotlight-ring';
+    ring.style.top = `${minTop + scrollY - 6}px`;
+    ring.style.left = `${minLeft + scrollX - 6}px`;
+    ring.style.width = `${areaWidth + 12}px`;
+    ring.style.height = `${areaHeight + 12}px`;
+    document.body.appendChild(ring);
+    activeAreaSpotlightEl = ring;
+
+    // 2. Create Area Pointer Arrow Card
+    const card = document.createElement('div');
+    card.className = 'thunai-area-pointer-card';
+
+    const cardWidth = Math.min(360, Math.max(280, window.innerWidth - 30));
+    let cardLeft = Math.max(12, Math.min(window.innerWidth - cardWidth - 16, minLeft + scrollX));
+    let cardTop = minTop + scrollY - 145;
+    let isBelow = false;
+
+    if (minTop < 155) {
+      cardTop = maxBottom + scrollY + 12;
+      isBelow = true;
+    }
+
+    card.style.left = `${cardLeft}px`;
+    card.style.top = `${cardTop}px`;
+
+    const arrowIcon = isBelow ? '👆' : '👉';
+    const safeTitle = (areaName || 'Selected Content Area').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+    card.innerHTML = `
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+        <div style="display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 800; color: #38BDF8;">
+          <span style="font-size: 16px;">${arrowIcon}</span>
+          <span>പരിഭാഷാ ഭാഗം (Target Area)</span>
+        </div>
+        <button type="button" class="thunai-area-btn-dismiss" title="Close" style="background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.25); color: #fff; border-radius: 6px; padding: 2px 7px; font-size: 12px; cursor: pointer;">✕</button>
+      </div>
+      <div style="font-size: 14.5px; font-weight: 800; color: #F8FAFC; margin-bottom: 4px; line-height: 1.3;">${safeTitle}</div>
+      <div style="font-size: 12px; color: #94A3B8; line-height: 1.45; margin-bottom: 10px;">ഈ ഭാഗത്തിലെ വിവരങ്ങളാണ് മലയാളത്തിലേക്ക് വിവർത്തനം ചെയ്യാനും ലളിതമാക്കാനും തിരഞ്ഞെടുത്തിട്ടുള്ളത്.</div>
+      <div style="display: flex; justify-content: flex-end;">
+        <button type="button" class="thunai-area-btn-dismiss" style="background: #0284C7; color: #fff; border: none; border-radius: 6px; padding: 5px 14px; font-size: 12px; font-weight: 700; cursor: pointer; box-shadow: 0 2px 8px rgba(2,132,199,0.4);">ശരി (Got it)</button>
+      </div>
+    `;
+
+    card.querySelectorAll('.thunai-area-btn-dismiss').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        clearAreaSpotlight();
+      });
+    });
+
+    document.body.appendChild(card);
+    activeAreaCardEl = card;
+
+    // Auto-dismiss after 20 seconds
+    setTimeout(() => {
+      if (activeAreaSpotlightEl === ring) {
+        clearAreaSpotlight();
+      }
+    }, 20000);
+
+    return true;
   }
 
   /**
@@ -2204,7 +2571,10 @@
         );
         sendResponse({ success: true, matches });
       } else if (message.action === 'JUMP_TO_KEYWORD_MATCH') {
-        scrollToKeywordMatch(message.matchIndex);
+        scrollToKeywordMatch(message.matchIndex, false);
+        sendResponse({ success: true });
+      } else if (message.action === 'POINT_TO_KEYWORD_MATCH') {
+        scrollToKeywordMatch(message.matchIndex, true);
         sendResponse({ success: true });
       } else if (message.action === 'CLEAR_SEARCH_HIGHLIGHTS') {
         clearSearchHighlights();
@@ -2212,6 +2582,12 @@
       } else if (message.action === 'EXTRACT_PAGE_CONTENT') {
         const data = extractRealPageContent();
         sendResponse({ success: true, data });
+      } else if (message.action === 'SPOTLIGHT_PAGE_AREA') {
+        const ok = spotlightPageArea(message.selector, message.areaName);
+        sendResponse({ success: ok });
+      } else if (message.action === 'CLEAR_AREA_SPOTLIGHT') {
+        clearAreaSpotlight();
+        sendResponse({ success: true });
       } else if (message.action === 'SCAN_LIVE_DOM') {
         const report = scanLivePageDOM();
         sendResponse({ success: true, ...report, report });
@@ -2248,8 +2624,35 @@
       } else if (message.action === 'UPDATE_SETTINGS') {
         applyUserSettings(message.settings);
         sendResponse({ success: true });
+      } else if (message.action === 'RESET_ALL_PAGE_OVERLAYS') {
+        resetAllPageOverlays();
+        sendResponse({ success: true });
       }
     });
+  }
+
+  function resetAllPageOverlays() {
+    try {
+      clearSearchHighlights();
+      clearActivePointer();
+      clearAreaSpotlight();
+      toggleHeatmap(false);
+      stopElementPicker();
+      document.querySelectorAll('.thunai-reading-highlight').forEach(el => {
+        el.classList.remove('thunai-reading-highlight');
+      });
+      if (readingRulerEl) {
+        readingRulerEl.style.display = 'none';
+      }
+      if (liveStyleEl) {
+        liveStyleEl.textContent = '';
+      }
+      document.querySelectorAll('.thunai-inpage-spotlight-focus').forEach(el => el.remove());
+      document.querySelectorAll('.thunai-pointer-arrow-card').forEach(el => el.remove());
+      document.querySelectorAll('.thunai-area-spotlight-ring').forEach(el => el.remove());
+      document.querySelectorAll('.thunai-area-pointer-card').forEach(el => el.remove());
+    } catch (_) {}
+    return true;
   }
 
   window.ThunaiContentScript = {
@@ -2257,6 +2660,8 @@
     scrollToKeywordMatch,
     clearSearchHighlights,
     extractRealPageContent,
+    spotlightPageArea,
+    clearAreaSpotlight,
     scanLivePageDOM,
     diagnoseLivePageBarriers,
     auditAllButtonsDOM,
@@ -2271,6 +2676,7 @@
     toggleHeatmap,
     highlightSegment,
     applyLiveFixToPage,
-    applyUserSettings
+    applyUserSettings,
+    resetAllPageOverlays
   };
 })();

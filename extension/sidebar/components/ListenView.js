@@ -6,8 +6,11 @@
 
 import { ttsService } from '../../services/ttsService.js';
 import { extractSentenceSegments } from './TranslateView.js';
+import { getT } from '../i18n.js';
 
 export function renderListenView(container, state, setState) {
+  const currentLang = state.currentLang || 'ml';
+  const t = getT(currentLang);
   // If webpage has active Malayalam translation data, load ALL translated sentence segments for TTS!
   if (state.hasTranslated && state.translatedData && (state.translatedData.translated || state.translatedData.simplified)) {
     const textToRead = state.isSimplified 
@@ -41,9 +44,12 @@ export function renderListenView(container, state, setState) {
           }).catch(() => {});
         }
       });
-    } else if (window.parent && window.parent.ThunaiContentScript) {
-      // Standalone preview testbed fallback
-      window.parent.ThunaiContentScript.highlightSegment(selector);
+    } else {
+      try {
+        if (typeof window !== 'undefined' && window.parent && window.parent.ThunaiContentScript) {
+          window.parent.ThunaiContentScript.highlightSegment(selector);
+        }
+      } catch (_) {}
     }
   }
 
@@ -67,9 +73,17 @@ export function renderListenView(container, state, setState) {
             <span class="source-icon">📄</span>
             <span class="source-title" title="${seg.tag || 'കേരളം - വിക്കിപീഡിയ'}">${seg.tag || 'കേരളം - വിക്കിപീഡിയ'}</span>
           </div>
-          <div class="sync-indicator ${ttsState.isPlaying ? 'active' : ''}" title="Current sentence is synced with page highlight">
-            <span class="sync-dot"></span>
-            <span class="sync-text">Live Sync</span>
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <button class="btn-refresh-pill" id="btn-refresh-listen" title="${t.refreshTooltip || 'Reset audio & sync to fresh state'}">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3">
+                <path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+              </svg>
+              <span>${t.refreshBtn ? t.refreshBtn.split(' ')[0] : 'റീഫ്രഷ്'}</span>
+            </button>
+            <div class="sync-indicator ${ttsState.isPlaying ? 'active' : ''}" title="Current sentence is synced with page highlight">
+              <span class="sync-dot"></span>
+              <span class="sync-text">Live Sync</span>
+            </div>
           </div>
         </div>
 
@@ -253,6 +267,29 @@ export function renderListenView(container, state, setState) {
     if (voiceSelect) {
       voiceSelect.addEventListener('change', (e) => {
         ttsService.setVoice(e.target.value);
+      });
+    }
+
+    // Refresh Audio Button
+    const refreshListenBtn = container.querySelector('#btn-refresh-listen');
+    if (refreshListenBtn) {
+      refreshListenBtn.addEventListener('click', () => {
+        ttsService.stop();
+        ttsService.setSpeed(1.0);
+        if (typeof chrome !== 'undefined' && chrome.tabs) {
+          chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+            if (tabs && tabs[0]) {
+              chrome.tabs.sendMessage(tabs[0].id, { action: 'RESET_ALL_PAGE_OVERLAYS' }).catch(() => {});
+            }
+          });
+        } else {
+          try {
+            if (typeof window !== 'undefined' && window.parent && window.parent.ThunaiContentScript) {
+              window.parent.ThunaiContentScript.resetAllPageOverlays();
+            }
+          } catch (_) {}
+        }
+        render();
       });
     }
   }

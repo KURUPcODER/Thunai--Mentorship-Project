@@ -59,8 +59,12 @@ export function renderSettingsView(container, state, setState, onNavigate) {
           }).catch(() => {});
         }
       });
-    } else if (window.parent && window.parent.ThunaiContentScript) {
-      window.parent.ThunaiContentScript.applyUserSettings(settings);
+    } else {
+      try {
+        if (typeof window !== 'undefined' && window.parent && window.parent.ThunaiContentScript) {
+          window.parent.ThunaiContentScript.applyUserSettings(settings);
+        }
+      } catch (_) {}
     }
   }
 

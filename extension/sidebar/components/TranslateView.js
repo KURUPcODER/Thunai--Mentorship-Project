@@ -4,7 +4,7 @@
  * audio playback bridge, live language detection per active URL, and race-condition protection.
  */
 
-import { translateText, getActivePageInfo } from '../../services/translateService.js';
+import { translateText, getActivePageInfo, spotlightArea, clearAreaSpotlight } from '../../services/translateService.js';
 import { ttsService } from '../../services/ttsService.js';
 import { getT } from '../i18n.js';
 
@@ -38,8 +38,25 @@ export function renderTranslateView(container, state, setState, onNavigate) {
   let isSimplified = state.isSimplified || false;
   let translatedData = state.translatedData || null;
   let translateError = state.translateError || '';
+  let selectedAreaId = state.selectedAreaId || 'all';
+  let areas = Array.isArray(state.activePageAreas) && state.activePageAreas.length > 0
+    ? state.activePageAreas
+    : (Array.isArray(state.areas) ? state.areas : []);
   const currentLang = state.currentLang || 'ml';
   const t = getT(currentLang);
+
+  // Background hydration of areas if not yet present in state
+  if (areas.length === 0 && !state._areasHydrated) {
+    getActivePageInfo().then(info => {
+      if (info && Array.isArray(info.areas) && info.areas.length > 0) {
+        areas = info.areas;
+        setState({ activePageAreas: info.areas, _areasHydrated: true });
+        render();
+      } else {
+        setState({ _areasHydrated: true });
+      }
+    }).catch(() => {});
+  }
 
   const escapeHTML = (value) => String(value || '').replace(/[&<>"']/g, (character) => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
@@ -54,6 +71,8 @@ export function renderTranslateView(container, state, setState, onNavigate) {
   const pageTitleDisplay = state.activePageTitle || state.scanReport?.meta?.title || 'Active Webpage';
 
   function render() {
+    const selectedArea = areas.find(a => a.id === selectedAreaId) || areas[0] || null;
+
     container.innerHTML = `
       <div class="view-panel translate-view animate-fade-in" id="panel-translate" role="tabpanel" aria-labelledby="tab-translate">
         
@@ -63,7 +82,15 @@ export function renderTranslateView(container, state, setState, onNavigate) {
             <span class="dot-indicator"></span>
             <span class="lang-text">${detectedLabelText}</span>
           </div>
-          <span class="domain-tag" title="${state.activePageUrl || state.scanReport?.url || ''}">${escapeHTML(pageTitleDisplay)}</span>
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span class="domain-tag" title="${state.activePageUrl || state.scanReport?.url || ''}">${escapeHTML(pageTitleDisplay)}</span>
+            <button class="btn-refresh-pill" id="btn-refresh-translate" title="${t.refreshTooltip || 'Reset translation to fresh state'}">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3">
+                <path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+              </svg>
+              <span>${t.refreshBtn ? t.refreshBtn.split(' ')[0] : 'റീഫ്രഷ്'}</span>
+            </button>
+          </div>
         </div>
 
         <!-- Section Title -->
@@ -71,6 +98,44 @@ export function renderTranslateView(container, state, setState, onNavigate) {
           <h2 class="view-heading-ml">${t.translateHeading}</h2>
           <p class="view-subheading-en">${t.translateSubheading}</p>
         </div>
+
+        <!-- Multi-Area Selection Panel (shown only if multiple areas are detected) -->
+        ${areas.length > 1 ? `
+          <div class="translate-area-selector-card" id="translate-area-card">
+            <div class="area-card-header">
+              <div class="area-card-title-group">
+                <span class="area-card-icon">🎯</span>
+                <label for="select-translate-area" class="area-card-title">${t.selectAreaTitle}</label>
+              </div>
+              <span class="area-count-pill">${areas.length - 1} ${t.areasDetected}</span>
+            </div>
+
+            <div class="area-dropdown-row">
+              <select id="select-translate-area" class="area-select-input" aria-label="${t.selectAreaTitle}">
+                ${areas.map(area => `
+                  <option value="${area.id}" ${area.id === selectedAreaId ? 'selected' : ''}>
+                    ${area.id === 'all' 
+                      ? (currentLang === 'ml' ? t.wholePageOption : '🌐 Whole Webpage') 
+                      : (currentLang === 'ml' ? escapeHTML(area.name) : escapeHTML(area.nameEn || area.name))} (${area.wordCount} ${currentLang === 'ml' ? 'വാക്കുകൾ' : 'words'})
+                  </option>
+                `).join('')}
+              </select>
+            </div>
+
+            <div class="area-action-row">
+              <button type="button" class="btn-point-area" id="btn-point-area" title="${t.showAreaOnPage}" aria-label="${t.showAreaOnPage}">
+                <span class="point-icon">👉</span>
+                <span class="point-text">${(t.showAreaOnPage || 'പേജിൽ കാണിക്കുക').replace(/^[👉\s]+/, '')}</span>
+              </button>
+            </div>
+
+            <!-- Area Preview Snippet -->
+            <div class="area-preview-snippet" id="area-preview-snippet">
+              <span class="preview-label">${t.areaPreviewLabel}</span>
+              <span class="preview-text">${escapeHTML(selectedArea?.snippet || selectedArea?.text?.slice(0, 140) || '')}</span>
+            </div>
+          </div>
+        ` : ''}
 
         <!-- Primary Action Button -->
         <div class="cta-container">
@@ -82,7 +147,7 @@ export function renderTranslateView(container, state, setState, onNavigate) {
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M5 8l6 6M4 14l6-6 3 3M2 5h12M7 2h1M22 22l-5-10-5 10M14 18h6"></path>
               </svg>
-              <span>${t.btnTranslate}</span>
+              <span>${(selectedArea && selectedArea.id !== 'all') ? `${t.btnTranslate} (${currentLang === 'ml' ? selectedArea.name : (selectedArea.nameEn || selectedArea.name)})` : t.btnTranslate}</span>
             `}
           </button>
         </div>
@@ -93,6 +158,11 @@ export function renderTranslateView(container, state, setState, onNavigate) {
             <div class="output-header-left">
               <span class="output-badge">${isSimplified ? t.simplifiedBadge : t.fullBadge}</span>
               ${hasTranslated ? `<span class="word-count-badge">${isSimplified ? (translatedData?.simplified || '').split(/\s+/).filter(Boolean).length : translatedData?.wordCount || 0} words</span>` : ''}
+              ${(hasTranslated && translatedData?.areaId && translatedData.areaId !== 'all') ? `
+                <span class="translated-area-pill" title="${t.translatedAreaLabel}">
+                  🎯 ${escapeHTML(currentLang === 'ml' ? translatedData.areaName : (translatedData.areaNameEn || translatedData.areaName))}
+                </span>
+              ` : ''}
             </div>
 
             <!-- Inline Simplify Toggle Switch -->
@@ -153,6 +223,13 @@ export function renderTranslateView(container, state, setState, onNavigate) {
                 </svg>
                 <span>${t.btnListen}</span>
               </button>
+
+              ${(translatedData?.areaSelector && translatedData.areaId !== 'all') ? `
+                <button class="btn-action-small btn-resoptlight-area" id="btn-re-spotlight-area" title="${t.showAreaOnPage}">
+                  <span>👉</span>
+                  <span>${t.showAreaOnPage}</span>
+                </button>
+              ` : ''}
               
               <button class="btn-action-small secondary" id="btn-copy-translation" title="Copy text to clipboard">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -171,9 +248,6 @@ export function renderTranslateView(container, state, setState, onNavigate) {
   }
 
   function attachEvents() {
-    // Normalize a URL for comparison: lower-case, strip trailing slash.
-    // Reuses ThunaiInstance.normalizeUrl when available so behaviour stays in sync
-    // with syncActiveTab(); falls back to a simple inline version.
     const _normUrl = (u) => {
       if (!u) return '';
       const fn = window.ThunaiInstance?.normalizeUrl?.bind(window.ThunaiInstance);
@@ -189,11 +263,56 @@ export function renderTranslateView(container, state, setState, onNavigate) {
     const isStaleNavigation = (startedUrl) => {
       const liveState = window.ThunaiInstance?.state || state;
       const currentUrl = liveState.activePageUrl || '';
-      // Translation is stale ONLY when the user actually navigated away to a different non-empty URL.
-      // Use normalized comparison so trailing-slash / protocol differences do not produce false positives.
       return Boolean(startedUrl && currentUrl && _normUrl(startedUrl) !== _normUrl(currentUrl));
     };
 
+    // Area Selection Dropdown Change
+    const areaSelect = container.querySelector('#select-translate-area');
+    if (areaSelect) {
+      areaSelect.addEventListener('change', (e) => {
+        selectedAreaId = e.target.value;
+        setState({ selectedAreaId });
+        render();
+      });
+    }
+
+    // "👉 Show on Page / പേജിൽ കാണിക്കുക" Visual Spotlight
+    const pointAreaBtn = container.querySelector('#btn-point-area');
+    if (pointAreaBtn) {
+      pointAreaBtn.addEventListener('click', async () => {
+        const targetArea = areas.find(a => a.id === selectedAreaId) || areas[0];
+        if (!targetArea) return;
+
+        const displayName = currentLang === 'ml' 
+          ? (targetArea.name || 'തിരഞ്ഞെടുത്ത ഭാഗം') 
+          : (targetArea.nameEn || targetArea.name || 'Selected Content Area');
+
+        await spotlightArea(targetArea.selector, displayName);
+
+        pointAreaBtn.classList.add('spotlight-active');
+        const origText = pointAreaBtn.innerHTML;
+        pointAreaBtn.innerHTML = `<span>📍</span> <span>${t.areaSpotlightActive || 'പേജിൽ കാണിച്ചു'}</span>`;
+        setTimeout(() => {
+          if (pointAreaBtn) {
+            pointAreaBtn.classList.remove('spotlight-active');
+            pointAreaBtn.innerHTML = origText;
+          }
+        }, 2200);
+      });
+    }
+
+    // Re-spotlight area from output card button
+    const reSpotlightBtn = container.querySelector('#btn-re-spotlight-area');
+    if (reSpotlightBtn) {
+      reSpotlightBtn.addEventListener('click', async () => {
+        if (translatedData?.areaSelector) {
+          const name = currentLang === 'ml' ? (translatedData.areaName || 'പരിഭാഷാ ഭാഗം') : (translatedData.areaNameEn || 'Translated Area');
+          await spotlightArea(translatedData.areaSelector, name);
+        }
+      });
+    }
+
+    // Primary Translation Button
     const translateBtn = container.querySelector('#btn-trigger-translate');
     if (translateBtn) {
       translateBtn.addEventListener('click', async () => {
@@ -207,21 +326,28 @@ export function renderTranslateView(container, state, setState, onNavigate) {
         try {
           // Explicitly extract fresh page content from active tab
           const pageInfo = await getActivePageInfo();
-          const sourceText = pageInfo?.fullText || state.activePageText || '';
           startedUrl = pageInfo?.url || startedUrl;
 
+          if (Array.isArray(pageInfo?.areas) && pageInfo.areas.length > 0) {
+            areas = pageInfo.areas;
+          }
+
+          let sourceText = pageInfo?.fullText || state.activePageText || '';
+          let currentTargetArea = null;
+
+          if (selectedAreaId && selectedAreaId !== 'all') {
+            currentTargetArea = areas.find(a => a.id === selectedAreaId);
+            if (currentTargetArea && currentTargetArea.text) {
+              sourceText = currentTargetArea.text;
+            }
+          }
+
+          console.log('[Thunai Translate] selectedAreaId:', selectedAreaId);
           console.log('[Thunai Translate] source length:', sourceText.length);
           console.log('[Thunai Translate] source preview:', sourceText.slice(0, 300));
           console.log('[Thunai Translate] source URL:', startedUrl);
           console.log('[Thunai Translate] page langCode:', pageInfo?.langCode);
 
-          // EXPLICIT HINDI → MALAYALAM ROUTING
-          // When the page is already identified as Hindi (hi), pass 'hi' as the explicit
-          // source language so translateText always uses sl=hi&tl=ml.
-          // This prevents auto-detection failures on real Hindi Wikipedia pages where
-          // English navigation/category text can outnumber Devanagari characters and
-          // cause detectLanguageHint() to return 'en' instead of 'hi'.
-          // For all other source languages we keep 'auto' (existing behaviour preserved).
           const explicitSourceLang = (pageInfo?.langCode === 'hi') ? 'hi' : 'auto';
           console.log('[Thunai Translate] explicitSourceLang:', explicitSourceLang);
 
@@ -240,15 +366,26 @@ export function renderTranslateView(container, state, setState, onNavigate) {
           if (!res?.success || !res.translated || !res.simplified) throw new Error('No translated text was returned.');
           isTranslating = false;
           hasTranslated = true;
+
+          // Stamp target area metadata onto translatedData
+          if (currentTargetArea) {
+            res.areaId = currentTargetArea.id;
+            res.areaName = currentTargetArea.name;
+            res.areaNameEn = currentTargetArea.nameEn || currentTargetArea.name;
+            res.areaSelector = currentTargetArea.selector;
+          } else {
+            res.areaId = 'all';
+            res.areaName = currentLang === 'ml' ? t.wholePageOption : 'Whole Webpage';
+            res.areaNameEn = 'Whole Webpage';
+            res.areaSelector = 'body';
+          }
           translatedData = res;
 
           // Prime translated sentence segments into TTS service
-          const transSegs = extractSentenceSegments(res.translated, res.original, pageTitleDisplay || 'പരിഭാഷ');
+          const transSegs = extractSentenceSegments(res.translated, res.original, (currentTargetArea ? currentTargetArea.name : pageTitleDisplay) || 'പരിഭാഷ');
           if (transSegs.length > 0) {
             ttsService.loadSegments(transSegs);
             console.log('[Thunai TTS] totalSegments:', ttsService.getState().totalSegments);
-            console.log('[Thunai TTS] first:', ttsService.getState().segments?.[0]?.malayalamText);
-            console.log('[Thunai TTS] last:', ttsService.getState().segments?.at(-1)?.malayalamText);
           }
 
           setState({
@@ -256,6 +393,8 @@ export function renderTranslateView(container, state, setState, onNavigate) {
             hasTranslated: true,
             translatedData: res,
             translateError: '',
+            activePageAreas: areas,
+            selectedAreaId,
             activePageLang: res.detectedLang,
             activePageLangLabel: res.detectedLangLabel,
             activePageLangLabelEn: res.detectedLangLabelEn
@@ -309,6 +448,32 @@ export function renderTranslateView(container, state, setState, onNavigate) {
             if (label) label.textContent = t.btnCopy;
           }, 2000);
         }
+      });
+    }
+
+    const refreshTranslateBtn = container.querySelector('#btn-refresh-translate');
+    if (refreshTranslateBtn) {
+      refreshTranslateBtn.addEventListener('click', async () => {
+        isTranslating = false;
+        hasTranslated = false;
+        isSimplified = false;
+        translatedData = null;
+        translateError = '';
+        selectedAreaId = 'all';
+
+        try {
+          await clearAreaSpotlight();
+        } catch (_) {}
+
+        setState({
+          isTranslating: false,
+          hasTranslated: false,
+          isSimplified: false,
+          translatedData: null,
+          translateError: '',
+          selectedAreaId: 'all'
+        });
+        render();
       });
     }
   }

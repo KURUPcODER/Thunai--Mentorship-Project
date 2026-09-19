@@ -29,12 +29,16 @@ export function renderDiagnosticsView(container, state, setState, onNavigate) {
   let chatTextZoom = state.chatTextZoom || 100; // 100%, 125%, 150%
 
   // Active Webpage Context
-  const activePageTitle = (typeof document !== 'undefined' && window.parent && window.parent.document && window.parent.document.title)
-    ? window.parent.document.title
-    : (state.scanReport?.meta?.title || 'Active Webpage');
-  const activePageUrl = (typeof window !== 'undefined' && window.parent && window.parent.location)
-    ? window.parent.location.href
-    : (state.scanReport?.url || 'https://kerala.gov.in');
+  let activePageTitle = state.scanReport?.meta?.title || state.activePageTitle || 'Active Webpage';
+  let activePageUrl = state.scanReport?.url || state.activePageUrl || 'https://kerala.gov.in';
+  try {
+    if (typeof document !== 'undefined' && window.parent && window.parent.document && window.parent.document.title) {
+      activePageTitle = window.parent.document.title;
+    }
+    if (typeof window !== 'undefined' && window.parent && window.parent.location && window.parent.location.href) {
+      activePageUrl = window.parent.location.href;
+    }
+  } catch (_) {}
 
   const pageContext = {
     title: activePageTitle,
@@ -241,11 +245,19 @@ export function renderDiagnosticsView(container, state, setState, onNavigate) {
           <h2 class="view-heading-ml">${t.diagTitle}</h2>
           <p class="view-subheading-en">${t.diagSub}</p>
 
-          <!-- Active Page Context Pill -->
-          <div class="diag-page-context-bar" title="${activePageUrl}">
-            <span class="diag-pulse-dot"></span>
-            <span class="diag-context-label">${isEn ? 'Auditing:' : 'പേജ്:'}</span>
-            <span class="diag-context-title">${activePageTitle}</span>
+          <!-- Active Page Context Pill & Refresh Button -->
+          <div class="diag-page-context-bar" style="display: flex; align-items: center; justify-content: space-between;" title="${activePageUrl}">
+            <div style="display: flex; align-items: center; gap: 6px; overflow: hidden;">
+              <span class="diag-pulse-dot"></span>
+              <span class="diag-context-label">${isEn ? 'Auditing:' : 'പേജ്:'}</span>
+              <span class="diag-context-title">${activePageTitle}</span>
+            </div>
+            <button class="btn-refresh-pill" id="btn-refresh-diagnostics" title="${t.refreshTooltip || 'Reset diagnostics to fresh state'}">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3">
+                <path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+              </svg>
+              <span>${t.refreshBtn ? t.refreshBtn.split(' ')[0] : 'റീഫ്രഷ്'}</span>
+            </button>
           </div>
         </header>
 
@@ -1087,6 +1099,48 @@ export function renderDiagnosticsView(container, state, setState, onNavigate) {
         setTimeout(() => {
           autoFixBtn.textContent = isEn ? '✓ Fixed' : '✓ മാറ്റം വരുത്തി';
         }, 600);
+      });
+    }
+
+    // Refresh Diagnostics Handler
+    const refreshDiagBtn = container.querySelector('#btn-refresh-diagnostics');
+    if (refreshDiagBtn) {
+      refreshDiagBtn.addEventListener('click', () => {
+        activeInspectedItem = null;
+        pageContent = null;
+        buttonAudit = null;
+        barriers = [];
+        isPickingElement = false;
+        chatMessages = [
+          {
+            sender: 'assistant',
+            textMl: `നമസ്കാരം! ഞാൻ നിങ്ങളുടെ തുണ (Thunai) വെബ്സഹായിയാണ്. നിലവിൽ "${activePageTitle}" എന്ന പേജിലെ വിവരങ്ങളും തടസ്സങ്ങളും ഞാൻ നിരീക്ഷിക്കുന്നുണ്ട്.\n\nഏതെങ്കിലും ബട്ടൺ ക്ലിക്ക് ചെയ്യാനാകുന്നില്ലെങ്കിലോ, ഫോം പൂരിപ്പിക്കാൻ സഹായം വേണമെങ്കിലോ എന്നോട് ചോദിക്കാം.`,
+            textEn: `Hello! I am your Thunai Web Assistant. I am actively analyzing "${activePageTitle}".\n\nIf any button is not working, or if you need step-by-step help filling forms on this page, please ask!`,
+            timestamp: Date.now()
+          }
+        ];
+        setState({
+          currentInspectedElement: null,
+          diagPageContent: null,
+          diagButtonAudit: null,
+          chatMessages
+        });
+
+        if (typeof chrome !== 'undefined' && chrome.tabs) {
+          chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+            if (tabs && tabs[0]) {
+              chrome.tabs.sendMessage(tabs[0].id, { action: 'RESET_ALL_PAGE_OVERLAYS' }).catch(() => {});
+            }
+          });
+        } else {
+          try {
+            if (typeof window !== 'undefined' && window.parent && window.parent.ThunaiContentScript) {
+              window.parent.ThunaiContentScript.resetAllPageOverlays();
+            }
+          } catch (_) {}
+        }
+
+        loadBarriers();
       });
     }
 

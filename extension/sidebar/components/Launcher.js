@@ -5,14 +5,16 @@
  */
 
 import { getT } from '../i18n.js';
-import { searchService } from '../../services/searchService.js';
 
 export function renderLauncher(container, currentLang, onNavigate, onToggleLang) {
   const t = getT(currentLang);
   const isEn = currentLang === 'en';
-  const activeTitle = (typeof document !== 'undefined' && window.parent && window.parent.document && window.parent.document.title) 
-    ? window.parent.document.title.slice(0, 32) 
-    : 'Active Webpage';
+  let activeTitle = 'Active Webpage';
+  try {
+    if (typeof document !== 'undefined' && window.parent && window.parent.document && window.parent.document.title) {
+      activeTitle = window.parent.document.title.slice(0, 32);
+    }
+  } catch (_) {}
 
   container.innerHTML = `
     <div class="launcher-view animate-fade-in" role="region" aria-label="Thunai Launcher Home">
@@ -45,24 +47,18 @@ export function renderLauncher(container, currentLang, onNavigate, onToggleLang)
           </button>
         </div>
 
-        <!-- Sleek Search & Active Context Bar -->
-        <div class="launcher-search-row-compact">
-          <div class="search-input-wrapper-compact">
-            <div class="search-icon-box-compact" aria-hidden="true">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                <circle cx="11" cy="11" r="8"></circle>
-                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-              </svg>
-            </div>
-            <input type="text" 
-                   id="launcher-quick-search-input" 
-                   class="search-text-input-compact" 
-                   placeholder="${t.searchPlaceholder}">
-          </div>
-          <div class="page-context-pill-compact" title="${activeTitle}">
+        <!-- Sleek Active Context Bar with Page Clean/Refresh -->
+        <div class="launcher-search-row-compact" style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+          <div class="page-context-pill-compact" title="${activeTitle}" style="flex: 1;">
             <span class="pulse-indicator-compact"></span>
             <span class="context-title-compact">${activeTitle}</span>
           </div>
+          <button class="btn-refresh-pill" id="launcher-btn-clean-page" title="${t.refreshAllTooltip || 'Reset all webpage overlays to clean state'}">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3">
+              <path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+            </svg>
+            <span>${isEn ? 'Clean' : 'ക്ലീൻ'}</span>
+          </button>
         </div>
       </header>
 
@@ -227,13 +223,28 @@ export function renderLauncher(container, currentLang, onNavigate, onToggleLang)
     });
   }
 
-  // Attach quick search input
-  const searchInput = container.querySelector('#launcher-quick-search-input');
-  if (searchInput) {
-    searchInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        searchService.searchPage(searchInput.value);
-        if (onNavigate) onNavigate('search');
+  // Attach clean page / refresh button
+  const cleanBtn = container.querySelector('#launcher-btn-clean-page');
+  if (cleanBtn) {
+    cleanBtn.addEventListener('click', () => {
+      if (typeof chrome !== 'undefined' && chrome.tabs) {
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+          if (tabs && tabs[0]) {
+            chrome.tabs.sendMessage(tabs[0].id, { action: 'RESET_ALL_PAGE_OVERLAYS' }).catch(() => {});
+          }
+        });
+      } else {
+        try {
+          if (typeof window !== 'undefined' && window.parent && window.parent.ThunaiContentScript) {
+            window.parent.ThunaiContentScript.resetAllPageOverlays();
+          }
+        } catch (_) {}
+      }
+      const span = cleanBtn.querySelector('span');
+      if (span) {
+        const orig = span.textContent;
+        span.textContent = '✓ ' + (isEn ? 'Clean' : 'ക്ലീൻ');
+        setTimeout(() => { span.textContent = orig; }, 1500);
       }
     });
   }

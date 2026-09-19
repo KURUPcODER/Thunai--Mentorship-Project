@@ -59,12 +59,20 @@ export function renderDyslexiaModeView(container, state, setState, onNavigate) {
       <div class="view-panel dyslexia-mode-view animate-fade-in" id="panel-dyslexia" role="region" aria-label="Dyslexia Friendly Mode">
         
         <!-- Header Strip -->
-        <div class="dyslexia-header-box">
-          <div class="dyslexia-badge-pill">
-            <span>👁️ ${isEn ? 'Dyslexia & Reading Assistant' : 'ഡിസ്‌ലെക്സിയ & വായനാ സഹായി'}</span>
+        <div class="dyslexia-header-box" style="display: flex; align-items: flex-start; justify-content: space-between;">
+          <div>
+            <div class="dyslexia-badge-pill">
+              <span>👁️ ${isEn ? 'Dyslexia & Reading Assistant' : 'ഡിസ്‌ലെക്സിയ & വായനാ സഹായി'}</span>
+            </div>
+            <h2 class="view-heading-ml">${isEn ? 'Dyslexia Friendly Mode' : 'ഡിസ്‌ലെക്സിയ സൗഹൃദ മോഡ്'}</h2>
+            <p class="view-subheading-en">${isEn ? 'Adjust text size, font style, and color textures across the scanned webpage in real time.' : 'സ്കാൻ ചെയ്ത പേജിലെ അക്ഷര വലിപ്പം, ഫോണ്ട്, പശ്ചാത്തല വർണ്ണം എന്നിവ തത്സമയം മാറ്റുക.'}</p>
           </div>
-          <h2 class="view-heading-ml">${isEn ? 'Dyslexia Friendly Mode' : 'ഡിസ്‌ലെക്സിയ സൗഹൃദ മോഡ്'}</h2>
-          <p class="view-subheading-en">${isEn ? 'Adjust text size, font style, and color textures across the scanned webpage in real time.' : 'സ്കാൻ ചെയ്ത പേജിലെ അക്ഷര വലിപ്പം, ഫോണ്ട്, പശ്ചാത്തല വർണ്ണം എന്നിവ തത്സമയം മാറ്റുക.'}</p>
+          <button class="btn-refresh-pill" id="btn-refresh-dyslexia" title="${t.refreshTooltip || 'Reset to fresh state'}">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3">
+              <path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+            </svg>
+            <span>${t.refreshBtn ? t.refreshBtn.split(' ')[0] : 'റീഫ്രഷ്'}</span>
+          </button>
         </div>
 
         <!-- 1. Text Size Scaling on Scanned Webpage -->
@@ -248,8 +256,12 @@ export function renderDyslexiaModeView(container, state, setState, onNavigate) {
           }).catch(() => {});
         }
       });
-    } else if (typeof window !== 'undefined' && window.parent && window.parent.ThunaiContentScript) {
-      window.parent.ThunaiContentScript.applyUserSettings(updatedSettings);
+    } else {
+      try {
+        if (typeof window !== 'undefined' && window.parent && window.parent.ThunaiContentScript) {
+          window.parent.ThunaiContentScript.applyUserSettings(updatedSettings);
+        }
+      } catch (_) {}
     }
   }
 
@@ -353,20 +365,40 @@ export function renderDyslexiaModeView(container, state, setState, onNavigate) {
       });
     }
 
-    // Reset Button
+    // Reset to Fresh State
+    function resetToFreshState() {
+      settings.textSize = 100;
+      settings.fontFamily = 'default';
+      settings.dyslexiaFont = false;
+      settings.colorTint = 'none';
+      settings.letterSpacing = 0;
+      settings.lineSpacing = 1.6;
+      settings.readingRuler = false;
+      dispatchSettings(settings);
+      if (typeof chrome !== 'undefined' && chrome.tabs) {
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+          if (tabs && tabs[0]) {
+            chrome.tabs.sendMessage(tabs[0].id, { action: 'RESET_ALL_PAGE_OVERLAYS' }).catch(() => {});
+          }
+        });
+      } else {
+        try {
+          if (typeof window !== 'undefined' && window.parent && window.parent.ThunaiContentScript) {
+            window.parent.ThunaiContentScript.resetAllPageOverlays();
+          }
+        } catch (_) {}
+      }
+      render();
+    }
+
     const resetBtn = container.querySelector('#btn-reset-dyslexia');
     if (resetBtn) {
-      resetBtn.addEventListener('click', () => {
-        settings.textSize = 100;
-        settings.fontFamily = 'default';
-        settings.dyslexiaFont = false;
-        settings.colorTint = 'none';
-        settings.letterSpacing = 0;
-        settings.lineSpacing = 1.6;
-        settings.readingRuler = false;
-        dispatchSettings(settings);
-        render();
-      });
+      resetBtn.addEventListener('click', resetToFreshState);
+    }
+
+    const refreshTopBtn = container.querySelector('#btn-refresh-dyslexia');
+    if (refreshTopBtn) {
+      refreshTopBtn.addEventListener('click', resetToFreshState);
     }
   }
 

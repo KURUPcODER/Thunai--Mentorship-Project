@@ -197,14 +197,9 @@ class SearchService {
       }
     }
 
-    // Keep the existing preview bridge, but never manufacture fake page
-    // matches. Real browser searches must return real DOM matches.
-    if (
-      typeof window !== 'undefined' &&
-      window.parent &&
-      window.parent.ThunaiContentScript
-    ) {
-      const matches = window.parent.ThunaiContentScript.searchInPage(
+    const bridge = this.getContentScriptBridge();
+    if (bridge && bridge.searchInPage) {
+      const matches = bridge.searchInPage(
         terms,
         this.currentQuery
       );
@@ -225,6 +220,22 @@ class SearchService {
     this.activeMatchIndex = 0;
     this.notify();
     return [];
+  }
+
+  getContentScriptBridge() {
+    if (typeof window === 'undefined') return null;
+    try {
+      if (window.parent && window.parent.ThunaiContentScript) {
+        return window.parent.ThunaiContentScript;
+      }
+      if (window.top && window.top.ThunaiContentScript) {
+        return window.top.ThunaiContentScript;
+      }
+    } catch (_) {}
+    if (window.ThunaiContentScript) {
+      return window.ThunaiContentScript;
+    }
+    return null;
   }
 
   jumpToMatch(index) {
@@ -248,22 +259,52 @@ class SearchService {
                 matchIndex: this.activeMatchIndex
               },
               () => {
-                // Ignore "receiving end does not exist" when the active
-                // page cannot host the content script.
                 if (chrome.runtime.lastError) return;
               }
             );
           }
         }
       );
-    } else if (
-      typeof window !== 'undefined' &&
-      window.parent &&
-      window.parent.ThunaiContentScript
-    ) {
-      window.parent.ThunaiContentScript.scrollToKeywordMatch(
-        this.activeMatchIndex
+    } else {
+      const bridge = this.getContentScriptBridge();
+      if (bridge && bridge.scrollToKeywordMatch) {
+        bridge.scrollToKeywordMatch(this.activeMatchIndex, false);
+      }
+    }
+  }
+
+  pointToMatch(index) {
+    if (this.searchResults.length === 0) return;
+
+    this.activeMatchIndex = Math.max(
+      0,
+      Math.min(this.searchResults.length - 1, index)
+    );
+    this.notify();
+
+    if (typeof chrome !== 'undefined' && chrome.tabs) {
+      chrome.tabs.query(
+        { active: true, currentWindow: true },
+        (tabs) => {
+          if (tabs && tabs[0] && tabs[0].id) {
+            chrome.tabs.sendMessage(
+              tabs[0].id,
+              {
+                action: 'POINT_TO_KEYWORD_MATCH',
+                matchIndex: this.activeMatchIndex
+              },
+              () => {
+                if (chrome.runtime.lastError) return;
+              }
+            );
+          }
+        }
       );
+    } else {
+      const bridge = this.getContentScriptBridge();
+      if (bridge && bridge.scrollToKeywordMatch) {
+        bridge.scrollToKeywordMatch(this.activeMatchIndex, true);
+      }
     }
   }
 
@@ -283,13 +324,21 @@ class SearchService {
           }
         }
       );
-    } else if (
-      typeof window !== 'undefined' &&
-      window.parent &&
-      window.parent.ThunaiContentScript
-    ) {
-      window.parent.ThunaiContentScript.clearSearchHighlights();
+    } else {
+      const bridge = this.getContentScriptBridge();
+      if (bridge && bridge.clearSearchHighlights) {
+        bridge.clearSearchHighlights();
+      }
     }
+  }
+
+  clear() {
+    this.currentQuery = '';
+    this.searchResults = [];
+    this.activeMatchIndex = 0;
+    this.clearPageHighlights();
+    this.notify();
+    return [];
   }
 }
 

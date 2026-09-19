@@ -18,9 +18,10 @@ async function runButtonAudit() {
   const tEn = getT('en');
   console.log(`✓ 1-Click Language Switcher: ML (${tMl.langCode}) <-> EN (${tEn.langCode})`);
 
-  // 2. Test Keyword Search Service
+  // 2. Test Keyword Search Service & Point on Page
   const searchResults = await searchService.searchPage('അപേക്ഷ');
-  console.log(`✓ Search Keyword Button & Engine: Query 'അപേക്ഷ' -> ${searchResults.length} matches found.`);
+  searchService.pointToMatch(0);
+  console.log(`✓ Search Keyword Engine & Point on Page: Query 'അപേക്ഷ' -> Total occurrences found = ${searchService.getState().totalMatches}.`);
 
   // 3. Test Translation CTA & Simplify Toggle
   const transRes = await translateText('Testing live webpage translation');

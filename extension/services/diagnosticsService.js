@@ -136,9 +136,15 @@ class DiagnosticsService {
 
     // Direct DOM extraction fallback (e.g. inside preview.html or parent iframe)
     if (typeof window !== 'undefined') {
-      const doc = (window.parent && window.parent.document && window.parent.document.querySelector('#mock-webpage-target')) 
-        ? window.parent.document 
-        : (document.querySelector('#mock-webpage-target') ? document : null);
+      let doc = null;
+      try {
+        if (window.parent && window.parent.document && window.parent.document.querySelector('#mock-webpage-target')) {
+          doc = window.parent.document;
+        }
+      } catch (_) {}
+      if (!doc && document.querySelector('#mock-webpage-target')) {
+        doc = document;
+      }
 
       if (doc) {
         const targetEl = doc.querySelector('#mock-webpage-target, main, article, body');
@@ -157,10 +163,17 @@ class DiagnosticsService {
             hasSubmit: !!f.querySelector('button[type="submit"], input[type="submit"], button')
           }));
 
+          let parentUrl = 'https://ml.wikipedia.org/wiki/കേരളം';
+          try {
+            if (window.parent && window.parent.location && window.parent.location.href) {
+              parentUrl = window.parent.location.href;
+            }
+          } catch (_) {}
+
           if (wordCount > 20) {
             return {
               title: doc.title || 'കേരളം (Kerala) — Live Webpage',
-              url: (window.parent && window.parent.location ? window.parent.location.href : 'https://ml.wikipedia.org/wiki/കേരളം'),
+              url: parentUrl,
               fullText: rawText,
               wordCount,
               readingTimeMinutes,

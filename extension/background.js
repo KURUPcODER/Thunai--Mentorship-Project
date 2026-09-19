@@ -5,6 +5,11 @@
 
 // Configure Chrome Side Panel to open automatically when user clicks extension toolbar icon
 if (typeof chrome !== 'undefined' && chrome.sidePanel && chrome.sidePanel.setPanelBehavior) {
+  // If the browser supports the Side Panel API (Chrome 114+), remove the default popup
+  // so clicking the action icon immediately slides open the side panel without error.
+  if (chrome.action && chrome.action.setPopup) {
+    chrome.action.setPopup({ popup: '' });
+  }
   chrome.sidePanel
     .setPanelBehavior({ openPanelOnActionClick: true })
     .catch((error) => console.warn("SidePanel API configuration fallback:", error));
@@ -19,7 +24,11 @@ if (typeof chrome !== 'undefined' && chrome.tabs) {
         tabId,
         url: tab?.url,
         title: tab?.title
-      }).catch(() => {});
+      }, () => {
+        if (chrome.runtime.lastError) {
+          // Expected when sidepanel/popup is closed; handle cleanly
+        }
+      });
     }
   });
 
@@ -31,7 +40,11 @@ if (typeof chrome !== 'undefined' && chrome.tabs) {
         tabId: activeInfo.tabId,
         url: tab?.url,
         title: tab?.title
-      }).catch(() => {});
+      }, () => {
+        if (chrome.runtime.lastError) {
+          // Expected when sidepanel/popup is closed; handle cleanly
+        }
+      });
     });
   });
 }
@@ -44,7 +57,11 @@ if (typeof chrome !== 'undefined' && chrome.runtime) {
       chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         if (tabs && tabs[0] && tabs[0].id) {
           chrome.tabs.sendMessage(tabs[0].id, message, (response) => {
-            sendResponse(response || { success: true });
+            if (chrome.runtime.lastError) {
+              sendResponse({ success: false, reason: chrome.runtime.lastError.message });
+            } else {
+              sendResponse(response || { success: true });
+            }
           });
         } else {
           sendResponse({ success: false, reason: "No active tab found" });

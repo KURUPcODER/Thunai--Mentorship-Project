@@ -134,8 +134,16 @@ class TTSService {
           }
         }
       } catch(e) {}
-    } else if (typeof window !== 'undefined' && window.parent && window.parent.ThunaiContentScript) {
-      data = window.parent.ThunaiContentScript.extractRealPageContent();
+    } else if (typeof window !== 'undefined') {
+      let script = null;
+      try {
+        if (window.parent && window.parent.ThunaiContentScript) script = window.parent.ThunaiContentScript;
+        else if (window.top && window.top.ThunaiContentScript) script = window.top.ThunaiContentScript;
+      } catch (_) {}
+      if (!script && window.ThunaiContentScript) script = window.ThunaiContentScript;
+      if (script && script.extractRealPageContent) {
+        data = script.extractRealPageContent();
+      }
     }
 
     if (data && data.segments && data.segments.length > 0) {

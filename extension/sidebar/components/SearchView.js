@@ -32,9 +32,17 @@ export function renderSearchView(container, state, setState, onNavigate) {
       <div class="view-panel search-view animate-fade-in" id="panel-search" role="tabpanel" aria-labelledby="tab-search">
         
         <!-- Header Strip -->
-        <div class="search-header-box">
-          <h2 class="view-heading-ml">${t.searchTitle}</h2>
-          <p class="view-subheading-en">${t.searchSub}</p>
+        <div class="search-header-box" style="display: flex; align-items: flex-start; justify-content: space-between;">
+          <div>
+            <h2 class="view-heading-ml">${t.searchTitle}</h2>
+            <p class="view-subheading-en">${t.searchSub}</p>
+          </div>
+          <button class="btn-refresh-pill" id="btn-refresh-search" title="${t.refreshTooltip || 'Reset search to fresh state'}">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3">
+              <path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+            </svg>
+            <span>${t.refreshBtn ? t.refreshBtn.split(' ')[0] : 'റീഫ്രഷ്'}</span>
+          </button>
         </div>
 
         <!-- Search Input Bar -->
@@ -66,17 +74,20 @@ export function renderSearchView(container, state, setState, onNavigate) {
 
         <!-- Search Results Count Banner -->
         ${searchState.query ? `
-          <div class="search-summary-banner">
-            <span class="found-text">
-              <strong>${t.searchFound}</strong> ${searchState.totalMatches} ${t.matchesText}
-            </span>
-            ${searchState.totalMatches > 1 ? `
-              <div class="search-nav-controls">
-                <button class="btn-match-nav" id="btn-prev-match" title="Previous match">▲</button>
-                <span class="match-index-tag">${searchState.activeMatchIndex + 1} / ${searchState.totalMatches}</span>
-                <button class="btn-match-nav" id="btn-next-match" title="Next match">▼</button>
-              </div>
-            ` : ''}
+          <div class="search-summary-banner" style="display: flex; flex-direction: column; gap: 6px; background: rgba(217, 119, 6, 0.1); border: 1.5px solid #D97706; padding: 10px 14px; border-radius: 10px; margin-bottom: 12px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+              <span class="found-text" style="font-size: 13px; color: #1E293B; display: flex; align-items: center; gap: 6px;">
+                <strong>${t.totalOccurrences || 'Total occurrences on webpage:'}</strong> 
+                <span class="total-matches-count-badge" style="background: #D97706; color: #ffffff; padding: 2px 10px; border-radius: 9999px; font-weight: 800; font-size: 13px; box-shadow: 0 2px 6px rgba(217, 119, 6, 0.4);">${searchState.totalMatches}</span>
+              </span>
+              ${searchState.totalMatches > 1 ? `
+                <div class="search-nav-controls" style="display: flex; align-items: center; gap: 6px;">
+                  <button class="btn-match-nav" id="btn-prev-match" title="Previous match">▲</button>
+                  <span class="match-index-tag" style="font-weight: 700; font-size: 12px; color: #334155;">${searchState.activeMatchIndex + 1} / ${searchState.totalMatches}</span>
+                  <button class="btn-match-nav" id="btn-next-match" title="Next match">▼</button>
+                </div>
+              ` : ''}
+            </div>
           </div>
         ` : ''}
 
@@ -99,12 +110,17 @@ export function renderSearchView(container, state, setState, onNavigate) {
               <div class="search-match-card ${isActive ? 'is-active-match' : ''}" data-match-idx="${idx}" role="listitem">
                 <div class="match-card-header">
                   <span class="match-tag-pill">${match.tag || 'PARAGRAPH'}</span>
-                  <span class="match-num-pill">#${idx + 1}</span>
+                  <span class="match-num-pill">#${idx + 1} of ${searchState.totalMatches}</span>
                 </div>
 
                 <p class="match-excerpt-text">${highlightQueryInText(match.text, searchState.query)}</p>
 
-                <div class="match-actions-footer">
+                <div class="match-actions-footer" style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 8px;">
+                  <button class="btn-match-action point-on-page" data-point-idx="${idx}" title="Point on page to this exact word occurrence" style="background: #D97706; color: #ffffff; border: none; padding: 6px 12px; border-radius: 6px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; box-shadow: 0 2px 6px rgba(217, 119, 6, 0.3);">
+                    <span style="font-size: 13px;">👉</span>
+                    <span>${t.pointOnPageMatch || 'Point on Page'}</span>
+                  </button>
+
                   <button class="btn-match-action locate" data-locate-idx="${idx}" title="Scroll to and highlight on webpage">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                       <circle cx="12" cy="12" r="10"></circle>
@@ -161,6 +177,27 @@ export function renderSearchView(container, state, setState, onNavigate) {
       });
     }
 
+    const refreshBtn = container.querySelector('#btn-refresh-search');
+    if (refreshBtn) {
+      refreshBtn.addEventListener('click', () => {
+        searchService.clear();
+        if (typeof chrome !== 'undefined' && chrome.tabs) {
+          chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+            if (tabs && tabs[0]) {
+              chrome.tabs.sendMessage(tabs[0].id, { action: 'RESET_ALL_PAGE_OVERLAYS' }).catch(() => {});
+            }
+          });
+        } else {
+          try {
+            if (typeof window !== 'undefined' && window.parent && window.parent.ThunaiContentScript) {
+              window.parent.ThunaiContentScript.resetAllPageOverlays();
+            }
+          } catch (_) {}
+        }
+        render();
+      });
+    }
+
     // Quick chip buttons
     container.querySelectorAll('.chip-keyword-tag').forEach(chip => {
       chip.addEventListener('click', async () => {
@@ -187,6 +224,16 @@ export function renderSearchView(container, state, setState, onNavigate) {
       });
     }
 
+    // Point on Page Click
+    container.querySelectorAll('[data-point-idx]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const idx = parseInt(btn.getAttribute('data-point-idx'), 10);
+        searchService.pointToMatch(idx);
+        render();
+      });
+    });
+
     // Card Locate Click
     container.querySelectorAll('[data-locate-idx]').forEach(btn => {
       btn.addEventListener('click', (e) => {
@@ -209,7 +256,7 @@ export function renderSearchView(container, state, setState, onNavigate) {
             const utterance = new SpeechSynthesisUtterance(match.fullParagraph || match.text);
             window.speechSynthesis.speak(utterance);
           }
-          searchService.jumpToMatch(idx);
+          searchService.pointToMatch(idx);
         }
       });
     });

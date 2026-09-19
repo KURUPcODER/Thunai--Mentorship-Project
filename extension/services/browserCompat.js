@@ -56,10 +56,16 @@ class BrowserCompat {
 
     // Preview / Iframe fallback: Mock active tab referencing parent window
     if (typeof window !== 'undefined' && window.parent && window.parent !== window) {
+      let title = 'Preview Webpage';
+      let url = 'https://preview.thunai.local';
+      try {
+        title = window.parent.document ? window.parent.document.title : title;
+        url = window.parent.location ? window.parent.location.href : url;
+      } catch (_) {}
       return {
         id: 'mock-preview-tab',
-        title: window.parent.document ? window.parent.document.title : 'Preview Webpage',
-        url: window.parent.location ? window.parent.location.href : 'https://preview.thunai.local'
+        title,
+        url
       };
     }
 
@@ -109,11 +115,14 @@ class BrowserCompat {
   dispatchToIframe(message) {
     let script = null;
     if (typeof window !== 'undefined') {
-      if (window.parent && window.parent.ThunaiContentScript) {
-        script = window.parent.ThunaiContentScript;
-      } else if (window.top && window.top.ThunaiContentScript) {
-        script = window.top.ThunaiContentScript;
-      } else if (window.ThunaiContentScript) {
+      try {
+        if (window.parent && window.parent.ThunaiContentScript) {
+          script = window.parent.ThunaiContentScript;
+        } else if (window.top && window.top.ThunaiContentScript) {
+          script = window.top.ThunaiContentScript;
+        }
+      } catch (_) {}
+      if (!script && window.ThunaiContentScript) {
         script = window.ThunaiContentScript;
       }
     }
@@ -186,6 +195,19 @@ class BrowserCompat {
             if (data) return { success: true, data };
           }
           break;
+
+        case 'SPOTLIGHT_PAGE_AREA':
+          if (script.spotlightPageArea) {
+            return { success: script.spotlightPageArea(message.selector, message.areaName) };
+          }
+          return { success: true };
+
+        case 'CLEAR_AREA_SPOTLIGHT':
+          if (script.clearAreaSpotlight) {
+            script.clearAreaSpotlight();
+            return { success: true };
+          }
+          return { success: true };
 
         case 'SCAN_LIVE_DOM':
           if (script.scanLivePageDOM) {

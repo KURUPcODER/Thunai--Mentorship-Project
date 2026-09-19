@@ -72,8 +72,90 @@ class ThunaiApp {
     this.setState = this.setState.bind(this);
     this.toggleLanguage = this.toggleLanguage.bind(this);
     this.syncActiveTab = this.syncActiveTab.bind(this);
+    this.refreshActiveView = this.refreshActiveView.bind(this);
 
     this.init();
+  }
+
+  async refreshActiveView() {
+    // 1. Notify content script to reset active in-page overlays & styles
+    if (typeof chrome !== 'undefined' && chrome.tabs) {
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        if (tabs && tabs[0]) {
+          chrome.tabs.sendMessage(tabs[0].id, { action: 'RESET_ALL_PAGE_OVERLAYS' }).catch(() => {});
+        }
+      });
+    } else {
+      try {
+        if (typeof window !== 'undefined' && window.parent && window.parent.ThunaiContentScript) {
+          window.parent.ThunaiContentScript.resetAllPageOverlays();
+        }
+      } catch (_) {}
+    }
+
+    // 2. View-specific state reset to pristine fresh state
+    const view = this.state.currentView;
+    if (view === 'search') {
+      const { searchService } = await import('../services/searchService.js');
+      searchService.clear();
+    } else if (view === 'translate') {
+      this.setState({
+        isTranslating: false,
+        hasTranslated: false,
+        isSimplified: false,
+        translatedData: null,
+        translateError: '',
+        selectedAreaId: 'all'
+      });
+    } else if (view === 'listen') {
+      const { ttsService } = await import('../services/ttsService.js');
+      ttsService.stop();
+      ttsService.setSpeed(1.0);
+    } else if (view === 'dyslexia' || view === 'settings') {
+      const resetSettings = {
+        ...this.state.settings,
+        textSize: 100,
+        fontFamily: 'default',
+        dyslexiaFont: false,
+        colorTint: 'none',
+        letterSpacing: 0,
+        lineSpacing: 1.6,
+        readingRuler: false
+      };
+      this.setState({ settings: resetSettings });
+      if (typeof chrome !== 'undefined' && chrome.tabs) {
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+          if (tabs && tabs[0]) {
+            chrome.tabs.sendMessage(tabs[0].id, { action: 'UPDATE_SETTINGS', settings: resetSettings }).catch(() => {});
+          }
+        });
+      }
+    } else if (view === 'diagnostics') {
+      this.setState({
+        currentInspectedElement: null,
+        diagPageContent: null,
+        diagButtonAudit: null,
+        chatMessages: [
+          {
+            sender: 'assistant',
+            textMl: `നമസ്കാരം! ഞാൻ നിങ്ങളുടെ തുണ (Thunai) വെബ്സഹായിയാണ്. നിലവിൽ "${this.state.activePageTitle}" എന്ന പേജിലെ വിവരങ്ങളും തടസ്സങ്ങളും ഞാൻ നിരീക്ഷിക്കുന്നുണ്ട്.\n\nഏതെങ്കിലും ബട്ടൺ ക്ലിക്ക് ചെയ്യാനാകുന്നില്ലെങ്കിലോ, ഫോം പൂരിപ്പിക്കാൻ സഹായം വേണമെങ്കിലോ എന്നോട് ചോദിക്കാം.`,
+            textEn: `Hello! I am your Thunai Web Assistant. I am actively analyzing "${this.state.activePageTitle}".\n\nIf any button is not working, or if you need step-by-step help filling forms on this page, please ask!`,
+            timestamp: Date.now()
+          }
+        ]
+      });
+    } else if (view === 'scan') {
+      this.setState({
+        scanReport: null,
+        isScanning: false,
+        heatmapActive: false,
+        loadingFixes: {},
+        generatedSuggestions: {}
+      });
+    }
+
+    // 3. Re-render the active view cleanly
+    this.render();
   }
 
   setState(partialState) {
@@ -141,6 +223,7 @@ class ThunaiApp {
           activePageLangLabel: info.langLabel || this.state.activePageLangLabel || 'ഇംഗ്ലീഷ് (English)',
           activePageLangLabelEn: info.langLabelEn || this.state.activePageLangLabelEn || 'English (ഇംഗ്ലീഷ്)',
           activePageText: info.fullText || this.state.activePageText || '',
+          activePageAreas: info.areas || this.state.activePageAreas || [],
           requestSeq: nextReqSeq
         };
 
@@ -151,6 +234,7 @@ class ThunaiApp {
           stateUpdates.isSimplified = false;
           stateUpdates.translatedData = null;
           stateUpdates.translateError = '';
+          stateUpdates.selectedAreaId = 'all';
 
           // Reset scan report if it belonged to another URL
           if (this.state.scanReport && this.normalizeUrl(this.state.scanReport.url) !== newNorm) {
@@ -176,7 +260,8 @@ class ThunaiApp {
       currentLang, 
       this.navigate, 
       this.goBack, 
-      this.toggleLanguage
+      this.toggleLanguage,
+      this.refreshActiveView
     );
 
     // 2. Render Active View Body

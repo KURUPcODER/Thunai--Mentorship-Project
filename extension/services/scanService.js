@@ -454,8 +454,16 @@ export async function scanPage() {
   }
 
   // 2. Try window.parent mock bridge in preview iframe mode
-  if (!rawReport && typeof window !== 'undefined' && window.parent && window.parent.ThunaiContentScript) {
-    rawReport = window.parent.ThunaiContentScript.scanLivePageDOM();
+  if (!rawReport && typeof window !== 'undefined') {
+    let script = null;
+    try {
+      if (window.parent && window.parent.ThunaiContentScript) script = window.parent.ThunaiContentScript;
+      else if (window.top && window.top.ThunaiContentScript) script = window.top.ThunaiContentScript;
+    } catch (_) {}
+    if (!script && window.ThunaiContentScript) script = window.ThunaiContentScript;
+    if (script && script.scanLivePageDOM) {
+      rawReport = script.scanLivePageDOM();
+    }
   }
 
   // 3. Fallback with realistic latency if no report could be generated
