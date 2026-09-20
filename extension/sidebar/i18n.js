@@ -337,6 +337,18 @@ export const translations = {
     inspectMatch: 'Inspect',
     pointOnPageMatch: '👉 Point on Page',
 
+    // Tabs
+    tabTranslate: 'Translate',
+    tabTranslateSub: 'പരിഭാഷ',
+    tabListen: 'Listen',
+    tabListenSub: 'കേൾക്കുക',
+    tabScan: 'Scan',
+    tabScanSub: 'പരിശോധന',
+    tabSearch: 'Find',
+    tabSearchSub: 'തിരയുക',
+    tabSettings: 'Settings',
+    tabSettingsSub: 'ക്രമീകരണം',
+
     // Launcher Actions
     actionScanTitle: 'Scan Page',
     actionScanSub: 'പരിശോധന',
@@ -612,5 +624,9 @@ export const translations = {
 };
 
 export function getT(lang = 'ml') {
-  return translations[lang] || translations.ml;
+  const chosen = translations[lang] || translations.ml;
+  if (lang !== 'ml') {
+    return { ...translations.ml, ...chosen };
+  }
+  return chosen;
 }

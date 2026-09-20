@@ -12,8 +12,8 @@ export function renderListenView(container, state, setState) {
   const currentLang = state.currentLang || 'ml';
   const t = getT(currentLang);
 
-  // If scan report is loading/null and no translated text is active, render neutral loading state to prevent stale content flash
-  if (!state.hasTranslated && (!state.scanReport || state.isScanning)) {
+  // Only render loading state if a scan is actively in-flight
+  if (state.isScanning) {
     const isEn = currentLang === 'en';
     container.innerHTML = `
       <div class="view-panel listen-view animate-fade-in" id="panel-listen" role="tabpanel" aria-labelledby="tab-listen">
@@ -44,6 +44,19 @@ export function renderListenView(container, state, setState) {
     const cur = ttsService.getState();
     if (cur.segments.length === 0) {
       ttsService.loadSegments(state.scanReport.textSegments);
+    }
+  } else {
+    // Fallback: If neither translated nor scanned yet, hydrate from active page text or init
+    const cur = ttsService.getState();
+    if (cur.segments.length === 0) {
+      if (state.activePageText) {
+        const pageSegs = extractSentenceSegments(state.activePageText, state.activePageText, state.activePageTitle || 'പേജ് ഉള്ളടക്കം');
+        if (pageSegs.length > 0) {
+          ttsService.loadSegments(pageSegs);
+        }
+      } else {
+        ttsService.initRealPageSegments();
+      }
     }
   }
 
