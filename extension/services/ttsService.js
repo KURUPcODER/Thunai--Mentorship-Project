@@ -425,7 +425,27 @@ class TTSService {
 
           await ctx.audioElement.play();
         } catch (err) {
-          console.warn("Malayalam TTS playback error:", err);
+          console.warn("Malayalam TTS backend unavailable, attempting client speech synthesis fallback:", err);
+          if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+            try {
+              const utterance = new SpeechSynthesisUtterance(mlText);
+              utterance.rate = ctx.playbackSpeed;
+              utterance.lang = 'ml-IN';
+              utterance.onend = () => {
+                if (ctx.isPlaying && !ctx.isPaused) {
+                  this.nextSegment();
+                }
+              };
+              utterance.onerror = () => {
+                if (ctx.isPlaying && !ctx.isPaused) {
+                  this.nextSegment();
+                }
+              };
+              window.speechSynthesis.speak(utterance);
+              return;
+            } catch (_) {}
+          }
+
           if (ctx.isPlaying && !ctx.isPaused) {
             ctx.timer = setInterval(() => {
               if (ctx.isPlaying && !ctx.isPaused) {

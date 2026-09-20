@@ -87,12 +87,17 @@ export function renderListenView(container, state, setState) {
     const savedContainerScrollTop = container ? container.scrollTop : 0;
 
     ttsState = ttsService.getState();
-    const seg = ttsState.currentSegment || {
-      tag: "കേരളം - വിക്കിപീഡിയ",
+    const activeTitle = state.activePageTitle ? state.activePageTitle.slice(0, 32) : "കേരളം - വിക്കിപീഡിയ";
+    const seg = ttsState.currentSegment || (ttsState.segments && ttsState.segments[0]) || {
+      tag: activeTitle,
       type: "PARAGRAPH",
-      malayalamText: "ഇന്ത്യയുടെ തെക്കുപടിഞ്ഞാറൻ മലബാർ തീരത്ത് സ്ഥിതി ചെയ്യുന്ന ഒരു സംസ്ഥാനമാണ് കേരളം.",
-      englishText: "Kerala is a state on the southwestern Malabar Coast of India.",
-      selector: "p:nth-of-type(1)"
+      malayalamText: state.activePageText && /[\u0D00-\u0D7F]/.test(state.activePageText)
+        ? state.activePageText.slice(0, 180)
+        : "ഇന്ത്യയുടെ തെക്കുപടിഞ്ഞാറൻ മലബാർ തീരത്ത് സ്ഥിതി ചെയ്യുന്ന ഒരു സംസ്ഥാനമാണ് കേരളം.",
+      englishText: state.activePageText && !/[\u0D00-\u0D7F]/.test(state.activePageText)
+        ? state.activePageText.slice(0, 180)
+        : "Kerala is a state on the southwestern Malabar Coast of India.",
+      selector: "p:nth-of-type(1), p, body"
     };
     const segmentsList = ttsState.segments || [];
 
