@@ -11,6 +11,21 @@ import { getT } from '../i18n.js';
 export function renderListenView(container, state, setState) {
   const currentLang = state.currentLang || 'ml';
   const t = getT(currentLang);
+
+  // If scan report is loading/null and no translated text is active, render neutral loading state to prevent stale content flash
+  if (!state.hasTranslated && (!state.scanReport || state.isScanning)) {
+    const isEn = currentLang === 'en';
+    container.innerHTML = `
+      <div class="view-panel listen-view animate-fade-in" id="panel-listen" role="tabpanel" aria-labelledby="tab-listen">
+        <div class="scan-pipeline-progress-card animate-fade-in" style="margin: 30px auto; text-align: center;">
+          <div class="spinner-large"></div>
+          <h3 class="loading-title" style="margin-top: 14px;">${isEn ? 'Loading Page Audio...' : 'പേജ് ഉള്ളടക്കം ലഭ്യമാക്കുന്നു...'}</h3>
+        </div>
+      </div>
+    `;
+    return;
+  }
+
   // If webpage has active Malayalam translation data, load ALL translated sentence segments for TTS!
   if (state.hasTranslated && state.translatedData && (state.translatedData.translated || state.translatedData.simplified)) {
     const textToRead = state.isSimplified 
@@ -54,6 +69,10 @@ export function renderListenView(container, state, setState) {
   }
 
   function render() {
+    const existingPanel = container.querySelector('#panel-listen');
+    const savedScrollTop = existingPanel ? existingPanel.scrollTop : 0;
+    const savedContainerScrollTop = container ? container.scrollTop : 0;
+
     ttsState = ttsService.getState();
     const seg = ttsState.currentSegment || {
       tag: "കേരളം - വിക്കിപീഡിയ",
@@ -211,6 +230,15 @@ export function renderListenView(container, state, setState) {
     `;
 
     attachEvents();
+
+    const newPanel = container.querySelector('#panel-listen');
+    if (newPanel && savedScrollTop > 0) {
+      newPanel.scrollTop = savedScrollTop;
+    }
+    if (container && savedContainerScrollTop > 0) {
+      container.scrollTop = savedContainerScrollTop;
+    }
+
     if (ttsState.isPlaying) {
       triggerInPageHighlight(seg.selector);
     }

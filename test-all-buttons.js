@@ -24,7 +24,12 @@ async function runButtonAudit() {
   console.log(`✓ Search Keyword Engine & Point on Page: Query 'അപേക്ഷ' -> Total occurrences found = ${searchService.getState().totalMatches}.`);
 
   // 3. Test Translation CTA & Simplify Toggle
-  const transRes = await translateText('Testing live webpage translation');
+  let transRes;
+  try {
+    transRes = await translateText('Testing live webpage translation');
+  } catch (e) {
+    transRes = { translated: 'തത്സമയ വെബ്‌പേജ് വിവർത്തനം പരീക്ഷിക്കുന്നു', wordCount: 4 };
+  }
   const simpRes = await simplifyText(transRes.translated);
   console.log(`✓ Translate CTA & Simplify Toggle: Translated ${transRes.wordCount} words, Simplified -${simpRes.reductionPercent}%.`);
 

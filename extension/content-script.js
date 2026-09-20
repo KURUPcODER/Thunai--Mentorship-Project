@@ -665,11 +665,13 @@
       el.setAttribute('data-thunai-seg', segId);
       const tagType = el.tagName.startsWith('H') ? `HEADING ${el.tagName[1]}` : (el.tagName === 'LI' ? 'LIST ITEM' : 'PARAGRAPH');
       const text = (el.innerText || el.textContent || '').trim();
+      const isMalayalam = /[\u0D00-\u0D7F]/.test(text);
       return {
         id: segId,
         selector: `[data-thunai-seg="${segId}"]`,
         text: text,
-        mlText: '',
+        mlText: isMalayalam ? text : '',
+        enText: !isMalayalam ? text : '',
         type: tagType,
         tag: `${pageTitle.slice(0, 24)} (${tagType})`,
         durationMs: Math.max(3000, text.length * 65)
