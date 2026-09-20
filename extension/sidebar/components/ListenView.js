@@ -6,6 +6,7 @@
 
 import { ttsService } from '../../services/ttsService.js';
 import { extractSentenceSegments } from './TranslateView.js';
+import { translateText } from '../../services/translateService.js';
 import { getT } from '../i18n.js';
 
 export function renderListenView(container, state, setState) {
@@ -58,6 +59,31 @@ export function renderListenView(container, state, setState) {
         ttsService.initRealPageSegments();
       }
     }
+  }
+
+  // Auto-translate English/Hindi page text to natural Malayalam for reading if not already translated
+  const isNonMalayalamPage = state.activePageText && !/[\u0D00-\u0D7F]/.test(state.activePageText);
+  if (!state.hasTranslated && !state._isAudioTranslating && isNonMalayalamPage) {
+    state._isAudioTranslating = true;
+    translateText(state.activePageText, 'ml').then(res => {
+      state._isAudioTranslating = false;
+      if (res && res.translated) {
+        setState({
+          hasTranslated: true,
+          translatedData: res,
+          activePageLang: res.detectedLang,
+          activePageLangLabel: res.detectedLangLabel,
+          activePageLangLabelEn: res.detectedLangLabelEn
+        });
+        const transSegs = extractSentenceSegments(res.translated, res.original, state.activePageTitle || 'പരിഭാഷ');
+        if (transSegs.length > 0) {
+          ttsService.loadSegments(transSegs);
+        }
+        render();
+      }
+    }).catch(() => {
+      state._isAudioTranslating = false;
+    });
   }
 
   let ttsState = ttsService.getState();
@@ -124,6 +150,16 @@ export function renderListenView(container, state, setState) {
           </div>
         </div>
 
+        ${(isNonMalayalamPage || state.activePageLang === 'hi' || state.activePageLang === 'en') ? `
+          <div class="reading-in-malayalam-banner animate-fade-in" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 8px; padding: 7px 12px; font-size: 11px; color: #38BDF8;">
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <span>🌐</span>
+              <span style="font-weight: 600;">${state.activePageLang === 'hi' ? 'ഹിന്ദി പേജ് മലയാളത്തിൽ വായിക്കുന്നു' : 'English Page Read in Malayalam'}</span>
+            </div>
+            <span style="font-weight: 700; background: #0284C7; color: white; border-radius: 4px; padding: 2px 7px; font-size: 10px; text-transform: uppercase;">Malayalam TTS</span>
+          </div>
+        ` : ''}
+
         <!-- Current Paragraph Display Box (with glowing highlighted left edge) -->
         <div class="reading-segment-card ${ttsState.isPlaying ? 'is-playing' : ''}">
           <div class="segment-meta-header">
@@ -135,12 +171,19 @@ export function renderListenView(container, state, setState) {
           </div>
 
           <p class="segment-malayalam-text" lang="ml">
-            ${seg.malayalamText}
+            ${seg.malayalamText || (state._isAudioTranslating ? (t.translatingAudio || 'മലയാളത്തിൽ കേൾക്കാൻ പരിഭാഷപ്പെടുത്തുന്നു...') : (seg.text || ''))}
           </p>
 
-          <p class="segment-english-subtext" lang="en">
-            ${seg.englishText}
-          </p>
+          ${seg.englishText && seg.englishText !== seg.malayalamText ? `
+            <div class="segment-original-box" style="margin-top: 10px; padding-top: 8px; border-top: 1px dashed rgba(255,255,255,0.12);">
+              <span style="font-size: 10px; font-weight: 700; color: #94A3B8; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 3px;">
+                ${t.originalTextLabel || 'യഥാർത്ഥ ഉള്ളടക്കം (Original):'}
+              </span>
+              <p class="segment-english-subtext" lang="en" style="font-size: 12px; color: #94A3B8; line-height: 1.5; margin: 0;">
+                ${seg.englishText}
+              </p>
+            </div>
+          ` : ''}
         </div>
 
         <!-- Equalizer Visualizer & Segment Counter -->

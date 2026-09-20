@@ -5,6 +5,8 @@
  * Malayalam TTS: Handled via Thunai Backend -> Sarvam AI (bulbul:v3).
  */
 
+import { translateText } from './translateService.js';
+
 export const defaultMockSegments = [
   {
     id: 1,
@@ -149,9 +151,8 @@ class TTSService {
     if (data && data.segments && data.segments.length > 0) {
       const ctx = this.getActiveContext();
       this._clearAudioCache(ctx);
-      if (data.langCode) {
-        ctx.currentLang = data.langCode;
-      }
+      ctx.currentLang = 'ml';
+      ctx.sourceLang = data.langCode || 'auto';
       ctx.segments = data.segments.map(s => ({
         id: s.id,
         type: s.type,
@@ -165,6 +166,7 @@ class TTSService {
       ctx.totalSegments = ctx.segments.length;
       ctx.currentSegmentIndex = 0;
       this.notify();
+      this.pretranslateSegments(ctx.segments).catch(() => {});
     }
   }
 
@@ -213,11 +215,45 @@ class TTSService {
         durationMs: s.durationMs || Math.max(3000, txt.length * 65)
       };
     });
+    ctx.currentLang = 'ml';
     ctx.totalSegments = ctx.segments.length;
     ctx.currentSegmentIndex = 0;
 
     if (!targetTabId || targetTabId === this.activeTabId) {
       this.notify();
+    }
+    this.pretranslateSegments(ctx.segments).catch(() => {});
+  }
+
+  async ensureMalayalamSegment(segment) {
+    if (!segment) return;
+    if (segment.malayalamText && containsMalayalamText(segment.malayalamText)) {
+      return;
+    }
+    const source = (segment.text || segment.englishText || segment.malayalamText || '').trim();
+    if (!source) return;
+
+    try {
+      const res = await translateText(source, 'ml');
+      if (res && res.translated) {
+        segment.malayalamText = res.translated;
+        if (!segment.englishText) {
+          segment.englishText = source;
+        }
+        this.notify();
+      }
+    } catch (err) {
+      console.warn("Dynamic Malayalam translation for segment failed:", err);
+    }
+  }
+
+  async pretranslateSegments(segments) {
+    if (!Array.isArray(segments)) return;
+    for (let i = 0; i < Math.min(segments.length, 6); i++) {
+      const seg = segments[i];
+      if (seg && !containsMalayalamText(seg.malayalamText)) {
+        await this.ensureMalayalamSegment(seg);
+      }
     }
   }
 
@@ -306,7 +342,7 @@ class TTSService {
     if (!current) return;
 
     // CASE A: Resuming from Paused state on the same active segment
-    if (ctx.isPaused && ctx.audioElement && ctx.currentLang === 'ml') {
+    if (ctx.isPaused && ctx.audioElement) {
       try {
         ctx.isPlaying = true;
         ctx.isPaused = false;
@@ -319,7 +355,7 @@ class TTSService {
       }
     }
 
-    if (ctx.isPaused && ctx.currentLang === 'en' && typeof window !== 'undefined' && 'speechSynthesis' in window && window.speechSynthesis.paused) {
+    if (ctx.isPaused && typeof window !== 'undefined' && 'speechSynthesis' in window && window.speechSynthesis.paused) {
       try {
         ctx.isPlaying = true;
         ctx.isPaused = false;
@@ -333,145 +369,118 @@ class TTSService {
     this._stopCurrentAudio(ctx);
     ctx.isPlaying = true;
     ctx.isPaused = false;
+    ctx.currentLang = 'ml';
     this.notify();
 
-    if (ctx.currentLang === 'en') {
-      // English TTS: Web Speech API (client-side)
-      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-        const textToSpeak = current.englishText || current.text || current.malayalamText || '';
-        const utterance = new SpeechSynthesisUtterance(textToSpeak);
-        utterance.rate = ctx.playbackSpeed;
-        utterance.lang = 'en-US';
+    // Ensure current segment has valid Malayalam text (translates English/Hindi on the fly)
+    if (!containsMalayalamText(current.malayalamText)) {
+      await this.ensureMalayalamSegment(current);
+    }
 
-        utterance.onend = () => {
-          if (ctx.isPlaying && !ctx.isPaused) {
-            this.nextSegment();
-          }
-        };
+    // Malayalam TTS: Sarvam AI Backend with segment-level caching
+    const mlText = current.malayalamText || current.text || '';
+    const isGenuineMalayalam = containsMalayalamText(mlText);
+    const cacheKey = this._getSegmentCacheKey(current);
 
-        utterance.onerror = () => {
-          if (ctx.isPlaying && !ctx.isPaused) {
-            this.nextSegment();
-          }
-        };
-
-        try {
-          window.speechSynthesis.speak(utterance);
-        } catch (e) {}
-      } else {
-        // Fallback timer if speech synthesis is unavailable
-        ctx.timer = setInterval(() => {
-          if (ctx.isPlaying && !ctx.isPaused) {
-            this.nextSegment();
-          }
-        }, Math.max(3000, current.durationMs / ctx.playbackSpeed));
+    // Check if audio for this segment is already cached
+    if (ctx.audioCache.has(cacheKey)) {
+      const cachedItem = ctx.audioCache.get(cacheKey);
+      ctx.audioElement = cachedItem.audioElement;
+      ctx.audioElement.playbackRate = ctx.playbackSpeed;
+      try {
+        await ctx.audioElement.play();
+        return;
+      } catch(e) {
+        // Fall through to fetch if cached audio playback failed
       }
-    } else {
-      // Malayalam TTS: Sarvam AI Backend with segment-level caching
-      const mlText = current.malayalamText || current.text || '';
-      const isGenuineMalayalam = containsMalayalamText(mlText);
-      const cacheKey = this._getSegmentCacheKey(current);
+    }
 
-      // Check if audio for this segment is already cached
-      if (ctx.audioCache.has(cacheKey)) {
-        const cachedItem = ctx.audioCache.get(cacheKey);
-        ctx.audioElement = cachedItem.audioElement;
-        ctx.audioElement.playbackRate = ctx.playbackSpeed;
-        try {
-          await ctx.audioElement.play();
-          return;
-        } catch(e) {
-          // Fall through to fetch if cached audio playback failed
+    if (isGenuineMalayalam) {
+      try {
+        const response = await fetch(BACKEND_TTS_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            text: mlText,
+            language: 'ml'
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error(`Backend TTS responded with status ${response.status}`);
         }
-      }
 
-      if (isGenuineMalayalam) {
-        try {
-          const response = await fetch(BACKEND_TTS_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              text: mlText,
-              language: 'ml'
-            })
-          });
+        const blob = await response.blob();
+        if (!ctx.isPlaying) return;
 
-          if (!response.ok) {
-            throw new Error(`Backend TTS responded with status ${response.status}`);
-          }
+        const audioUrl = URL.createObjectURL(blob);
+        const newAudio = new Audio(audioUrl);
+        newAudio.playbackRate = ctx.playbackSpeed;
 
-          const blob = await response.blob();
-          if (!ctx.isPlaying) return;
-
-          const audioUrl = URL.createObjectURL(blob);
-          const newAudio = new Audio(audioUrl);
-          newAudio.playbackRate = ctx.playbackSpeed;
-
-          newAudio.onended = () => {
-            if (ctx.isPlaying && !ctx.isPaused) {
-              this.nextSegment();
-            }
-          };
-
-          newAudio.onerror = () => {
-            if (ctx.isPlaying && !ctx.isPaused) {
-              this.nextSegment();
-            }
-          };
-
-          // Cache the generated audio element for this segment
-          ctx.audioCache.set(cacheKey, { audioUrl, audioElement: newAudio });
-          ctx.audioElement = newAudio;
-
-          await ctx.audioElement.play();
-        } catch (err) {
-          console.warn("Malayalam TTS backend unavailable, attempting client speech synthesis fallback:", err);
-          if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-            try {
-              const utterance = new SpeechSynthesisUtterance(mlText);
-              utterance.rate = ctx.playbackSpeed;
-              utterance.lang = 'ml-IN';
-              utterance.onend = () => {
-                if (ctx.isPlaying && !ctx.isPaused) {
-                  this.nextSegment();
-                }
-              };
-              utterance.onerror = () => {
-                if (ctx.isPlaying && !ctx.isPaused) {
-                  this.nextSegment();
-                }
-              };
-              window.speechSynthesis.speak(utterance);
-              return;
-            } catch (_) {}
-          }
-
+        newAudio.onended = () => {
           if (ctx.isPlaying && !ctx.isPaused) {
-            ctx.timer = setInterval(() => {
+            this.nextSegment();
+          }
+        };
+
+        newAudio.onerror = () => {
+          if (ctx.isPlaying && !ctx.isPaused) {
+            this.nextSegment();
+          }
+        };
+
+        // Cache the generated audio element for this segment
+        ctx.audioCache.set(cacheKey, { audioUrl, audioElement: newAudio });
+        ctx.audioElement = newAudio;
+
+        await ctx.audioElement.play();
+      } catch (err) {
+        console.warn("Malayalam TTS backend unavailable, attempting client speech synthesis fallback:", err);
+        if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+          try {
+            const utterance = new SpeechSynthesisUtterance(mlText);
+            utterance.rate = ctx.playbackSpeed;
+            utterance.lang = 'ml-IN';
+            utterance.onend = () => {
               if (ctx.isPlaying && !ctx.isPaused) {
                 this.nextSegment();
               }
-            }, Math.max(3000, current.durationMs / ctx.playbackSpeed));
-          }
+            };
+            utterance.onerror = () => {
+              if (ctx.isPlaying && !ctx.isPaused) {
+                this.nextSegment();
+              }
+            };
+            window.speechSynthesis.speak(utterance);
+            return;
+          } catch (_) {}
         }
-      } else {
-        // Fallback for non-Malayalam text segment
-        if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-          const utterance = new SpeechSynthesisUtterance(mlText);
-          utterance.rate = ctx.playbackSpeed;
-          utterance.onend = () => {
-            if (ctx.isPlaying && !ctx.isPaused) {
-              this.nextSegment();
-            }
-          };
-          try { window.speechSynthesis.speak(utterance); } catch (e) {}
-        } else {
+
+        if (ctx.isPlaying && !ctx.isPaused) {
           ctx.timer = setInterval(() => {
             if (ctx.isPlaying && !ctx.isPaused) {
               this.nextSegment();
             }
           }, Math.max(3000, current.durationMs / ctx.playbackSpeed));
         }
+      }
+    } else {
+      // Fallback if segment could not be translated and contains raw English/Hindi
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        const utterance = new SpeechSynthesisUtterance(mlText);
+        utterance.rate = ctx.playbackSpeed;
+        utterance.onend = () => {
+          if (ctx.isPlaying && !ctx.isPaused) {
+            this.nextSegment();
+          }
+        };
+        try { window.speechSynthesis.speak(utterance); } catch (e) {}
+      } else {
+        ctx.timer = setInterval(() => {
+          if (ctx.isPlaying && !ctx.isPaused) {
+            this.nextSegment();
+          }
+        }, Math.max(3000, current.durationMs / ctx.playbackSpeed));
       }
     }
   }

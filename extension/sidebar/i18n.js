@@ -103,6 +103,9 @@ export const translations = {
     speedLabel: 'വേഗത:',
     voiceLabel: 'ശബ്ദം തിരഞ്ഞെടുക്കുക',
     syncInfo: 'വായനയ്ക്കൊപ്പം വെബ്‌പേജിലെ വരികൾ തത്സമയം ഹൈലൈറ്റ് ചെയ്യപ്പെടും.',
+    translatingAudio: 'മലയാളത്തിൽ കേൾക്കാൻ പരിഭാഷപ്പെടുത്തുന്നു...',
+    originalTextLabel: 'യഥാർത്ഥ ഉള്ളടക്കം (Original):',
+    readingInMalayalamBadge: '🌐 മലയാളത്തിൽ വായിക്കുന്നു (Read in Malayalam)',
 
     // Scan Screen
     heatmapShow: 'ഹീറ്റ്മാപ്പ് കാണിക്കുക',
@@ -411,6 +414,9 @@ export const translations = {
     speedLabel: 'Speed:',
     voiceLabel: 'Select Voice',
     syncInfo: 'Spoken sentences are highlighted live on the active webpage.',
+    translatingAudio: 'Translating page to Malayalam for reading...',
+    originalTextLabel: 'Original Webpage Text:',
+    readingInMalayalamBadge: '🌐 Reading in Malayalam (പരിഭാഷ)',
 
     // Scan Screen
     heatmapShow: 'Show Heatmap',
