@@ -15,6 +15,25 @@ import { renderDiagnosticsView } from './components/DiagnosticsView.js';
 import { renderGovPortalView } from './components/GovPortalView.js';
 import { scanPage, getLatestScan } from '../services/scanService.js';
 
+function normalizeUrl(url) {
+  if (!url || typeof url !== 'string') return '';
+  try {
+    const parsed = new URL(url);
+    let pathname = parsed.pathname;
+    if (pathname.length > 1 && pathname.endsWith('/')) {
+      pathname = pathname.slice(0, -1);
+    }
+    return `${parsed.protocol}//${parsed.host}${pathname}${parsed.search}`.toLowerCase();
+  } catch (e) {
+    return url.split('#')[0].replace(/\/+$/, '').trim().toLowerCase();
+  }
+}
+
+function isSamePageUrl(url1, url2) {
+  if (!url1 || !url2) return false;
+  return normalizeUrl(url1) === normalizeUrl(url2);
+}
+
 class ThunaiApp {
   constructor() {
     this.navRoot = document.getElementById('nav-root');
@@ -35,6 +54,15 @@ class ThunaiApp {
       hasTranslated: false,
       isSimplified: false,
       translatedData: null,
+      translateError: '',
+      selectedAreaId: 'all',
+      activePageAreas: [],
+      activePageLang: 'en',
+      activePageLangLabel: '',
+      activePageLangLabelEn: '',
+      activePageText: '',
+      activePageTitle: '',
+      activePageUrl: '',
       // Scan State
       isScanning: false,
       scanReport: null,
@@ -66,8 +94,24 @@ class ThunaiApp {
     this.setState = this.setState.bind(this);
     this.toggleLanguage = this.toggleLanguage.bind(this);
     this.refreshActiveTabState = this.refreshActiveTabState.bind(this);
+    this.refreshActiveView = this.refreshActiveView.bind(this);
 
     this.init();
+  }
+
+  refreshActiveView(view) {
+    const targetView = view || this.state.currentView;
+    if (targetView === 'translate') {
+      this.setState({
+        isTranslating: false,
+        hasTranslated: false,
+        isSimplified: false,
+        translatedData: null,
+        translateError: '',
+        selectedAreaId: 'all'
+      });
+    }
+    this.render();
   }
 
   setState(partialState) {
@@ -127,7 +171,7 @@ class ThunaiApp {
       }
 
       // Deduplication: Skip scan if tab ID & URL have not changed and valid scan exists
-      if (tabId === this.currentTabId && url === this.currentTabUrl && this.state.scanReport && this.state.scanReport.url === url) {
+      if (tabId === this.currentTabId && url === this.currentTabUrl && this.state.scanReport && isSamePageUrl(this.state.scanReport.url, url)) {
         return;
       }
 
@@ -144,6 +188,11 @@ class ThunaiApp {
       this.state.translatedData = null;
       this.state.hasTranslated = false;
       this.state.isTranslating = false;
+      this.state.isSimplified = false;
+      this.state.translateError = '';
+      this.state.selectedAreaId = 'all';
+      this.state.activePageAreas = [];
+      this.state.activePageUrl = url;
 
       // Render updated loading state
       this.render();
@@ -152,8 +201,10 @@ class ThunaiApp {
       const freshReport = await scanPage();
 
       // Guard against stale async results (race condition protection)
-      if (requestId === this.scanRequestId && freshReport && (freshReport.url === url || !url || url === this.currentTabUrl)) {
-        this.state.scanReport = freshReport;
+      if (requestId === this.scanRequestId) {
+        if (freshReport && (isSamePageUrl(freshReport.url, url) || !url)) {
+          this.state.scanReport = freshReport;
+        }
         this.state.isScanning = false;
         this.render();
       }
@@ -172,7 +223,8 @@ class ThunaiApp {
       currentLang, 
       this.navigate, 
       this.goBack, 
-      this.toggleLanguage
+      this.toggleLanguage,
+      this.refreshActiveView
     );
 
     // 2. Render Active View Body
@@ -246,17 +298,44 @@ class ThunaiApp {
       });
     }
 
-    // Hydrate cached scan initially if offline/preview
+    // 1. Identify active tab first
+    let activeUrl = '';
+    let activeTabId = null;
+    if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.query) {
+      try {
+        const tabs = await new Promise((resolve) => {
+          chrome.tabs.query({ active: true, currentWindow: true }, resolve);
+        });
+        if (tabs && tabs[0]) {
+          activeTabId = tabs[0].id;
+          activeUrl = tabs[0].url || '';
+        }
+      } catch (err) {
+        console.warn("Could not query active tab during init:", err);
+      }
+    }
+
+    // 2. Validate and hydrate cached scan ONLY if it matches the current active tab
     try {
       const cachedScan = await getLatestScan();
       if (cachedScan && !this.state.scanReport) {
-        this.state.scanReport = cachedScan;
+        if (activeUrl && isSamePageUrl(cachedScan.url, activeUrl)) {
+          this.state.scanReport = cachedScan;
+          this.currentTabId = activeTabId;
+          this.currentTabUrl = activeUrl;
+        } else if (!activeUrl && (typeof chrome === 'undefined' || !chrome.tabs)) {
+          // Preview/standalone mock fallback when chrome.tabs is unavailable
+          this.state.scanReport = cachedScan;
+        } else {
+          // Cached scan belongs to a different URL; keep UI in scanning state
+          this.state.isScanning = true;
+        }
       }
     } catch(err) {
       console.warn("Could not hydrate cached scan:", err);
     }
 
-    // Perform initial active tab sync
+    // 3. Perform active tab sync
     await this.refreshActiveTabState();
 
     this.render();

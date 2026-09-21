@@ -5,7 +5,7 @@
 
 import { getT } from '../i18n.js';
 
-export function renderTopNavigation(container, currentView, currentLang, onNavigate, onBack, onToggleLang) {
+export function renderTopNavigation(container, currentView, currentLang, onNavigate, onBack, onToggleLang, onRefresh) {
   const isHome = currentView === 'launcher';
 
   if (isHome) {
@@ -36,11 +36,21 @@ export function renderTopNavigation(container, currentView, currentLang, onNavig
           <span class="header-status-badge">${t.online}</span>
         </div>
 
-        <!-- 1-Click Language Switcher Button -->
-        <button class="btn-lang-toggle" id="nav-btn-toggle-lang" title="Switch Language (മലയാളം / English)" aria-label="Switch interface language">
-          <span class="lang-globe-icon">🌐</span>
-          <span class="lang-btn-text">${t.toggleLabel}</span>
-        </button>
+        <div style="display: flex; align-items: center; gap: 5px;">
+          <!-- Universal Refresh Button -->
+          <button class="btn-refresh-pill" id="nav-btn-refresh" title="${t.refreshTooltip || 'Reset feature to fresh state'}" aria-label="Refresh active view">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3">
+              <path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+            </svg>
+            <span class="nav-refresh-text">${t.refreshBtn ? t.refreshBtn.split(' ')[0] : 'റീഫ്രഷ്'}</span>
+          </button>
+
+          <!-- 1-Click Language Switcher Button -->
+          <button class="btn-lang-toggle" id="nav-btn-toggle-lang" title="Switch Language (മലയാളം / English)" aria-label="Switch interface language">
+            <span class="lang-globe-icon">🌐</span>
+            <span class="lang-btn-text">${t.toggleLabel}</span>
+          </button>
+        </div>
       </div>
 
       <!-- Persistent 5 Top Tabs -->
@@ -125,6 +135,19 @@ export function renderTopNavigation(container, currentView, currentLang, onNavig
   if (langBtn) {
     langBtn.addEventListener('click', () => {
       if (onToggleLang) onToggleLang();
+    });
+  }
+
+  // Attach universal refresh button
+  const refreshBtn = container.querySelector('#nav-btn-refresh');
+  if (refreshBtn) {
+    refreshBtn.addEventListener('click', () => {
+      const svg = refreshBtn.querySelector('svg');
+      if (svg) svg.classList.add('spin-once');
+      setTimeout(() => {
+        if (svg) svg.classList.remove('spin-once');
+      }, 600);
+      if (onRefresh) onRefresh();
     });
   }
 }

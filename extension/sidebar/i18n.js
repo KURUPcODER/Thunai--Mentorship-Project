@@ -84,6 +84,16 @@ export const translations = {
     btnListen: 'വായിച്ചു കേൾക്കുക',
     btnCopy: 'പകർത്തുക',
     copiedText: '✓ പകർത്തപ്പെട്ടു!',
+    selectAreaTitle: 'വിവർത്തനം ചെയ്യേണ്ട ഭാഗം തിരഞ്ഞെടുക്കുക',
+    showAreaOnPage: '👉 പേജിൽ കാണിക്കുക',
+    wholePageOption: '🌐 മുഴുവൻ പേജ്',
+    areasDetected: 'ഭാഗങ്ങൾ കണ്ടെത്തി',
+    translatedAreaLabel: 'തിരഞ്ഞെടുത്ത ഭാഗം',
+    areaSpotlightActive: 'പേജിൽ കാണിച്ചു',
+    areaPreviewLabel: 'ഉള്ളടക്കം:',
+    refreshBtn: 'റീഫ്രഷ് (Fresh State)',
+    refreshTooltip: 'Reset feature back to fresh initial state',
+    refreshAllTooltip: 'Reset all webpage overlays to clean state',
 
     // Listen Screen
     liveSync: 'തത്സമയം',
@@ -233,6 +243,16 @@ export const translations = {
     btnListen: 'Listen Aloud',
     btnCopy: 'Copy Text',
     copiedText: '✓ Copied!',
+    selectAreaTitle: 'Select Content Area to Translate',
+    showAreaOnPage: '👉 Show on Page',
+    wholePageOption: '🌐 Whole Webpage',
+    areasDetected: 'Areas Detected',
+    translatedAreaLabel: 'Translated Area',
+    areaSpotlightActive: 'Spotlighted on Page',
+    areaPreviewLabel: 'Content:',
+    refreshBtn: 'Refresh (Fresh State)',
+    refreshTooltip: 'Reset feature back to fresh initial state',
+    refreshAllTooltip: 'Reset all webpage overlays to clean state',
 
     // Listen Screen
     liveSync: 'Live Sync',

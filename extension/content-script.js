@@ -88,6 +88,37 @@
       animation: thunaiSpotlightPulse 1.6s infinite ease-in-out !important;
     }
 
+    /* Area Spotlight for Targeted Translation & Simplification */
+    .thunai-area-spotlight-ring {
+      position: absolute !important;
+      border: 3.5px solid #0284C7 !important;
+      background: rgba(2, 132, 199, 0.12) !important;
+      box-shadow: 0 0 0 6px rgba(2, 132, 199, 0.3), 0 0 35px rgba(2, 132, 199, 0.45) !important;
+      border-radius: 10px !important;
+      pointer-events: none !important;
+      z-index: 2147483638 !important;
+      transition: all 0.3s ease !important;
+      animation: thunaiSpotlightPulse 1.6s infinite ease-in-out !important;
+    }
+
+    .thunai-area-pointer-card {
+      position: absolute !important;
+      background: #0B132B !important;
+      color: #FFFFFF !important;
+      border: 2px solid #38BDF8 !important;
+      border-radius: 12px !important;
+      padding: 12px 16px !important;
+      font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Noto Sans Malayalam', sans-serif !important;
+      font-size: 13px !important;
+      box-shadow: 0 10px 32px rgba(0, 0, 0, 0.7) !important;
+      z-index: 2147483647 !important;
+      width: 320px !important;
+      max-width: 90vw !important;
+      pointer-events: auto !important;
+      animation: thunaiBounceIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+      line-height: 1.5 !important;
+    }
+
     /* Rich Explainability Pointer Arrow Card */
     .thunai-pointer-arrow-card {
       position: absolute !important;
@@ -572,6 +603,123 @@
     const rootId = mainEl.id ? `#${mainEl.id}` : '';
     const rootClass = mainEl.className && typeof mainEl.className === 'string' ? `.${mainEl.className.trim().split(/\s+/)[0]}` : '';
 
+    // -------------------------------------------------------------
+    // Multi-Area Detection for Targeted Translation & Simplification
+    // -------------------------------------------------------------
+    const areas = [];
+    const wholePageSnippet = fullOriginalText.slice(0, 160).replace(/\s+/g, ' ').trim() + (fullOriginalText.length > 160 ? '...' : '');
+    const wordCount = fullOriginalText.trim().split(/\s+/).filter(Boolean).length;
+
+    // Area 0: Whole Page (always first option)
+    areas.push({
+      id: 'all',
+      name: 'മുഴുവൻ പേജ് (Whole Page)',
+      nameEn: 'Whole Webpage',
+      selector: 'body',
+      text: fullOriginalText,
+      wordCount,
+      snippet: wholePageSnippet || 'മുഴുവൻ പേജിലെ ഉള്ളടക്കം'
+    });
+
+    // Strategy 1: Group candidateElements by heading or distinct sections
+    const rawHeadingGroups = [];
+    let curHeadingGroup = null;
+
+    for (let i = 0; i < candidateElements.length; i++) {
+      const el = candidateElements[i];
+      const isHeading = el.tagName.startsWith('H');
+      const text = (el.innerText || el.textContent || '').trim();
+      const parentContainer = el.closest('article, section, form, [role="region"], [role="article"], .card, .content-section, .post-body, .entry-content');
+
+      if (isHeading) {
+        if (curHeadingGroup && curHeadingGroup.elements.length > 0 && curHeadingGroup.words >= 6) {
+          rawHeadingGroups.push(curHeadingGroup);
+        }
+        curHeadingGroup = {
+          title: text,
+          container: parentContainer || null,
+          elements: [el],
+          words: text.split(/\s+/).filter(Boolean).length
+        };
+      } else {
+        if (!curHeadingGroup) {
+          curHeadingGroup = {
+            title: pageTitle.slice(0, 32),
+            container: parentContainer || null,
+            elements: [el],
+            words: text.split(/\s+/).filter(Boolean).length
+          };
+        } else {
+          curHeadingGroup.elements.push(el);
+          curHeadingGroup.words += text.split(/\s+/).filter(Boolean).length;
+          if (!curHeadingGroup.container && parentContainer) {
+            curHeadingGroup.container = parentContainer;
+          }
+        }
+      }
+    }
+
+    if (curHeadingGroup && curHeadingGroup.elements.length > 0 && curHeadingGroup.words >= 6) {
+      rawHeadingGroups.push(curHeadingGroup);
+    }
+
+    let detectedGroups = [];
+    if (rawHeadingGroups.length >= 2) {
+      detectedGroups = rawHeadingGroups;
+    } else {
+      // Strategy 2: Distinct semantic containers (<article>, <section>, <form>, etc.)
+      const semanticContainers = Array.from(mainEl.querySelectorAll('article, section, form, [role="region"], [role="article"], .card, .content-section'))
+        .concat(Array.from(document.querySelectorAll('article, section, form')))
+        .filter((c, idx, arr) => arr.indexOf(c) === idx && !c.closest('header, nav, footer, aside, .nav, .navbar, .menu, .sidebar, script, style, noscript, svg, #thunai-inpage-styles, .thunai-inspect-box'));
+
+      const containerGroups = [];
+      semanticContainers.forEach((container, cIdx) => {
+        const cText = (container.innerText || container.textContent || '').trim();
+        const cWords = cText.split(/\s+/).filter(Boolean).length;
+        if (cWords >= 12 && cWords < wordCount * 0.95) {
+          const heading = container.querySelector('h1, h2, h3, h4, h5, h6');
+          const title = heading ? (heading.innerText || heading.textContent || '').trim() : `Section ${cIdx + 1}`;
+          containerGroups.push({
+            title,
+            container,
+            elements: [container],
+            words: cWords
+          });
+        }
+      });
+      detectedGroups = containerGroups;
+    }
+
+    // Build unique area entries (max 6 targeted areas)
+    detectedGroups.slice(0, 6).forEach((group, gIdx) => {
+      const areaId = `area-${gIdx + 1}`;
+      const groupText = group.elements.map(e => (e.innerText || e.textContent || '').trim()).filter(Boolean).join('\n\n');
+      if (groupText.length < 25) return;
+
+      const groupSnippet = groupText.slice(0, 140).replace(/\s+/g, ' ').trim() + (groupText.length > 140 ? '...' : '');
+
+      let areaSelector = '';
+      if (group.container && group.container !== document.body && group.container !== mainEl) {
+        group.container.setAttribute('data-thunai-area', areaId);
+        areaSelector = `[data-thunai-area="${areaId}"]`;
+      } else if (group.elements[0]) {
+        group.elements[0].setAttribute('data-thunai-area', areaId);
+        areaSelector = `[data-thunai-area="${areaId}"]`;
+      }
+
+      const cleanTitle = group.title.replace(/\s+/g, ' ').slice(0, 45).trim() || `ഭാഗം ${gIdx + 1}`;
+
+      areas.push({
+        id: areaId,
+        name: cleanTitle,
+        nameEn: cleanTitle,
+        selector: areaSelector || `[data-thunai-area="${areaId}"]`,
+        text: groupText,
+        wordCount: groupText.split(/\s+/).filter(Boolean).length,
+        snippet: groupSnippet
+      });
+    });
+
     return {
       title: pageTitle,
       url: rawUrl,
@@ -589,7 +737,8 @@
           tag: pageTitle,
           durationMs: 4000
         }
-      ]
+      ],
+      areas
     };
   }
 
@@ -1019,6 +1168,8 @@
   let isPickerActive = false;
   let pickerBannerEl = null;
   let lastHoveredEl = null;
+  let activeAreaSpotlightEl = null;
+  let activeAreaCardEl = null;
 
   function clearActivePointer() {
     if (activeSpotlightEl && activeSpotlightEl.parentNode) activeSpotlightEl.remove();
@@ -1027,6 +1178,13 @@
     activeSpotlightEl = null;
     activePointerCardEl = null;
     activeOverlay = null;
+  }
+
+  function clearAreaSpotlight() {
+    if (activeAreaSpotlightEl && activeAreaSpotlightEl.parentNode) activeAreaSpotlightEl.remove();
+    if (activeAreaCardEl && activeAreaCardEl.parentNode) activeAreaCardEl.remove();
+    activeAreaSpotlightEl = null;
+    activeAreaCardEl = null;
   }
 
   /**
@@ -1154,6 +1312,141 @@
 
   function inspectElement(selector, label = 'Thunai Inspection') {
     inspectElementWithPointer(selector, label);
+  }
+
+  /**
+   * Visual Spotlight Ring and Pointer Card pointing to an identified content area
+   * for Translation and Simplification on the live webpage.
+   */
+  function spotlightPageArea(selector, areaName = 'Selected Content Area') {
+    clearAreaSpotlight();
+    clearActivePointer();
+
+    let elements = [];
+    if (selector) {
+      try {
+        elements = Array.from(document.querySelectorAll(selector));
+      } catch (_) {}
+    }
+
+    // Fallback: if selector didn't match directly, try by id or data attribute
+    if (elements.length === 0 && selector && selector.startsWith('#')) {
+      const byId = document.getElementById(selector.slice(1));
+      if (byId) elements = [byId];
+    }
+    if (elements.length === 0 && selector) {
+      try {
+        const byData = document.querySelector(`[data-thunai-area="${selector}"]`);
+        if (byData) elements = [byData];
+      } catch (_) {}
+    }
+
+    if (elements.length === 0) {
+      // Fallback: match by mainContainer or body
+      const fallbackTarget = document.querySelector('main, article, [role="main"]') || document.body;
+      if (fallbackTarget) elements = [fallbackTarget];
+    }
+
+    if (elements.length === 0) return false;
+
+    // Smooth scroll the first element into view
+    try {
+      elements[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+    } catch (_) {}
+
+    // Calculate union bounding box of all elements in this area
+    const scrollX = window.scrollX || window.pageXOffset || 0;
+    const scrollY = window.scrollY || window.pageYOffset || 0;
+
+    let minTop = Infinity;
+    let minLeft = Infinity;
+    let maxBottom = -Infinity;
+    let maxRight = -Infinity;
+
+    elements.forEach(el => {
+      const r = el.getBoundingClientRect();
+      if (r.width > 0 || r.height > 0) {
+        if (r.top < minTop) minTop = r.top;
+        if (r.left < minLeft) minLeft = r.left;
+        if (r.bottom > maxBottom) maxBottom = r.bottom;
+        if (r.right > maxRight) maxRight = r.right;
+      }
+    });
+
+    if (minTop === Infinity) {
+      const r = elements[0].getBoundingClientRect();
+      minTop = r.top;
+      minLeft = r.left;
+      maxBottom = r.bottom;
+      maxRight = r.right;
+    }
+
+    const areaWidth = Math.max(50, maxRight - minLeft);
+    const areaHeight = Math.max(30, maxBottom - minTop);
+
+    // 1. Create Glowing Spotlight Ring around the area
+    const ring = document.createElement('div');
+    ring.className = 'thunai-area-spotlight-ring';
+    ring.style.top = `${minTop + scrollY - 6}px`;
+    ring.style.left = `${minLeft + scrollX - 6}px`;
+    ring.style.width = `${areaWidth + 12}px`;
+    ring.style.height = `${areaHeight + 12}px`;
+    document.body.appendChild(ring);
+    activeAreaSpotlightEl = ring;
+
+    // 2. Create Area Pointer Arrow Card
+    const card = document.createElement('div');
+    card.className = 'thunai-area-pointer-card';
+
+    const cardWidth = Math.min(360, Math.max(280, window.innerWidth - 30));
+    let cardLeft = Math.max(12, Math.min(window.innerWidth - cardWidth - 16, minLeft + scrollX));
+    let cardTop = minTop + scrollY - 145;
+    let isBelow = false;
+
+    if (minTop < 155) {
+      cardTop = maxBottom + scrollY + 12;
+      isBelow = true;
+    }
+
+    card.style.left = `${cardLeft}px`;
+    card.style.top = `${cardTop}px`;
+
+    const arrowIcon = isBelow ? '👆' : '👉';
+    const safeTitle = (areaName || 'Selected Content Area').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+    card.innerHTML = `
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+        <div style="display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 800; color: #38BDF8;">
+          <span style="font-size: 16px;">${arrowIcon}</span>
+          <span>പരിഭാഷാ ഭാഗം (Target Area)</span>
+        </div>
+        <button type="button" class="thunai-area-btn-dismiss" title="Close" style="background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.25); color: #fff; border-radius: 6px; padding: 2px 7px; font-size: 12px; cursor: pointer;">✕</button>
+      </div>
+      <div style="font-size: 14.5px; font-weight: 800; color: #F8FAFC; margin-bottom: 4px; line-height: 1.3;">${safeTitle}</div>
+      <div style="font-size: 12px; color: #94A3B8; line-height: 1.45; margin-bottom: 10px;">ഈ ഭാഗത്തിലെ വിവരങ്ങളാണ് മലയാളത്തിലേക്ക് വിവർത്തനം ചെയ്യാനും ലളിതമാക്കാനും തിരഞ്ഞെടുത്തിട്ടുള്ളത്.</div>
+      <div style="display: flex; justify-content: flex-end;">
+        <button type="button" class="thunai-area-btn-dismiss" style="background: #0284C7; color: #fff; border: none; border-radius: 6px; padding: 5px 14px; font-size: 12px; font-weight: 700; cursor: pointer; box-shadow: 0 2px 8px rgba(2,132,199,0.4);">ശരി (Got it)</button>
+      </div>
+    `;
+
+    card.querySelectorAll('.thunai-area-btn-dismiss').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        clearAreaSpotlight();
+      });
+    });
+
+    document.body.appendChild(card);
+    activeAreaCardEl = card;
+
+    // Auto-dismiss after 20 seconds
+    setTimeout(() => {
+      if (activeAreaSpotlightEl === ring) {
+        clearAreaSpotlight();
+      }
+    }, 20000);
+
+    return true;
   }
 
   /**
@@ -2109,6 +2402,12 @@
       } else if (message.action === 'EXTRACT_PAGE_CONTENT') {
         const data = extractRealPageContent();
         sendResponse({ success: true, data });
+      } else if (message.action === 'SPOTLIGHT_PAGE_AREA') {
+        const ok = spotlightPageArea(message.selector, message.areaName);
+        sendResponse({ success: ok });
+      } else if (message.action === 'CLEAR_AREA_SPOTLIGHT') {
+        clearAreaSpotlight();
+        sendResponse({ success: true });
       } else if (message.action === 'SCAN_LIVE_DOM') {
         const report = scanLivePageDOM();
         sendResponse({ success: true, ...report, report });
@@ -2154,6 +2453,8 @@
     scrollToKeywordMatch,
     clearSearchHighlights,
     extractRealPageContent,
+    spotlightPageArea,
+    clearAreaSpotlight,
     scanLivePageDOM,
     diagnoseLivePageBarriers,
     auditAllButtonsDOM,

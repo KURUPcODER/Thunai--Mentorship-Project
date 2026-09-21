@@ -6,6 +6,13 @@
 
 import { ttsService } from '../../services/ttsService.js';
 
+function getSegmentPreview(text) {
+  if (!text) return '';
+  const words = text.trim().split(/\s+/);
+  if (words.length <= 10) return text.trim();
+  return words.slice(0, 10).join(' ') + '...';
+}
+
 export function renderListenView(container, state, setState) {
   // If scan report is loading/null, render neutral loading state to prevent stale content flash
   if (!state.scanReport || state.isScanning) {
@@ -73,6 +80,29 @@ export function renderListenView(container, state, setState) {
             <span class="sync-text">Live Sync</span>
           </div>
         </div>
+
+        <!-- Extracted Content Preview List Section -->
+        ${segmentsList.length > 0 ? `
+          <div class="extracted-content-card" id="listen-extracted-card">
+            <div class="extracted-content-header">
+              <span class="extracted-content-title">Extracted content</span>
+              <span class="extracted-content-count" id="listen-extracted-count">${segmentsList.length} segments</span>
+            </div>
+            <div class="extracted-content-list" id="listen-extracted-list">
+              ${segmentsList.map((s, idx) => {
+                if (!s) return '';
+                const segText = typeof s === 'string' ? s : (s.malayalamText || s.text || s.englishText || '');
+                const preview = getSegmentPreview(segText) || `Segment ${idx + 1}`;
+                const isActive = idx + 1 === ttsState.currentSegmentIndex;
+                return `
+                  <div class="extracted-preview-item ${isActive ? 'active-seg' : ''}" data-seg-index="${idx + 1}">
+                    <span class="preview-num">${idx + 1}.</span>
+                    <span class="preview-text">${preview}</span>
+                  </div>`;
+              }).join('')}
+            </div>
+          </div>
+        ` : ''}
 
         <!-- Current Paragraph Display Box (with glowing highlighted left edge) -->
         <div class="reading-segment-card ${ttsState.isPlaying ? 'is-playing' : ''}">

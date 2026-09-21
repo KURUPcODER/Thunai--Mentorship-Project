@@ -305,14 +305,22 @@ class TTSService {
       }
     }
 
-    if (ctx.isPaused && ctx.currentLang === 'en' && typeof window !== 'undefined' && 'speechSynthesis' in window && window.speechSynthesis.paused) {
+    // CASE B: Resuming Web Speech (English / non-Malayalam) from paused state
+    if (
+      ctx.isPaused &&
+      (!ctx.audioElement || ctx.currentLang === 'en') &&
+      typeof window !== 'undefined' &&
+      'speechSynthesis' in window
+    ) {
       try {
         ctx.isPlaying = true;
         ctx.isPaused = false;
         window.speechSynthesis.resume();
         this.notify();
         return;
-      } catch(e) {}
+      } catch (e) {
+        console.warn('Resume Web Speech error, re-initializing segment:', e);
+      }
     }
 
     // Stop active audio playback before starting new/re-cached segment
