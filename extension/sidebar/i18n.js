@@ -32,16 +32,16 @@ export const translations = {
     tabTranslateSub: 'Translate',
     tabListen: 'കേൾക്കുക',
     tabListenSub: 'Listen',
-    tabScan: 'പരിശോധന',
-    tabScanSub: 'Scan',
+    tabScan: 'മാനുവൽ',
+    tabScanSub: 'Manual',
     tabSearch: 'തിരയുക',
     tabSearchSub: 'Find',
     tabSettings: 'ക്രമീകരണം',
     tabSettingsSub: 'Settings/Fix',
 
     // Launcher Actions
-    actionScanTitle: 'പരിശോധന',
-    actionScanSub: 'Scan Page',
+    actionScanTitle: 'മാനുവൽ',
+    actionScanSub: 'Manual',
     actionScanDesc: 'WCAG പ്രവേശനക്ഷമതാ പ്രശ്നങ്ങളും AI പരിഹാരങ്ങളും കണ്ടെത്തുക',
 
     actionDyslexiaTitle: 'ഡിസ്‌ലെക്സിയ സൗഹൃദ മോഡ്',
@@ -125,7 +125,7 @@ export const translations = {
     fixReviewSub: 'AI മാറ്റങ്ങൾ മനുഷ്യന്റെ പൂർണ്ണ അനുമതിയോടെ മാത്രമേ പേജിൽ വരുത്തുകയുള്ളൂ.',
     approveAllBtn: 'എല്ലാം അംഗീകരിക്കുക',
     emptyFixes: 'പരിഹാരങ്ങൾ ഒന്നും ബാക്കിയില്ല',
-    backToScan: '← പരിശോധന പേജിലേക്ക് മടങ്ങുക',
+    backToScan: '← മാനുവൽ പേജിലേക്ക് മടങ്ങുക',
 
     // Settings & Dyslexia Features
     settingsTitle: 'വായനാ ക്രമീകരണങ്ങൾ',
@@ -160,7 +160,41 @@ export const translations = {
     diagnosingText: 'വിശകലനം ചെയ്യുന്നു...',
     diagFound: 'ഇന്ററാക്ഷൻ തടസ്സങ്ങൾ കണ്ടെത്തി',
     diagIdle: 'പേജിലെ ബട്ടണുകൾ ക്ലിക്ക് ചെയ്യാനാകുന്നില്ലേ?',
-    diagIdleSub: 'തടസ്സങ്ങൾ വിശകലനം ചെയ്യാൻ മുകളിലെ ബട്ടൺ അമർത്തുക.'
+    diagIdleSub: 'തടസ്സങ്ങൾ വിശകലനം ചെയ്യാൻ മുകളിലെ ബട്ടൺ അമർത്തുക.',
+
+    // Scan Manual & Feature Guide (Scan-specific additions)
+    manualMainTitle: 'തുണ (Thunai) - ഉപയോക്തൃ സഹായി',
+    manualMainSub: 'ബ്രൗസർ അക്‌സ്‌റ്റൻഷന്റെ ലക്ഷ്യവും ഓരോ ഫീച്ചറിന്റെ പ്രവർത്തി രീതിയും',
+    purposeHeading: 'അക്‌സ്‌റ്റൻഷന്റെ ലക്ഷ്യം (Purpose & Mission)',
+    purposeDesc: 'സാധാരണക്കാരും, മുതിർന്ന പൗരന്മാരും, ഡിസ്‌ലെക്സിയ (Dyslexia) അല്ലെങ്കിൽ കാഴ്ചാ വൈകല്യമുള്ളവരും, മലയാളം സംസാരിക്കുന്നവരും ഏത് വെബ്‌സൈറ്റും ലളിതമായ ഉപയോഗിക്കാൻ സഹായിക്കുന്ന സമ്പൂർണ ഡിജിറ്റൽ പ്രവേശനക്ഷമതാ (Accessibility) സഹായിയാണ് തുണ (Thunai).',
+    purposePillar1Title: 'ഭാഷാ തടസ്സങ്ങൾ ഇല്ലാതാക്കുന്നു',
+    purposePillar1Desc: 'ഇംഗ്ലീഷിലോ ഹിന്ദിയിലോ ഉള്ള സങ്കീർണ്ണ സർക്കാർ/വിദ്യാഭ്യാസ വെബ്‌സൈറ്റുകൾ ലളിതമായ മലയാളത്തിലേക്ക് തർജ്ജമ ചെയ്യുകയും ജൂതം ഭാഷ ലളിതമാക്കുകയും ചെയ്യുന്നു.',
+    purposePillar2Title: 'വായനാ വൈകല്യങ്ങൾക്ക് പരിഹാരം',
+    purposePillar2Desc: 'ഡിസ്‌ലെക്സിയ സൗഹൃദ ഫോണ്ടുകൾ, കളർ ടിന്റുകൾ, റീഡിംഗ് റൂളർ എന്നിവ ഉൾപ്പെടുത്തി അക്ഷരങ്ങൾ മറിഞ്ഞ് കാണുകയും വായനാ ആയാസം ഇല്ലാതാക്കുകയും ചെയ്യുന്നു.',
+    purposePillar3Title: 'തത്സമയ ഓഡിയോ വായന',
+    purposePillar3Desc: 'വെബ്‌പേജ് വരികൾ ഒന്നൊന്നായ് കാണിക്കുന്നതോടൊപ്പം സ്വാഭാവിക മലയാള ശബ്ദത്തിൽ വായിച്ചു കൊടുക്കുന്നു.',
+    purposePillar4Title: 'വെബ്‌സൈറ്റ് തകരാറുകൾ പരിഹരിക്കുന്നു',
+    purposePillar4Desc: 'WCAG 2.1 AA മാനദണ്ഡങ്ങൾ പരിശോധിച്ച് ക്ലിക്ക് ആകാത്ത ബട്ടണുകളും ഫോമുകളും AI സഹായത്തോടെ സ്വയം ശരിയാക്കുന്നു.',
+    featureGuideHeading: 'ഓരോ ഫീച്ചറിന്റെയും ഉപയോഗരീതി (Feature Usability Guide)',
+    tryFeatureBtn: 'ഈ ഫീച്ചർ ഉപയോഗിക്കുക →',
+    featScanTitle: '1. പേജ് പരിശോധിക്കുക (Scan Page & Accessibility Audit)',
+    featScanPurpose: 'വെബ്‌പേജിലെ കാഴ്ചാ തടസ്സങ്ങൾ, കുറ‌ഞ്ഞ കളർ കോൺട്രാസ്റ്റ്, ചിത്രങ്ങൾക്ക് വിവരണമില്ലായ്മ (Alt Text), തകരാറിലായ ലിങ്കുകൾ എന്നിവ കണ്ടെത്തുന്നു.',
+    featScanHow: 'മുകളിലെ "പുനഃപരിശോധിക്കുക" അല്ലെങ്കിൽ തത്സമയ സ്കാൻ ടാബ് ക്ലിക്ക് ചെയ്യുക. സ്കാനർ 0-100 സ്കോറും പ്രശ്നങ്ങളും കണ്ടെത്തി നൽകും. "AI പരിഹാരം" അമർത്തി തത്സമയം പേജിൽ പ്രയോഗിക്കാം.',
+    featDyslexiaTitle: '2. ഡിസ്‌ലെക്സിയ സൗഹൃദ മോഡ് (Dyslexia Friendly Mode)',
+    featDyslexiaPurpose: 'ഡിസ്‌ലെക്സിയയോ കാഴ്ചാ ക്ഷീണമോ ഉള്ളവർക്ക് അക്ഷരങ്ങൾ വ്യക്തമായി വായിക്കാൻ സൗകര്യമൊരുക്കുന്നു.',
+    featDyslexiaHow: 'അക്ഷര വലിപ്പം 80% മുതൽ 220% വരെ മാറ്റാം. Lexend ഫോണ്ട് തിരഞ്ഞെടുക്കാം. വരികളിൽ ശ്രദ്ധ കേന്ദ്രീകരിക്കാൻ "റീഡിംഗ് റൂളർ" ഓൺ ചെയ്യാം. സോഫ്റ്റ് ക്രീം, മൃദു നീല എന്നീ പശ്ചാത്തല വർണ്ണങ്ങൾ നൽകാം.',
+    featSearchTitle: '3. പേജിൽ തിരയുക (Find in Page with Point on Page)',
+    featSearchPurpose: 'ഏത് വെബ്‌പേജിലെയും വിവരങ്ങൾ മലയാളത്തിലോ, മംഗ്ലീഷിലോ, ഇംഗ്ലീഷിലോ വേഗത്തിൽ കണ്ടെത്തുന്നു.',
+    featSearchHow: 'തിരയേണ്ട വാക്ക് ടൈപ്പ് ചെയ്യുക (ഉദാ: അപേക്ഷ, ഫീസ്, തീയതി). പേജിൽ ആകെ എത്ര തവണ ഈ വാക്ക് വന്നിട്ടുണ്ടെന്ന് തത്സമയം കാണാം. "👉 പേജിൽ കാണിക്കുക" ക്ലിക്ക് ചെയ്താൽ പേജിലെ കൃത്യമായ സ്ഥാനത്തേക്ക് സ്പോട്ട്‌ലൈറ്റ് ആനിമേഷൻ ചൂണ്ടിക്കാണിക്കും.',
+    featListenTitle: '4. മലയാളത്തിൽ കേൾക്കുക (Read in Malayalam - TTS)',
+    featListenPurpose: 'വായനയ്ക്ക് പകരം പേജ് ഉള്ളടക്കം സ്വാഭാവിക മലയാള ശബ്ദത്തിൽ കേൾക്കാൻ സഹായിക്കുന്നു.',
+    featListenHow: 'പ്ലേ ബട്ടൺ അമർത്തുക. വായിക്കുന്ന ഓരോ വാചകവും വെബ്‌പേജിൽ മഞ്ഞ നിറത്തിൽ ഹൈലൈറ്റ് ചെയ്യപ്പെടും. വേഗത കൂട്ടുകയോ കുറയ്ക്കുകയോ ചെയ്യാം (0.5x മുതൽ 2.0x വരെ).',
+    featTranslateTitle: '5. പരിഭാഷ & ലളിതമാക്കൽ (Translate & Simplify)',
+    featTranslatePurpose: 'ഇംഗ്ലീഷ്, ഹിന്ദി വെബ്‌സൈറ്റുകളെ സ്വാഭാവിക മലയാളത്തിലേക്ക് മാറ്റുകയും, സങ്കീർണ്ണമായ നിയമ/ഔദ്യോഗിക വാക്കുകൾ സാധാരണ മലയാളത്തിലേക്ക് ലളിതമാക്കുകയും ചെയ്യുന്നു.',
+    featTranslateHow: '"പേജ് മലയാളത്തിലാക്കുക" ബട്ടൺ ക്ലിക്ക് ചെയ്യുക. ലളിതമായ ഭാഷയിലേക്ക് മാറ്റാൻ "ലളിതമായ ഭാഷ" സ്വിച്ച് ഓൺ ചെയ്യുക. ഇത് ഓഡിയോ ആയി കേൾക്കുകയോ കോപ്പി ചെയ്യുകയോ ചെയ്യാം.',
+    featDiagTitle: '6. എന്തുകൊണ്ട് പ്രവർത്തിക്കുന്നില്ല? (Why Doesn\'t This Work?)',
+    featDiagPurpose: 'വെബ്‌പേജിലെ ക്ലിക്ക് ആകാത്ത ബട്ടണുകൾ, സമർപ്പിക്കാനാകാത്ത ഫോമുകൾ എന്നിവയുടെ തകരാറുകൾ മനസ്സിലാക്കാനും പരിഹരിക്കാനും സഹായിക്കുന്നു.',
+    featDiagHow: '"ഘടകം പരിശോധിക്കുക" ക്ലിക്ക് ചെയ്ത് പ്രശ്നമുള്ള ബട്ടണിൽ തൊടുക. എന്തുതരം തകരാറാണെന്ന് മലയാളത്തിൽ വിശദീകരിക്കും. "ഓട്ടോ-ഫിക്സ്" അമർത്തി പരിഹരിക്കാം, അല്ലെങ്കിൽ AI സഹായിയോട് സംശയങ്ങൾ ചോദിക്കാം.'
   },
 
   en: {
@@ -191,16 +225,16 @@ export const translations = {
     tabTranslateSub: 'പരിഭാഷ',
     tabListen: 'Listen',
     tabListenSub: 'കേൾക്കുക',
-    tabScan: 'Scan',
-    tabScanSub: 'പരിശോധന',
+    tabScan: 'Manual',
+    tabScanSub: 'മാനുവൽ',
     tabSearch: 'Find',
     tabSearchSub: 'തിരയുക',
     tabSettings: 'Settings/Fix',
     tabSettingsSub: 'ക്രമീകരണം',
 
     // Launcher Actions
-    actionScanTitle: 'Scan Page',
-    actionScanSub: 'പരിശോധന',
+    actionScanTitle: 'Manual',
+    actionScanSub: 'മാനുവൽ',
     actionScanDesc: 'Detect WCAG accessibility issues & AI fixes',
 
     actionDyslexiaTitle: 'Dyslexia Friendly Mode',
@@ -284,7 +318,7 @@ export const translations = {
     fixReviewSub: 'AI-generated fixes are never applied silently without human review.',
     approveAllBtn: 'Approve All',
     emptyFixes: 'No pending fixes found',
-    backToScan: '← Back to Scan Screen',
+    backToScan: '← Back to Manual',
 
     // Settings & Dyslexia Features
     settingsTitle: 'Reading Preferences',
@@ -319,7 +353,41 @@ export const translations = {
     diagnosingText: 'Analyzing DOM structure...',
     diagFound: 'Interaction Issues Found',
     diagIdle: 'Buttons not clicking on this page?',
-    diagIdleSub: 'Click above to diagnose overlapping layers and hidden forms.'
+    diagIdleSub: 'Click above to diagnose overlapping layers and hidden forms.',
+
+    // Scan Manual & Feature Guide (Scan-specific additions)
+    manualMainTitle: 'Thunai - User Manual & Guide',
+    manualMainSub: 'Complete purpose of the extension and usability guide for every feature',
+    purposeHeading: 'Purpose & Mission of Thunai',
+    purposeDesc: 'Thunai is a digital accessibility and cognitive inclusion browser assistant built to empower Malayalam speakers, dyslexic users, senior citizens, and people navigating complex government and educational portals to read, understand, and interact with any website effortlessly.',
+    purposePillar1Title: 'Eliminating Language Barriers',
+    purposePillar1Desc: 'Translates complex English and Hindi web content into natural Malayalam and simplifies dense bureaucratic jargon into plain language.',
+    purposePillar2Title: 'Overcoming Reading Difficulties',
+    purposePillar2Desc: 'Provides specialized dyslexia-friendly fonts, custom background tints, and a line-focus reading ruler to prevent visual stress and letter flipping.',
+    purposePillar3Title: 'Synchronized Malayalam Audio',
+    purposePillar3Desc: 'Reads out webpage paragraphs in natural Malayalam speech with real-time sentence-by-sentence visual read-along highlighting.',
+    purposePillar4Title: 'Fixing Inaccessible & Broken Portals',
+    purposePillar4Desc: 'Audits webpages against WCAG 2.1 AA standards, diagnoses unclickable buttons, and provides AI-powered 1-click live DOM fixes.',
+    featureGuideHeading: 'Usability & Functionality Guide for Every Feature',
+    tryFeatureBtn: 'Try this feature →',
+    featScanTitle: '1. Scan Page & WCAG Accessibility Audit',
+    featScanPurpose: 'Scans the active webpage for visual barriers, low contrast, missing image descriptions (alt text), and broken interactive controls.',
+    featScanHow: 'Click "Rescan" or switch to the Live Scan tab. The scanner scores page health from 0-100 and lists flagged issues. Click "Auto-Fix Live" to synthesize and apply accessible DOM patches with 1 click.',
+    featDyslexiaTitle: '2. Dyslexia Friendly Mode',
+    featDyslexiaPurpose: 'Empowers readers with dyslexia, ADHD, or visual fatigue to consume web content comfortably without crowding.',
+    featDyslexiaHow: 'Scale text from 80% to 220%. Select Lexend or Noto Sans Malayalam fonts. Toggle the Reading Ruler to follow text line-by-line while scrolling, and apply soothing color tints like Soft Cream or Sky Blue.',
+    featSearchTitle: '3. Find in Page with Point on Page',
+    featSearchPurpose: 'Locates any keyword or topic across the webpage in Malayalam, Manglish (phonetic typing), or English.',
+    featSearchHow: 'Type any keyword in the search bar. Thunai displays the total occurrences found. Click "👉 Point on Page" on any match to cast an animated spotlight pointer directly at that element on the live webpage.',
+    featListenTitle: '4. Read in Malayalam (TTS Audio Reader)',
+    featListenPurpose: 'Converts any article, circular, or webpage into spoken Malayalam audio for hands-free listening.',
+    featListenHow: 'Press Play to begin. Each sentence is highlighted on the live webpage in sync with the audio. Adjust playback speed from 0.5x to 2.0x.',
+    featTranslateTitle: '5. Translate & Simplify',
+    featTranslatePurpose: 'Translates English and Hindi webpages into simple Malayalam, and untangles complicated legal or official terms.',
+    featTranslateHow: 'Click "Translate to Malayalam". Switch on "Simplify Language" for a simplified version. Listen or copy with 1 click.',
+    featDiagTitle: '6. Why Doesn\'t This Work? (Element Diagnostics)',
+    featDiagPurpose: 'Pinpoints unclickable buttons, disabled submission controls, and confusing multi-step forms on government and banking portals.',
+    featDiagHow: 'Click "Inspect Specific Button" and click any problematic button. Thunai diagnoses the root cause in plain language and provides 1-click auto-fixes or AI assistant help.'
   }
 };
 

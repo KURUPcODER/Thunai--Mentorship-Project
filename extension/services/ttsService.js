@@ -509,6 +509,25 @@ class TTSService {
     }
     return this.getState();
   }
+
+  setSegment(index) {
+    const ctx = this.getActiveContext();
+    if (!ctx.segments || ctx.segments.length === 0) return this.getState();
+    if (typeof index !== 'number' || isNaN(index) || index < 0 || index >= ctx.segments.length) {
+      return this.getState();
+    }
+
+    const wasPlaying = ctx.isPlaying;
+    this._stopCurrentAudio(ctx);
+    ctx.isPaused = false;
+    ctx.audioElement = null;
+    ctx.currentSegmentIndex = index;
+    this.notify();
+    if (wasPlaying) {
+      this.play();
+    }
+    return this.getState();
+  }
 }
 
 export const ttsService = new TTSService();

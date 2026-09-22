@@ -55,6 +55,8 @@ export function renderListenView(container, state, setState) {
     const existingPanel = container.querySelector('#panel-listen');
     const savedScrollTop = existingPanel ? existingPanel.scrollTop : 0;
     const savedContainerScrollTop = container ? container.scrollTop : 0;
+    const existingList = container.querySelector('#listen-extracted-list');
+    const savedListScrollTop = existingList ? existingList.scrollTop : 0;
 
     ttsState = ttsService.getState();
     const seg = ttsState.currentSegment || {
@@ -95,7 +97,7 @@ export function renderListenView(container, state, setState) {
                 const preview = getSegmentPreview(segText) || `Segment ${idx + 1}`;
                 const isActive = idx + 1 === ttsState.currentSegmentIndex;
                 return `
-                  <div class="extracted-preview-item ${isActive ? 'active-seg' : ''}" data-seg-index="${idx + 1}">
+                  <div class="extracted-preview-item ${isActive ? 'active-seg' : ''}" data-seg-index="${idx + 1}" style="cursor: pointer;">
                     <span class="preview-num">${idx + 1}.</span>
                     <span class="preview-text">${preview}</span>
                   </div>`;
@@ -220,6 +222,10 @@ export function renderListenView(container, state, setState) {
     if (container && savedContainerScrollTop > 0) {
       container.scrollTop = savedContainerScrollTop;
     }
+    const newList = container.querySelector('#listen-extracted-list');
+    if (newList && savedListScrollTop > 0) {
+      newList.scrollTop = savedListScrollTop;
+    }
 
     if (ttsState.isPlaying) {
       triggerInPageHighlight(seg.selector);
@@ -271,6 +277,25 @@ export function renderListenView(container, state, setState) {
         ttsService.setSpeed(val);
       });
     }
+
+    // Extracted Preview Items Click to Jump/Scroll on Webpage
+    const segmentsList = ttsService.getState().segments || [];
+    const previewItems = container.querySelectorAll('.extracted-preview-item');
+    previewItems.forEach((item) => {
+      item.addEventListener('click', () => {
+        const rawIdx = item.getAttribute('data-seg-index');
+        const segIdx = parseInt(rawIdx, 10) - 1;
+        if (isNaN(segIdx) || segIdx < 0 || segIdx >= segmentsList.length) return;
+        const targetSeg = segmentsList[segIdx];
+        if (targetSeg) {
+          const selector = targetSeg.selector || (targetSeg.id ? `[data-thunai-seg="${targetSeg.id}"]` : `[data-thunai-seg="seg-${segIdx}"]`);
+          if (selector) {
+            triggerInPageHighlight(selector);
+          }
+          ttsService.setSegment(segIdx);
+        }
+      });
+    });
   }
 
   // Subscribe to service state changes

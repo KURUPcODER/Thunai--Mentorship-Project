@@ -34,6 +34,67 @@ function isSamePageUrl(url1, url2) {
   return normalizeUrl(url1) === normalizeUrl(url2);
 }
 
+async function ensureContentScript(tabId, url) {
+  if (!tabId || !url || typeof url !== 'string') {
+    return false;
+  }
+
+  // Only attempt injection for normal http:// and https:// pages
+  if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    return false;
+  }
+
+  // Do not inject into chrome://, chrome-extension://, about:, or other restricted URLs
+  if (url.startsWith('chrome://') || url.startsWith('chrome-extension://') || url.startsWith('about:')) {
+    return false;
+  }
+
+  if (typeof chrome === 'undefined' || !chrome.tabs || !chrome.tabs.sendMessage) {
+    return false;
+  }
+
+  // 1. Send PING to check if content script is already alive
+  const isAlive = await new Promise((resolve) => {
+    try {
+      chrome.tabs.sendMessage(tabId, { action: 'PING' }, (res) => {
+        if (chrome.runtime && chrome.runtime.lastError) {
+          resolve(false);
+        } else if (res && res.pong) {
+          resolve(true);
+        } else {
+          resolve(false);
+        }
+      });
+    } catch (err) {
+      resolve(false);
+    }
+  });
+
+  if (isAlive) {
+    return true;
+  }
+
+  // 2. If PING fails, programmatically inject content-script.js using chrome.scripting
+  if (typeof chrome === 'undefined' || !chrome.scripting || !chrome.scripting.executeScript) {
+    console.warn("chrome.scripting API not available to inject content script into tab:", tabId);
+    return false;
+  }
+
+  try {
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      files: ['content-script.js']
+    });
+    // Brief delay to allow content script to register its message listener
+    await new Promise((r) => setTimeout(r, 80));
+    return true;
+  } catch (err) {
+    console.warn("Could not inject content script into tab:", tabId, err);
+    return false;
+  }
+}
+
+
 class ThunaiApp {
   constructor() {
     this.navRoot = document.getElementById('nav-root');
@@ -175,6 +236,9 @@ class ThunaiApp {
         return;
       }
 
+      // Ensure content script is alive or injected before scanning
+      await ensureContentScript(tabId, url);
+
       // Record active tab identity
       this.currentTabId = tabId;
       this.currentTabUrl = url;
@@ -309,6 +373,7 @@ class ThunaiApp {
         if (tabs && tabs[0]) {
           activeTabId = tabs[0].id;
           activeUrl = tabs[0].url || '';
+          await ensureContentScript(activeTabId, activeUrl);
         }
       } catch (err) {
         console.warn("Could not query active tab during init:", err);

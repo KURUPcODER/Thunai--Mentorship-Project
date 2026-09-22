@@ -530,6 +530,95 @@
   }
 
   /**
+   * Splits large Malayalam text into smaller natural segments at sentence and clause boundaries
+   * to significantly reduce per-segment TTS synthesis latency for Sarvam and Piper.
+   */
+  function splitMalayalamText(text, maxLen = 160) {
+    if (!text || typeof text !== 'string') return [];
+    const trimmed = text.trim();
+    if (trimmed.length <= maxLen) return [trimmed];
+
+    function splitByWords(longText, limit) {
+      const words = longText.split(/\s+/).filter(Boolean);
+      if (words.length <= 1) return [longText];
+      const pieces = [];
+      let cur = '';
+      for (const word of words) {
+        if (!cur) {
+          cur = word;
+        } else if ((cur.length + 1 + word.length) <= limit) {
+          cur += ' ' + word;
+        } else {
+          pieces.push(cur);
+          cur = word;
+        }
+      }
+      if (cur) pieces.push(cur);
+      return pieces;
+    }
+
+    function splitLongSentence(sentence, limit) {
+      if (sentence.length <= limit) return [sentence];
+      const clauses = sentence.split(/(?<=[,;:\u2014\u2013\-])\s+/).map(c => c.trim()).filter(Boolean);
+      if (clauses.length > 1) {
+        const result = [];
+        let current = '';
+        for (const clause of clauses) {
+          if (!current) {
+            current = clause;
+          } else if ((current.length + 1 + clause.length) <= limit) {
+            current += ' ' + clause;
+          } else {
+            result.push(current);
+            current = clause;
+          }
+        }
+        if (current) result.push(current);
+        const finalResult = [];
+        for (const piece of result) {
+          if (piece.length > limit) {
+            finalResult.push(...splitByWords(piece, limit));
+          } else {
+            finalResult.push(piece);
+          }
+        }
+        return finalResult;
+      }
+      return splitByWords(sentence, limit);
+    }
+
+    const rawSentences = trimmed.split(/(?<=[.।?!])\s+|\n+/).map(s => s.trim()).filter(Boolean);
+    if (rawSentences.length === 0) return [trimmed];
+
+    const normalizedPieces = [];
+    for (const sent of rawSentences) {
+      if (sent.length > maxLen) {
+        normalizedPieces.push(...splitLongSentence(sent, maxLen));
+      } else {
+        normalizedPieces.push(sent);
+      }
+    }
+
+    const segments = [];
+    let currentSegment = '';
+    for (const piece of normalizedPieces) {
+      if (!currentSegment) {
+        currentSegment = piece;
+      } else if ((currentSegment.length + 1 + piece.length) <= maxLen) {
+        currentSegment += ' ' + piece;
+      } else {
+        segments.push(currentSegment);
+        currentSegment = piece;
+      }
+    }
+    if (currentSegment) {
+      segments.push(currentSegment);
+    }
+
+    return segments.length > 0 ? segments : [trimmed];
+  }
+
+  /**
    * 2. Live Page Extraction (Universal Readable Text Segmentation)
    * Scans visible, readable text blocks (<p>, <h1>–<h6>, <li>, <article>, <section>)
    * Filters out invisible/hidden elements and boilerplate (<script>, <style>, <noscript>, <svg>, <nav>, footer)
@@ -580,12 +669,36 @@
       return text.length > 5;
     });
 
-    const segments = candidateElements.map((el, idx) => {
+    const segments = [];
+    candidateElements.forEach((el, idx) => {
       const segId = `seg-${idx}`;
       el.setAttribute('data-thunai-seg', segId);
       const tagType = el.tagName.startsWith('H') ? `HEADING ${el.tagName[1]}` : (el.tagName === 'LI' ? 'LIST ITEM' : 'PARAGRAPH');
       const text = (el.innerText || '').trim();
-      return {
+      const isMalayalamBlock = /[\u0D00-\u0D7F]/.test(text) || (isMalayalamPage && !/^[A-Za-z0-9\s.,!?'"()\-:;]+$/.test(text));
+
+      // For Malayalam only: split large text blocks into smaller natural segments for lower TTS latency
+      if (isMalayalamBlock && text.length > 140) {
+        const subPieces = splitMalayalamText(text, 160);
+        if (subPieces.length > 1) {
+          subPieces.forEach((subText, subIdx) => {
+            segments.push({
+              id: `${segId}-${subIdx}`,
+              selector: `[data-thunai-seg="${segId}"]`,
+              text: subText,
+              mlText: subText,
+              enText: '',
+              type: tagType,
+              tag: `${pageTitle.slice(0, 24)} (${tagType})`,
+              durationMs: Math.max(2500, subText.length * 65)
+            });
+          });
+          return;
+        }
+      }
+
+      // Default single segment (English, short Malayalam blocks, headings, etc.)
+      segments.push({
         id: segId,
         selector: `[data-thunai-seg="${segId}"]`,
         text: text,
@@ -594,10 +707,10 @@
         type: tagType,
         tag: `${pageTitle.slice(0, 24)} (${tagType})`,
         durationMs: Math.max(3000, text.length * 65)
-      };
+      });
     });
 
-    const fullOriginalText = segments.map(s => s.text).join('\n\n');
+    const fullOriginalText = candidateElements.map(el => (el.innerText || '').trim()).join('\n\n');
 
     const rootTag = mainEl.tagName ? mainEl.tagName.toLowerCase() : 'body';
     const rootId = mainEl.id ? `#${mainEl.id}` : '';
@@ -2386,7 +2499,10 @@
 
   if (runtimeApi && runtimeApi.onMessage) {
     runtimeApi.onMessage.addListener((message, sender, sendResponse) => {
-      if (message.action === 'SEARCH_KEYWORD') {
+      if (message.action === 'PING') {
+        sendResponse({ success: true, pong: true });
+        return;
+      } else if (message.action === 'SEARCH_KEYWORD') {
         const matches = searchInPage(
           Array.isArray(message.keywords)
             ? message.keywords
