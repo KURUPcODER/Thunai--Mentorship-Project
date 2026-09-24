@@ -5,32 +5,7 @@
  */
 
 import { translateText, getActivePageInfo, spotlightArea, clearAreaSpotlight } from '../../services/translateService.js';
-import { ttsService } from '../../services/ttsService.js';
 import { getT } from '../i18n.js';
-
-export function extractSentenceSegments(translatedText, originalText = '', pageTitle = 'പരിഭാഷ') {
-  if (!translatedText) return [];
-  const transSentences = translatedText
-    .split(/(?<=[.!?।])(?!\d)(?:\s+|\n+)|(?<=[.!?।])(?=[\u0D00-\u0D7F\u0900-\u097FA-Z])|\n+/)
-    .map(s => s.trim())
-    .filter(s => s.length > 0);
-
-  const origSentences = (originalText || '')
-    .split(/(?<=[.!?।])(?!\d)(?:\s+|\n+)|(?<=[.!?।])(?=[\u0D00-\u0D7F\u0900-\u097FA-Z])|\n+/)
-    .map(s => s.trim())
-    .filter(s => s.length > 0);
-
-  return transSentences.map((sent, idx) => ({
-    id: `trans-seg-${idx}`,
-    type: 'PARAGRAPH',
-    tag: `${pageTitle} (${idx + 1})`,
-    malayalamText: sent,
-    englishText: origSentences[idx] || sent,
-    text: sent,
-    selector: `[data-thunai-seg="seg-${idx}"]`,
-    durationMs: Math.max(3000, sent.length * 65)
-  }));
-}
 
 export function renderTranslateView(container, state, setState, onNavigate) {
   let isTranslating = state.isTranslating || false;
@@ -381,13 +356,6 @@ export function renderTranslateView(container, state, setState, onNavigate) {
           }
           translatedData = res;
 
-          // Prime translated sentence segments into TTS service
-          const transSegs = extractSentenceSegments(res.translated, res.original, (currentTargetArea ? currentTargetArea.name : pageTitleDisplay) || 'പരിഭാഷ');
-          if (transSegs.length > 0) {
-            ttsService.loadSegments(transSegs);
-            console.log('[Thunai TTS] totalSegments:', ttsService.getState().totalSegments);
-          }
-
           setState({
             isTranslating: false,
             hasTranslated: true,
@@ -425,13 +393,6 @@ export function renderTranslateView(container, state, setState, onNavigate) {
     const quickListenBtn = container.querySelector('#btn-quick-listen');
     if (quickListenBtn) {
       quickListenBtn.addEventListener('click', () => {
-        const textToListen = isSimplified ? (translatedData?.simplified || translatedData?.translated) : (translatedData?.translated || translatedData?.simplified);
-        if (textToListen) {
-          const ttsSegs = extractSentenceSegments(textToListen, translatedData?.original, pageTitleDisplay || 'പരിഭാഷ');
-          if (ttsSegs.length > 0) {
-            ttsService.loadSegments(ttsSegs);
-          }
-        }
         if (onNavigate) onNavigate('listen');
       });
     }

@@ -1,0 +1,9 @@
+Total HTML length: 494339
+Has <article>?: false
+Has <main>?: false
+Malayalam deep tags > 100 chars: 53
+Leading container tags: <html lang="ml">
+<head>
+<meta charSet="utf-8"/>
+<meta name="viewport" content="width=device-width,minimum-scale=1,initial-scale=1"/>
+<title>

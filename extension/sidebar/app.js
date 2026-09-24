@@ -1,7 +1,6 @@
 /**
  * Thunai Sidebar App Controller
  * Orchestrates views: Scan Page FIRST, Dyslexia Friendly Mode, Keyword Search, Listen, Translate.
- * Manages active tab synchronization, navigation change detection, and stale state cleanup.
  */
 
 import { renderLauncher } from './components/Launcher.js';
@@ -14,33 +13,117 @@ import { renderDyslexiaModeView } from './components/DyslexiaModeView.js';
 import { renderFixReviewView } from './components/FixReviewView.js';
 import { renderDiagnosticsView } from './components/DiagnosticsView.js';
 import { renderGovPortalView } from './components/GovPortalView.js';
-import { getLatestScan } from '../services/scanService.js';
-import { getActivePageInfo } from '../services/translateService.js';
+import { scanPage, getLatestScan } from '../services/scanService.js';
+
+function normalizeUrl(url) {
+  if (!url || typeof url !== 'string') return '';
+  try {
+    const parsed = new URL(url);
+    let pathname = parsed.pathname;
+    if (pathname.length > 1 && pathname.endsWith('/')) {
+      pathname = pathname.slice(0, -1);
+    }
+    return `${parsed.protocol}//${parsed.host}${pathname}${parsed.search}`.toLowerCase();
+  } catch (e) {
+    return url.split('#')[0].replace(/\/+$/, '').trim().toLowerCase();
+  }
+}
+
+function isSamePageUrl(url1, url2) {
+  if (!url1 || !url2) return false;
+  return normalizeUrl(url1) === normalizeUrl(url2);
+}
+
+async function ensureContentScript(tabId, url) {
+  if (!tabId || !url || typeof url !== 'string') {
+    return false;
+  }
+
+  // Only attempt injection for normal http:// and https:// pages
+  if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    return false;
+  }
+
+  // Do not inject into chrome://, chrome-extension://, about:, or other restricted URLs
+  if (url.startsWith('chrome://') || url.startsWith('chrome-extension://') || url.startsWith('about:')) {
+    return false;
+  }
+
+  if (typeof chrome === 'undefined' || !chrome.tabs || !chrome.tabs.sendMessage) {
+    return false;
+  }
+
+  // 1. Send PING to check if content script is already alive
+  const isAlive = await new Promise((resolve) => {
+    try {
+      chrome.tabs.sendMessage(tabId, { action: 'PING' }, (res) => {
+        if (chrome.runtime && chrome.runtime.lastError) {
+          resolve(false);
+        } else if (res && res.pong) {
+          resolve(true);
+        } else {
+          resolve(false);
+        }
+      });
+    } catch (err) {
+      resolve(false);
+    }
+  });
+
+  if (isAlive) {
+    return true;
+  }
+
+  // 2. If PING fails, programmatically inject content-script.js using chrome.scripting
+  if (typeof chrome === 'undefined' || !chrome.scripting || !chrome.scripting.executeScript) {
+    console.warn("chrome.scripting API not available to inject content script into tab:", tabId);
+    return false;
+  }
+
+  try {
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      files: ['content-script.js']
+    });
+    // Brief delay to allow content script to register its message listener
+    await new Promise((r) => setTimeout(r, 80));
+    return true;
+  } catch (err) {
+    console.warn("Could not inject content script into tab:", tabId, err);
+    return false;
+  }
+}
+
 
 class ThunaiApp {
   constructor() {
     this.navRoot = document.getElementById('nav-root');
     this.viewRoot = document.getElementById('view-root');
 
+    // Tab & Page Identity Tracking for Dynamic Synchronization
+    this.currentTabId = null;
+    this.currentTabUrl = null;
+    this.scanRequestId = 0;
+
     // Global State
     this.state = {
       currentView: 'launcher',
       currentLang: 'ml', // 'ml' (Malayalam) or 'en' (English)
       history: [],
-      // Active Tab & Navigation Tracking
-      activePageUrl: '',
-      activePageTitle: 'Active Webpage',
-      activePageLang: 'en',
-      activePageLangLabel: 'ഇംഗ്ലീഷ് (English)',
-      activePageLangLabelEn: 'English (ഇംഗ്ലീഷ്)',
-      activePageText: '',
-      requestSeq: 0,
       // Translation State
       isTranslating: false,
       hasTranslated: false,
       isSimplified: false,
       translatedData: null,
       translateError: '',
+      selectedAreaId: 'all',
+      activePageAreas: [],
+      activePageLang: 'en',
+      activePageLangLabel: '',
+      activePageLangLabelEn: '',
+      activePageText: '',
+      activePageTitle: '',
+      activePageUrl: '',
       // Scan State
       isScanning: false,
       scanReport: null,
@@ -71,14 +154,54 @@ class ThunaiApp {
     this.goBack = this.goBack.bind(this);
     this.setState = this.setState.bind(this);
     this.toggleLanguage = this.toggleLanguage.bind(this);
-    this.syncActiveTab = this.syncActiveTab.bind(this);
+    this.refreshActiveTabState = this.refreshActiveTabState.bind(this);
     this.refreshActiveView = this.refreshActiveView.bind(this);
 
     this.init();
   }
 
-  async refreshActiveView() {
-    // 1. Notify content script to reset active in-page overlays & styles
+  refreshActiveView(view) {
+    const targetView = view || this.state.currentView;
+
+    // Reset the active view without discarding newer integrated functionality.
+    if (targetView === 'translate') {
+      this.setState({
+        isTranslating: false,
+        hasTranslated: false,
+        isSimplified: false,
+        translatedData: null,
+        translateError: '',
+        selectedAreaId: 'all'
+      });
+    } else if (targetView === 'diagnostics') {
+      const pageTitle = this.state.activePageTitle || this.state.scanReport?.meta?.title || 'Active Webpage';
+      const chatMessages = [{
+        sender: 'assistant',
+        textMl: `നമസ്കാരം! ഞാൻ നിങ്ങളുടെ തുണ (Thunai) വെബ്സഹായിയാണ്. നിലവിൽ "${pageTitle}" എന്ന പേജിലെ വിവരങ്ങളും തടസ്സങ്ങളും ഞാൻ നിരീക്ഷിക്കുന്നുണ്ട്.\n\nഏതെങ്കിലും ബട്ടൺ ക്ലിക്ക് ചെയ്യാനാകുന്നില്ലെങ്കിലോ, ഫോം പൂരിപ്പിക്കാൻ സഹായം വേണമെങ്കിലോ എന്നോട് ചോദിക്കാം.`,
+        textEn: `Hello! I am your Thunai Web Assistant. I am actively analyzing "${pageTitle}".\n\nIf any button is not working, or if you need step-by-step help filling forms on this page, please ask!`,
+        timestamp: Date.now()
+      }];
+      this.setState({
+        currentInspectedElement: null,
+        diagPageContent: null,
+        diagButtonAudit: null,
+        chatMessages
+      });
+      this.resetPageOverlays();
+    } else if (targetView === 'scan') {
+      this.setState({
+        scanReport: null,
+        isScanning: false,
+        heatmapActive: false,
+        loadingFixes: {},
+        generatedSuggestions: {}
+      });
+    }
+
+    this.render();
+  }
+
+  resetPageOverlays() {
     if (typeof chrome !== 'undefined' && chrome.tabs) {
       chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         if (tabs && tabs[0]) {
@@ -92,70 +215,6 @@ class ThunaiApp {
         }
       } catch (_) {}
     }
-
-    // 2. View-specific state reset to pristine fresh state
-    const view = this.state.currentView;
-    if (view === 'search') {
-      const { searchService } = await import('../services/searchService.js');
-      searchService.clear();
-    } else if (view === 'translate') {
-      this.setState({
-        isTranslating: false,
-        hasTranslated: false,
-        isSimplified: false,
-        translatedData: null,
-        translateError: '',
-        selectedAreaId: 'all'
-      });
-    } else if (view === 'listen') {
-      const { ttsService } = await import('../services/ttsService.js');
-      ttsService.stop();
-      ttsService.setSpeed(1.0);
-    } else if (view === 'dyslexia' || view === 'settings') {
-      const resetSettings = {
-        ...this.state.settings,
-        textSize: 100,
-        fontFamily: 'default',
-        dyslexiaFont: false,
-        colorTint: 'none',
-        letterSpacing: 0,
-        lineSpacing: 1.6,
-        readingRuler: false
-      };
-      this.setState({ settings: resetSettings });
-      if (typeof chrome !== 'undefined' && chrome.tabs) {
-        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-          if (tabs && tabs[0]) {
-            chrome.tabs.sendMessage(tabs[0].id, { action: 'UPDATE_SETTINGS', settings: resetSettings }).catch(() => {});
-          }
-        });
-      }
-    } else if (view === 'diagnostics') {
-      this.setState({
-        currentInspectedElement: null,
-        diagPageContent: null,
-        diagButtonAudit: null,
-        chatMessages: [
-          {
-            sender: 'assistant',
-            textMl: `നമസ്കാരം! ഞാൻ നിങ്ങളുടെ തുണ (Thunai) വെബ്സഹായിയാണ്. നിലവിൽ "${this.state.activePageTitle}" എന്ന പേജിലെ വിവരങ്ങളും തടസ്സങ്ങളും ഞാൻ നിരീക്ഷിക്കുന്നുണ്ട്.\n\nഏതെങ്കിലും ബട്ടൺ ക്ലിക്ക് ചെയ്യാനാകുന്നില്ലെങ്കിലോ, ഫോം പൂരിപ്പിക്കാൻ സഹായം വേണമെങ്കിലോ എന്നോട് ചോദിക്കാം.`,
-            textEn: `Hello! I am your Thunai Web Assistant. I am actively analyzing "${this.state.activePageTitle}".\n\nIf any button is not working, or if you need step-by-step help filling forms on this page, please ask!`,
-            timestamp: Date.now()
-          }
-        ]
-      });
-    } else if (view === 'scan') {
-      this.setState({
-        scanReport: null,
-        isScanning: false,
-        heatmapActive: false,
-        loadingFixes: {},
-        generatedSuggestions: {}
-      });
-    }
-
-    // 3. Re-render the active view cleanly
-    this.render();
   }
 
   setState(partialState) {
@@ -173,7 +232,6 @@ class ThunaiApp {
     if (this.state.currentView !== newView) {
       this.state.history.push(this.state.currentView);
       this.state.currentView = newView;
-      this.syncActiveTab();
       this.render();
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
@@ -183,7 +241,6 @@ class ThunaiApp {
     if (this.state.history.length > 0) {
       const prevView = this.state.history.pop();
       this.state.currentView = prevView;
-      this.syncActiveTab();
       this.render();
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } else {
@@ -192,61 +249,73 @@ class ThunaiApp {
     }
   }
 
-  normalizeUrl(url) {
-    if (!url) return '';
-    try {
-      const parsed = new URL(url);
-      const path = parsed.pathname.replace(/\/+$/, '') || '/';
-      return `${parsed.protocol}//${parsed.host}${path}${parsed.search}`.toLowerCase();
-    } catch (_) {
-      return String(url).trim().replace(/\/+$/, '').toLowerCase();
+  /**
+   * Dynamically refreshes sidebar state when user navigates pages or switches tabs
+   */
+  async refreshActiveTabState() {
+    if (typeof chrome === 'undefined' || !chrome.tabs || !chrome.tabs.query) {
+      return;
     }
-  }
 
-  async syncActiveTab(forced = false) {
     try {
-      const info = await getActivePageInfo();
-      if (!info) return;
+      const tabs = await new Promise((resolve) => {
+        chrome.tabs.query({ active: true, currentWindow: true }, resolve);
+      });
 
-      const currentNorm = this.normalizeUrl(this.state.activePageUrl);
-      const newNorm = this.normalizeUrl(info.url);
-      const urlChanged = Boolean(currentNorm && newNorm && currentNorm !== newNorm);
-      const initialLoad = !currentNorm;
+      if (!tabs || !tabs[0]) return;
 
-      if (urlChanged || forced || initialLoad) {
-        const nextReqSeq = (this.state.requestSeq || 0) + 1;
+      const activeTab = tabs[0];
+      const tabId = activeTab.id;
+      const url = activeTab.url || '';
 
-        const stateUpdates = {
-          activePageUrl: info.url || this.state.activePageUrl,
-          activePageTitle: info.title || this.state.activePageTitle || 'Active Webpage',
-          activePageLang: info.langCode || this.state.activePageLang || 'en',
-          activePageLangLabel: info.langLabel || this.state.activePageLangLabel || 'ഇംഗ്ലീഷ് (English)',
-          activePageLangLabelEn: info.langLabelEn || this.state.activePageLangLabelEn || 'English (ഇംഗ്ലീഷ്)',
-          activePageText: info.fullText || this.state.activePageText || '',
-          activePageAreas: info.areas || this.state.activePageAreas || [],
-          requestSeq: nextReqSeq
-        };
+      // Skip non-web extension internal pages (e.g. chrome://, about:blank)
+      if (url.startsWith('chrome://') || url.startsWith('chrome-extension://') || url.startsWith('about:')) {
+        return;
+      }
 
-        // Reset per-page state ONLY when the active tab has genuinely navigated to a different URL
-        if (urlChanged) {
-          stateUpdates.isTranslating = false;
-          stateUpdates.hasTranslated = false;
-          stateUpdates.isSimplified = false;
-          stateUpdates.translatedData = null;
-          stateUpdates.translateError = '';
-          stateUpdates.selectedAreaId = 'all';
+      // Deduplication: Skip scan if tab ID & URL have not changed and valid scan exists
+      if (tabId === this.currentTabId && url === this.currentTabUrl && this.state.scanReport && isSamePageUrl(this.state.scanReport.url, url)) {
+        return;
+      }
 
-          // Reset scan report if it belonged to another URL
-          if (this.state.scanReport && this.normalizeUrl(this.state.scanReport.url) !== newNorm) {
-            stateUpdates.scanReport = null;
-          }
+      // Ensure content script is alive or injected before scanning
+      await ensureContentScript(tabId, url);
+
+      // Record active tab identity
+      this.currentTabId = tabId;
+      this.currentTabUrl = url;
+
+      // Increment request ID for race condition protection
+      const requestId = ++this.scanRequestId;
+
+      // Invalidate stale page-specific state
+      this.state.scanReport = null;
+      this.state.isScanning = true;
+      this.state.translatedData = null;
+      this.state.hasTranslated = false;
+      this.state.isTranslating = false;
+      this.state.isSimplified = false;
+      this.state.translateError = '';
+      this.state.selectedAreaId = 'all';
+      this.state.activePageAreas = [];
+      this.state.activePageUrl = url;
+
+      // Render updated loading state
+      this.render();
+
+      // Retrieve fresh scan using existing scanPage service
+      const freshReport = await scanPage();
+
+      // Guard against stale async results (race condition protection)
+      if (requestId === this.scanRequestId) {
+        if (freshReport && (isSamePageUrl(freshReport.url, url) || !url)) {
+          this.state.scanReport = freshReport;
         }
-
-        this.setState(stateUpdates);
+        this.state.isScanning = false;
         this.render();
       }
     } catch (err) {
-      console.warn("Active tab sync error:", err);
+      console.warn("Sidebar tab refresh error:", err);
     }
   }
 
@@ -318,33 +387,63 @@ class ThunaiApp {
       }
     });
 
-    // Listen for tab navigation, tab activation, and SPA transitions
-    if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
-      chrome.runtime.onMessage.addListener((message) => {
-        if (message.type === 'TAB_NAVIGATED' || message.type === 'TAB_CHANGED' || message.type === 'SPA_NAVIGATED') {
-          this.syncActiveTab();
+    // Register Chrome extension event listeners for dynamic page & tab synchronization
+    if (typeof chrome !== 'undefined' && chrome.tabs) {
+      chrome.tabs.onActivated.addListener(() => {
+        this.refreshActiveTabState();
+      });
+
+      chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
+        if (changeInfo.status === 'complete' || changeInfo.url) {
+          chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+            if (tabs && tabs[0] && tabs[0].id === tabId) {
+              this.refreshActiveTabState();
+            }
+          });
         }
       });
     }
 
-    // Window focus & visibility change hooks for tab sync
-    window.addEventListener('focus', () => this.syncActiveTab());
-    document.addEventListener('visibilitychange', () => {
-      if (!document.hidden) this.syncActiveTab();
-    });
+    // 1. Identify active tab first
+    let activeUrl = '';
+    let activeTabId = null;
+    if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.query) {
+      try {
+        const tabs = await new Promise((resolve) => {
+          chrome.tabs.query({ active: true, currentWindow: true }, resolve);
+        });
+        if (tabs && tabs[0]) {
+          activeTabId = tabs[0].id;
+          activeUrl = tabs[0].url || '';
+          await ensureContentScript(activeTabId, activeUrl);
+        }
+      } catch (err) {
+        console.warn("Could not query active tab during init:", err);
+      }
+    }
 
-    // Initial Active Tab Sync & Language Detection
-    await this.syncActiveTab(true);
-
-    // Hydrate latest scan if matching current URL
+    // 2. Validate and hydrate cached scan ONLY if it matches the current active tab
     try {
       const cachedScan = await getLatestScan();
-      if (cachedScan && !this.state.scanReport && (!this.state.activePageUrl || cachedScan.url === this.state.activePageUrl)) {
-        this.state.scanReport = cachedScan;
+      if (cachedScan && !this.state.scanReport) {
+        if (activeUrl && isSamePageUrl(cachedScan.url, activeUrl)) {
+          this.state.scanReport = cachedScan;
+          this.currentTabId = activeTabId;
+          this.currentTabUrl = activeUrl;
+        } else if (!activeUrl && (typeof chrome === 'undefined' || !chrome.tabs)) {
+          // Preview/standalone mock fallback when chrome.tabs is unavailable
+          this.state.scanReport = cachedScan;
+        } else {
+          // Cached scan belongs to a different URL; keep UI in scanning state
+          this.state.isScanning = true;
+        }
       }
     } catch(err) {
       console.warn("Could not hydrate cached scan:", err);
     }
+
+    // 3. Perform active tab sync
+    await this.refreshActiveTabState();
 
     this.render();
   }

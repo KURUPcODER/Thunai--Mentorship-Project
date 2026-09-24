@@ -1,0 +1,215 @@
+diff --git a/extension/content-script.js b/extension/content-script.js
+index 7e55b64..6c288ba 100644
+--- a/extension/content-script.js
++++ b/extension/content-script.js
+@@ -353,15 +353,15 @@
+ 
+     if (terms.length === 0) return [];
+ 
+-    const normalizedTerms = terms
+-      .map(term => term.normalize('NFC').toLowerCase())
++    const searchTerms = terms
++      .map(term => term.toLowerCase())
+       .filter(Boolean);
+ 
+-    normalizedTerms.sort((a, b) => b.length - a.length);
++    searchTerms.sort((a, b) => b.length - a.length);
+ 
+     const regex = new RegExp(
+-      normalizedTerms.map(escapeRegex).join('|'),
+-      'giu'
++      searchTerms.map(escapeRegex).join('|'),
++      'gi'
+     );
+ 
+     const matches = [];
+@@ -400,8 +400,7 @@
+ 
+     textNodes.forEach(textNode => {
+       const text = textNode.nodeValue;
+-      const normalizedText = text.normalize('NFC');
+-      const matchableText = normalizedText.toLowerCase();
++      const matchableText = text.toLowerCase();
+ 
+       regex.lastIndex = 0;
+       if (!regex.test(matchableText)) return;
+@@ -509,120 +508,83 @@
+     const pageTitle = document.title || 'Current Webpage';
+     const rawUrl = window.location.href;
+ 
+-    const mainEl = document.querySelector('main, article, #content, .content, #main, #mock-webpage-target') || document.body;
+-    
+-    // Find all candidate visible readable blocks
+-    const candidateElements = Array.from(mainEl.querySelectorAll('h1, h2, h3, h4, h5, h6, p, li, article, section, blockquote, dd, dt, table, td, th, [role="article"], [role="main"], div.wiki-content > p, .thunai-reading-target'))
+-      .filter(el => {
+-        // Strip out internal extension UI and scripts
+-        if (el.closest('script, style, noscript, svg, nav, footer, #thunai-sidebar-frame, .thunai-sidebar-pane, #thunai-inpage-styles, .thunai-inspect-box, .thunai-pointer-arrow-card')) {
++    // Detect primary page language from document attributes and sample text
++    const htmlLang = (document.documentElement.lang || document.body?.getAttribute('lang') || 'en').toLowerCase();
++    const sampleText = document.body ? document.body.innerText.slice(0, 1200) : '';
++    const isMalayalamPage = htmlLang.startsWith('ml') || /[\u0D00-\u0D7F]/.test(sampleText);
++    const langCode = isMalayalamPage ? 'ml' : 'en';
++
++    // Prioritize main article body container (e.g. MediaWiki .mw-parser-output / #mw-content-text over broad #content)
++    const mainEl = document.querySelector('.mw-parser-output, #mw-content-text, main, article, [role="main"], #content, .content, #main') || document.body;
++
++    // Select candidate leaf block elements, including div for modern SPAs that avoid semantic <p> tags
++    const rawCandidates = Array.from(mainEl.querySelectorAll('h1, h2, h3, h4, h5, h6, p, li, blockquote, div'));
++
++    const candidateElements = rawCandidates.filter(el => {
++      // Exclude boilerplate, site notices, infoboxes, TOC, navigation, headers, footers, sidebars, and edit section widgets
++      if (el.closest('script, style, noscript, svg, nav, footer, header, .sidebar, .infobox, .toc, .navbox, .catlinks, #siteNotice, .mw-empty-elt, .mw-editsection, .reflist, .reference, .citation, .thumbcaption, #thunai-inpage-styles, .thunai-inspect-box')) {
++        return false;
++      }
++
++      // Filter out explicitly hidden elements (display:none, visibility:hidden, opacity:0, aria-hidden)
++      if (el.hidden || el.getAttribute('aria-hidden') === 'true') return false;
++      try {
++        const style = window.getComputedStyle(el);
++        if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') {
+           return false;
+         }
++      } catch(e) {}
++
++      const text = (el.innerText || '').trim();
++      
++      // Prevent generic <div> containers from capturing overly massive layouts or tiny UI elements
++      if (el.tagName === 'DIV') {
++        const hasBlockChildren = el.querySelector('div, p, ul, ol, li, blockquote, h1, h2, h3, h4, h5, h6, article, section, nav, header, footer, table');
++        if (hasBlockChildren) return false;
++        // Narrowly constrain text-heavy div containers (minimum 35 chars) to prevent extracting generic short UI labels
++        if (text.length < 35) return false;
++      }
+ 
+-        try {
+-          const style = window.getComputedStyle(el);
+-          if (style.display === 'none' || style.visibility === 'hidden') {
+-            return false;
+-          }
+-        } catch(e) {}
+-
+-        const text = (el.innerText || el.textContent || '').trim();
+-        return text.length > 2;
+-      })
+-      .slice(0, 60);
++      // Ignore tiny navigation links, empty blocks, or trivial labels (5 chars is safe for short Malayalam headings)
++      return text.length > 5;
++    });
+ 
+     const segments = candidateElements.map((el, idx) => {
+       const segId = `seg-${idx}`;
+       el.setAttribute('data-thunai-seg', segId);
+       const tagType = el.tagName.startsWith('H') ? `HEADING ${el.tagName[1]}` : (el.tagName === 'LI' ? 'LIST ITEM' : 'PARAGRAPH');
+-      const text = (el.innerText || el.textContent || '').trim();
++      const text = (el.innerText || '').trim();
+       return {
+         id: segId,
+         selector: `[data-thunai-seg="${segId}"]`,
+         text: text,
+-        mlText: '',
++        mlText: isMalayalamPage ? text : '',
++        enText: !isMalayalamPage ? text : '',
+         type: tagType,
+         tag: `${pageTitle.slice(0, 24)} (${tagType})`,
+         durationMs: Math.max(3000, text.length * 65)
+       };
+     });
+ 
+-    let fullOriginalText = segments.map(s => s.text).join('\n\n').trim();
+-    if (!fullOriginalText || fullOriginalText.length < 30) {
+-      const fallbackText = (mainEl.innerText || document.body?.innerText || '')
+-        .split('\n')
+-        .map(l => l.trim())
+-        .filter(l => l.length > 10 && !l.includes('function(') && !l.includes('addEventListener'))
+-        .slice(0, 30)
+-        .join('\n\n');
+-      if (fallbackText) fullOriginalText = fallbackText;
+-    }
+-
+-    const words = fullOriginalText.trim().split(/\s+/).filter(w => w.length > 0);
+-    const wordCount = words.length;
+-    const readingTimeMinutes = Math.max(1, Math.ceil(wordCount / 180));
+-
+-    // Extract Headings structure
+-    const headingElements = Array.from(mainEl.querySelectorAll('h1, h2, h3, h4, h5, h6'))
+-      .concat(Array.from(document.querySelectorAll('h1, h2, h3')))
+-      .filter((h, idx, arr) => arr.indexOf(h) === idx);
+-
+-    const headings = headingElements
+-      .filter(h => (h.innerText || h.textContent || '').trim().length > 0)
+-      .slice(0, 20)
+-      .map(h => ({
+-        tag: h.tagName.toUpperCase(),
+-        text: (h.innerText || h.textContent || '').trim()
+-      }));
+-
+-    // Extract Forms & Inputs summary
+-    const forms = Array.from(document.querySelectorAll('form'));
+-    const formsSummary = forms.map((f, fIdx) => {
+-      const formInputs = Array.from(f.querySelectorAll('input:not([type="hidden"]), select, textarea'));
+-      const inputNames = formInputs.map(inp => inp.placeholder || inp.getAttribute('aria-label') || inp.name || inp.id || 'Field').slice(0, 8);
+-      const hasSubmit = !!f.querySelector('button[type="submit"], input[type="submit"], button:not([type="button"])');
+-      return {
+-        id: f.id || `form-${fIdx + 1}`,
+-        inputCount: formInputs.length,
+-        inputs: inputNames,
+-        hasSubmit
+-      };
+-    });
+-
+-    // Extract Element Counts
+-    const stats = {
+-      wordCount,
+-      readingTimeMinutes,
+-      headingsCount: headings.length,
+-      paragraphsCount: segments.filter(s => s.type === 'PARAGRAPH').length || Math.max(1, Math.floor(wordCount / 40)),
+-      formsCount: forms.length,
+-      buttonsCount: document.querySelectorAll('button, input[type="submit"], input[type="button"], [role="button"]').length,
+-      linksCount: document.querySelectorAll('a[href]').length,
+-      imagesCount: document.querySelectorAll('img').length
+-    };
++    const fullOriginalText = segments.map(s => s.text).join('\n\n');
+ 
+-    const keyParagraphs = segments
+-      .filter(s => s.type === 'PARAGRAPH' && s.text.length > 30)
+-      .slice(0, 6)
+-      .map(s => s.text);
++    const rootTag = mainEl.tagName ? mainEl.tagName.toLowerCase() : 'body';
++    const rootId = mainEl.id ? `#${mainEl.id}` : '';
++    const rootClass = mainEl.className && typeof mainEl.className === 'string' ? `.${mainEl.className.trim().split(/\s+/)[0]}` : '';
+ 
+     return {
+       title: pageTitle,
+       url: rawUrl,
+-      fullText: fullOriginalText,
+-      wordCount,
+-      readingTimeMinutes,
+-      headings,
+-      formsSummary,
+-      forms: formsSummary,
+-      stats,
+-      keyParagraphs: keyParagraphs.length > 0 ? keyParagraphs : [fullOriginalText.slice(0, 300)],
++      langCode: langCode,
++      rootSelector: `${rootTag}${rootId}${rootClass}`,
++      fullText: fullOriginalText || (document.body ? document.body.innerText : ''),
+       segments: segments.length > 0 ? segments : [
+         {
+           id: 'seg-0',
+           selector: 'body',
+-          text: fullOriginalText.slice(0, 300) || 'Webpage content extracted.',
+-          mlText: '',
++          text: (document.body ? document.body.innerText : '') || 'Webpage content extracted.',
++          mlText: isMalayalamPage ? (document.body ? document.body.innerText : '') : '',
++          enText: !isMalayalamPage ? (document.body ? document.body.innerText : '') : '',
+           type: 'PARAGRAPH',
+           tag: pageTitle,
+           durationMs: 4000
+@@ -701,7 +663,7 @@
+       id: seg.id || `seg-${idx}`,
+       selector: seg.selector || `[data-thunai-seg="seg-${idx}"]`,
+       text: seg.text || '',
+-      mlText: '',
++      mlText: seg.mlText || '',
+       type: seg.type || 'PARAGRAPH',
+       tag: seg.tag || pageTitle,
+       durationMs: seg.durationMs || 3500

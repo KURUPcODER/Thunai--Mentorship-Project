@@ -101,6 +101,30 @@ class BrowserCompat {
           });
         }
       } catch (e) {
+        // After an extension reload, Chrome may still have an existing tab
+        // without the content script injected. Inject it once, then retry.
+        try {
+          if (this.extApi?.scripting?.executeScript && tab.id != null) {
+            await this.extApi.scripting.executeScript({
+              target: { tabId: tab.id },
+              files: ['content-script.js']
+            });
+            if (typeof browser !== 'undefined' && browser.tabs?.sendMessage) {
+              return await browser.tabs.sendMessage(tab.id, message);
+            }
+            return await new Promise((resolve) => {
+              chrome.tabs.sendMessage(tab.id, message, (response) => {
+                if (chrome.runtime?.lastError) {
+                  resolve({ success: false, error: chrome.runtime.lastError.message });
+                } else {
+                  resolve(response || { success: true });
+                }
+              });
+            });
+          }
+        } catch (injectError) {
+          console.warn('[Thunai BrowserCompat] Content-script injection/retry failed:', injectError);
+        }
         // Fallback to iframe bridge if tab communication fails
         return this.dispatchToIframe(message);
       }
@@ -115,14 +139,11 @@ class BrowserCompat {
   dispatchToIframe(message) {
     let script = null;
     if (typeof window !== 'undefined') {
-      try {
-        if (window.parent && window.parent.ThunaiContentScript) {
-          script = window.parent.ThunaiContentScript;
-        } else if (window.top && window.top.ThunaiContentScript) {
-          script = window.top.ThunaiContentScript;
-        }
-      } catch (_) {}
-      if (!script && window.ThunaiContentScript) {
+      if (window.parent && window.parent.ThunaiContentScript) {
+        script = window.parent.ThunaiContentScript;
+      } else if (window.top && window.top.ThunaiContentScript) {
+        script = window.top.ThunaiContentScript;
+      } else if (window.ThunaiContentScript) {
         script = window.ThunaiContentScript;
       }
     }
@@ -153,6 +174,10 @@ class BrowserCompat {
 
         case 'STOP_ELEMENT_PICKER':
           if (script.stopElementPicker) script.stopElementPicker();
+          return { success: true };
+
+        case 'RESET_ALL_PAGE_OVERLAYS':
+          if (script.resetAllPageOverlays) return { success: !!script.resetAllPageOverlays() };
           return { success: true };
 
         case 'DIAGNOSE_LIVE_PAGE':

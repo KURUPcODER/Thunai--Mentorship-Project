@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Thunai (തുണ) — Live Extension & Webpage Preview Testbed</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -17,9 +17,7 @@
       display: flex;
       flex-direction: column;
       height: 100vh;
-      height: 100dvh;
       overflow: hidden;
-      -webkit-tap-highlight-color: transparent;
     }
 
     /* Top Mock Browser Chrome Toolbar */
@@ -90,80 +88,6 @@
       font-weight: 700;
       cursor: pointer;
       box-shadow: 0 0 10px rgba(245, 197, 24, 0.2);
-      touch-action: manipulation;
-    }
-
-    /* Mobile Segmented Switcher (Visible on screens <= 860px) */
-    .mobile-view-tabs {
-      display: none;
-      background: #121827;
-      border-bottom: 1px solid #1E293B;
-      padding: 6px 10px;
-      gap: 8px;
-      flex-shrink: 0;
-    }
-
-    .mobile-view-tab {
-      flex: 1;
-      padding: 8px 10px;
-      border-radius: 8px;
-      background: transparent;
-      border: 1.5px solid transparent;
-      color: #94A3B8;
-      font-size: 12px;
-      font-weight: 700;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-      transition: all 0.15s ease;
-      touch-action: manipulation;
-      min-height: 40px;
-    }
-
-    .mobile-view-tab.active {
-      background: #1E293B;
-      border-color: #F5C518;
-      color: #F5C518;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
-    }
-
-    /* Floating Action Button (FAB) on mobile */
-    .mobile-thunai-fab {
-      display: none;
-      position: fixed;
-      bottom: max(22px, env(safe-area-inset-bottom, 22px));
-      right: 18px;
-      background: linear-gradient(135deg, #D97706 0%, #DC2626 100%);
-      color: #FFFFFF;
-      border: 2px solid #FEF3C7;
-      border-radius: 9999px;
-      padding: 10px 18px;
-      box-shadow: 0 8px 24px rgba(217, 119, 6, 0.5);
-      cursor: pointer;
-      z-index: 99999;
-      font-weight: 800;
-      font-size: 13.5px;
-      align-items: center;
-      gap: 8px;
-      touch-action: manipulation;
-      transition: all 0.2s ease;
-    }
-
-    .mobile-thunai-fab:active {
-      transform: scale(0.95);
-    }
-
-    .fab-bubble {
-      background: rgba(255, 255, 255, 0.25);
-      width: 26px;
-      height: 26px;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 13px;
     }
 
     /* Main Workspace Layout (Page on left, Thunai SidePanel on right) */
@@ -171,7 +95,6 @@
       flex: 1;
       display: flex;
       overflow: hidden;
-      position: relative;
     }
 
     /* Simulated Webpage (Wikipedia / Government Portal) */
@@ -180,7 +103,6 @@
       background: #FFFFFF;
       color: #202122;
       overflow-y: auto;
-      -webkit-overflow-scrolling: touch;
       padding: 40px 60px;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       position: relative;
@@ -249,68 +171,6 @@
       border: none;
       background: #0B0F19;
     }
-
-    /* Responsive Styles for Mobile & Tablets (<= 860px) */
-    @media (max-width: 860px) {
-      .browser-toolbar {
-        height: auto;
-        padding: 8px 12px;
-        flex-wrap: wrap;
-        gap: 8px;
-      }
-
-      .browser-omnibox {
-        order: 3;
-        width: 100%;
-        max-width: 100%;
-      }
-
-      .browser-extension-actions {
-        margin-left: auto;
-      }
-
-      .mobile-view-tabs {
-        display: flex;
-      }
-
-      .simulated-webpage-pane {
-        padding: 20px 16px max(80px, env(safe-area-inset-bottom, 80px)) 16px;
-        width: 100%;
-        display: block;
-      }
-
-      .wiki-title {
-        font-size: 22px;
-      }
-
-      .wiki-img-card {
-        float: none;
-        max-width: 100%;
-        margin: 0 0 16px 0;
-      }
-
-      .thunai-sidebar-pane {
-        width: 100%;
-        max-width: 100%;
-        min-width: 100%;
-        border-left: none;
-        display: none;
-        height: 100%;
-      }
-
-      /* View Switching States on Mobile */
-      .workspace-split.view-mode-thunai .simulated-webpage-pane {
-        display: none;
-      }
-
-      .workspace-split.view-mode-thunai .thunai-sidebar-pane {
-        display: flex;
-      }
-
-      .workspace-split.view-mode-page .mobile-thunai-fab {
-        display: inline-flex;
-      }
-    }
   </style>
 </head>
 <body>
@@ -334,27 +194,15 @@
     </div>
 
     <div class="browser-extension-actions">
-      <div class="btn-extension-badge" title="Toggle Thunai Assistant">
+      <div class="btn-extension-badge">
         <span>തു</span>
         <span>Thunai SidePanel Active</span>
       </div>
     </div>
   </header>
 
-  <!-- Mobile Segmented Switcher (Visible on mobile/tablets <= 860px) -->
-  <nav class="mobile-view-tabs" id="mobile-view-switcher" role="tablist" aria-label="Mobile View Switcher">
-    <button class="mobile-view-tab active" id="btn-tab-page" role="tab" aria-selected="true">
-      <span>📄</span>
-      <span>വെബ്‌പേജ് (Webpage)</span>
-    </button>
-    <button class="mobile-view-tab" id="btn-tab-thunai" role="tab" aria-selected="false">
-      <span>🤖</span>
-      <span>തുണ അസിസ്റ്റന്റ് (Thunai)</span>
-    </button>
-  </nav>
-
   <!-- Workspace Split: Live Page + Thunai Sidebar -->
-  <div class="workspace-split view-mode-page" id="workspace-split-container">
+  <div class="workspace-split">
     
     <!-- Left: Simulated Active Webpage -->
     <main class="simulated-webpage-pane" id="mock-webpage-target">

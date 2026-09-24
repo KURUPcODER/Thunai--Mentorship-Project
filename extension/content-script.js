@@ -348,81 +348,10 @@
   `;
   document.head.appendChild(styleEl);
 
-  let activeSearchSpotlightRing = null;
-  let activeSearchSpotlightCard = null;
-
-  function removeSearchSpotlight() {
-    if (activeSearchSpotlightRing && activeSearchSpotlightRing.parentNode) {
-      activeSearchSpotlightRing.remove();
-    }
-    if (activeSearchSpotlightCard && activeSearchSpotlightCard.parentNode) {
-      activeSearchSpotlightCard.remove();
-    }
-    activeSearchSpotlightRing = null;
-    activeSearchSpotlightCard = null;
-  }
-
-  function showSearchMatchSpotlight(targetMark, matchIndex, totalMatches) {
-    removeSearchSpotlight();
-    if (!targetMark) return;
-
-    const rect = targetMark.getBoundingClientRect();
-    const scrollX = window.scrollX || window.pageXOffset;
-    const scrollY = window.scrollY || window.pageYOffset;
-
-    // 1. Create Spotlight Ring around target mark
-    activeSearchSpotlightRing = document.createElement('div');
-    activeSearchSpotlightRing.className = 'thunai-pointer-spotlight';
-    activeSearchSpotlightRing.style.left = `${Math.max(0, rect.left + scrollX - 6)}px`;
-    activeSearchSpotlightRing.style.top = `${Math.max(0, rect.top + scrollY - 4)}px`;
-    activeSearchSpotlightRing.style.width = `${Math.max(rect.width + 12, 40)}px`;
-    activeSearchSpotlightRing.style.height = `${Math.max(rect.height + 8, 24)}px`;
-
-    // 2. Create Pointer Arrow Card
-    activeSearchSpotlightCard = document.createElement('div');
-    activeSearchSpotlightCard.className = 'thunai-pointer-arrow-card';
-    
-    let topPos = rect.top + scrollY - 105;
-    if (topPos < scrollY + 10) {
-      topPos = rect.bottom + scrollY + 12;
-    }
-    const leftPos = Math.max(12, Math.min(rect.left + scrollX, window.innerWidth - 340));
-
-    activeSearchSpotlightCard.style.top = `${topPos}px`;
-    activeSearchSpotlightCard.style.left = `${leftPos}px`;
-
-    const matchedWord = targetMark.textContent || '';
-
-    activeSearchSpotlightCard.innerHTML = `
-      <div class="thunai-pointer-arrow-indicator">
-        <span>👉</span>
-        <span>Word Match #${matchIndex + 1} / ${totalMatches}</span>
-      </div>
-      <div class="thunai-pointer-title">"${matchedWord}"</div>
-      <div class="thunai-pointer-fix" style="color: #FEF08A; background: rgba(217, 119, 6, 0.25); border-left: 3px solid #D97706; padding: 4px 8px; border-radius: 4px; font-weight: 700; margin-bottom: 8px;">
-        📍 Word "${matchedWord}" spotlighted on this webpage
-      </div>
-      <div class="thunai-pointer-actions" style="display: flex; justify-content: flex-end;">
-        <button class="thunai-pointer-btn-dismiss" id="thunai-btn-dismiss-spotlight">✕ Dismiss (മറയ്ക്കുക)</button>
-      </div>
-    `;
-
-    document.body.appendChild(activeSearchSpotlightRing);
-    document.body.appendChild(activeSearchSpotlightCard);
-
-    const dismissBtn = activeSearchSpotlightCard.querySelector('#thunai-btn-dismiss-spotlight');
-    if (dismissBtn) {
-      dismissBtn.addEventListener('click', removeSearchSpotlight);
-    }
-
-    setTimeout(removeSearchSpotlight, 8000);
-  }
-
   /**
    * 1. In-Page Keyword Search & Excerpt Locator on ANY Website
    */
   function clearSearchHighlights() {
-    removeSearchSpotlight();
     searchMarks.forEach(mark => {
       const parent = mark.parentNode;
       if (parent) {
@@ -455,15 +384,15 @@
 
     if (terms.length === 0) return [];
 
-    const normalizedTerms = terms
-      .map(term => term.normalize('NFC').toLowerCase())
+    const searchTerms = terms
+      .map(term => term.toLowerCase())
       .filter(Boolean);
 
-    normalizedTerms.sort((a, b) => b.length - a.length);
+    searchTerms.sort((a, b) => b.length - a.length);
 
     const regex = new RegExp(
-      normalizedTerms.map(escapeRegex).join('|'),
-      'giu'
+      searchTerms.map(escapeRegex).join('|'),
+      'gi'
     );
 
     const matches = [];
@@ -502,8 +431,7 @@
 
     textNodes.forEach(textNode => {
       const text = textNode.nodeValue;
-      const normalizedText = text.normalize('NFC');
-      const matchableText = normalizedText.toLowerCase();
+      const matchableText = text.toLowerCase();
 
       regex.lastIndex = 0;
       if (!regex.test(matchableText)) return;
@@ -584,7 +512,7 @@
     return matches;
   }
 
-  function scrollToKeywordMatch(matchIndex, enableSpotlight = false) {
+  function scrollToKeywordMatch(matchIndex) {
     searchMarks.forEach(m => m.classList.remove('active-match'));
 
     const target = searchMarks[matchIndex];
@@ -594,10 +522,6 @@
         behavior: 'smooth',
         block: 'center'
       });
-
-      if (enableSpotlight) {
-        showSearchMatchSpotlight(target, matchIndex, searchMarks.length);
-      }
     }
   }
 
@@ -606,137 +530,198 @@
   }
 
   /**
+   * Splits large Malayalam text into smaller natural segments at sentence and clause boundaries
+   * to significantly reduce per-segment TTS synthesis latency for Sarvam and Piper.
+   */
+  function splitMalayalamText(text, maxLen = 160) {
+    if (!text || typeof text !== 'string') return [];
+    const trimmed = text.trim();
+    if (trimmed.length <= maxLen) return [trimmed];
+
+    function splitByWords(longText, limit) {
+      const words = longText.split(/\s+/).filter(Boolean);
+      if (words.length <= 1) return [longText];
+      const pieces = [];
+      let cur = '';
+      for (const word of words) {
+        if (!cur) {
+          cur = word;
+        } else if ((cur.length + 1 + word.length) <= limit) {
+          cur += ' ' + word;
+        } else {
+          pieces.push(cur);
+          cur = word;
+        }
+      }
+      if (cur) pieces.push(cur);
+      return pieces;
+    }
+
+    function splitLongSentence(sentence, limit) {
+      if (sentence.length <= limit) return [sentence];
+      const clauses = sentence.split(/(?<=[,;:\u2014\u2013\-])\s+/).map(c => c.trim()).filter(Boolean);
+      if (clauses.length > 1) {
+        const result = [];
+        let current = '';
+        for (const clause of clauses) {
+          if (!current) {
+            current = clause;
+          } else if ((current.length + 1 + clause.length) <= limit) {
+            current += ' ' + clause;
+          } else {
+            result.push(current);
+            current = clause;
+          }
+        }
+        if (current) result.push(current);
+        const finalResult = [];
+        for (const piece of result) {
+          if (piece.length > limit) {
+            finalResult.push(...splitByWords(piece, limit));
+          } else {
+            finalResult.push(piece);
+          }
+        }
+        return finalResult;
+      }
+      return splitByWords(sentence, limit);
+    }
+
+    const rawSentences = trimmed.split(/(?<=[.।?!])\s+|\n+/).map(s => s.trim()).filter(Boolean);
+    if (rawSentences.length === 0) return [trimmed];
+
+    const normalizedPieces = [];
+    for (const sent of rawSentences) {
+      if (sent.length > maxLen) {
+        normalizedPieces.push(...splitLongSentence(sent, maxLen));
+      } else {
+        normalizedPieces.push(sent);
+      }
+    }
+
+    const segments = [];
+    let currentSegment = '';
+    for (const piece of normalizedPieces) {
+      if (!currentSegment) {
+        currentSegment = piece;
+      } else if ((currentSegment.length + 1 + piece.length) <= maxLen) {
+        currentSegment += ' ' + piece;
+      } else {
+        segments.push(currentSegment);
+        currentSegment = piece;
+      }
+    }
+    if (currentSegment) {
+      segments.push(currentSegment);
+    }
+
+    return segments.length > 0 ? segments : [trimmed];
+  }
+
+  /**
    * 2. Live Page Extraction (Universal Readable Text Segmentation)
-   * Scans visible, readable text blocks across ANY website (news, govt portals, SPAs, docs, blogs)
-   * Filters out invisible/hidden elements, ads, boilerplate (<script>, <style>, <noscript>, <svg>, <nav>, header, footer)
+   * Scans visible, readable text blocks (<p>, <h1>–<h6>, <li>, <article>, <section>)
+   * Filters out invisible/hidden elements and boilerplate (<script>, <style>, <noscript>, <svg>, <nav>, footer)
    * Stamped with [data-thunai-seg="seg-index"]
    */
   function extractRealPageContent() {
     const pageTitle = document.title || 'Current Webpage';
     const rawUrl = window.location.href;
 
-    // Filter selector for non-content boilerplate, navigation, ads, headers, footers, and internal extension UI
-    const excludeSelector = 'header, nav, footer, aside, .nav, .navbar, .menu, .sidebar, .ad, .advertisement, .banner, .cookie-banner, .popup, .modal, script, style, noscript, svg, #thunai-sidebar-frame, .thunai-sidebar-pane, #thunai-inpage-styles, .thunai-inspect-box, .thunai-pointer-arrow-card, [aria-hidden="true"]';
+    // Detect primary page language from document attributes and sample text
+    const htmlLang = (document.documentElement.lang || document.body?.getAttribute('lang') || 'en').toLowerCase();
+    const sampleText = document.body ? document.body.innerText.slice(0, 1200) : '';
+    const isMalayalamPage = htmlLang.startsWith('ml') || /[\u0D00-\u0D7F]/.test(sampleText);
+    const langCode = isMalayalamPage ? 'ml' : 'en';
 
-    // Locate primary content containers across diverse webpage architectures
-    const mainContainer = document.querySelector('main, article, [role="main"], #main-content, #content, .content, .main-content, .post-content, .article-content, #mock-webpage-target, #root, #__next, #app') || document.body;
+    // Prioritize main article body container (e.g. MediaWiki .mw-parser-output / #mw-content-text over broad #content)
+    const mainEl = document.querySelector('.mw-parser-output, #mw-content-text, main, article, [role="main"], #content, .content, #main') || document.body;
 
-    // Collect candidate content elements
-    let candidateNodes = Array.from(mainContainer.querySelectorAll('h1, h2, h3, h4, h5, h6, p, li, article, section, blockquote, dt, dd, table, td, th, [role="article"], [role="main"], div.wiki-content > p, .thunai-reading-target'));
-    if (candidateNodes.length === 0 && document.body) {
-      candidateNodes = Array.from(document.body.querySelectorAll('h1, h2, h3, h4, h5, h6, p, li, section, blockquote, dt, dd, td, th'));
-    }
+    // Select candidate leaf block elements, including div for modern SPAs that avoid semantic <p> tags
+    const rawCandidates = Array.from(mainEl.querySelectorAll('h1, h2, h3, h4, h5, h6, p, li, blockquote, div'));
 
-    const seenTexts = new Set();
-    const candidateElements = [];
+    const candidateElements = rawCandidates.filter(el => {
+      // Exclude boilerplate, site notices, infoboxes, TOC, navigation, headers, footers, sidebars, and edit section widgets
+      if (el.closest('script, style, noscript, svg, nav, footer, header, .sidebar, .infobox, .toc, .navbox, .catlinks, #siteNotice, .mw-empty-elt, .mw-editsection, .reflist, .reference, .citation, .thumbcaption, #thunai-inpage-styles, .thunai-inspect-box')) {
+        return false;
+      }
 
-    for (const el of candidateNodes) {
-      if (candidateElements.length >= 60) break;
-
-      // Strip boilerplate, navigation, & internal extension UI
-      if (el.closest(excludeSelector)) continue;
-
-      // Filter out invisible / hidden elements
-      const rect = el.getBoundingClientRect();
-      if (rect.height === 0 || rect.width === 0) continue;
-
+      // Filter out explicitly hidden elements (display:none, visibility:hidden, opacity:0, aria-hidden)
+      if (el.hidden || el.getAttribute('aria-hidden') === 'true') return false;
       try {
         const style = window.getComputedStyle(el);
         if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') {
-          continue;
+          return false;
         }
       } catch(e) {}
 
-      const text = (el.innerText || el.textContent || '').trim();
-      // Skip empty or tiny icon/button labels, but keep headings and meaningful sentences
-      if (text.length < 5 && !el.tagName.startsWith('H')) continue;
-      if (text.length === 0) continue;
+      const text = (el.innerText || '').trim();
+      
+      // Prevent generic <div> containers from capturing overly massive layouts or tiny UI elements
+      if (el.tagName === 'DIV') {
+        const hasBlockChildren = el.querySelector('div, p, ul, ol, li, blockquote, h1, h2, h3, h4, h5, h6, article, section, nav, header, footer, table');
+        if (hasBlockChildren) return false;
+        // Narrowly constrain text-heavy div containers (minimum 35 chars) to prevent extracting generic short UI labels
+        if (text.length < 35) return false;
+      }
 
-      // Avoid duplicate parent-child extractions
-      const normalizedText = text.replace(/\s+/g, ' ');
-      if (seenTexts.has(normalizedText)) continue;
-      seenTexts.add(normalizedText);
+      // Ignore tiny navigation links, empty blocks, or trivial labels (5 chars is safe for short Malayalam headings)
+      return text.length > 5;
+    });
 
-      candidateElements.push(el);
-    }
-
-    const segments = candidateElements.map((el, idx) => {
+    const segments = [];
+    candidateElements.forEach((el, idx) => {
       const segId = `seg-${idx}`;
       el.setAttribute('data-thunai-seg', segId);
       const tagType = el.tagName.startsWith('H') ? `HEADING ${el.tagName[1]}` : (el.tagName === 'LI' ? 'LIST ITEM' : 'PARAGRAPH');
-      const text = (el.innerText || el.textContent || '').trim();
-      const isMalayalam = /[\u0D00-\u0D7F]/.test(text);
-      return {
+      const text = (el.innerText || '').trim();
+      const isMalayalamBlock = /[\u0D00-\u0D7F]/.test(text) || (isMalayalamPage && !/^[A-Za-z0-9\s.,!?'"()\-:;]+$/.test(text));
+
+      // For Malayalam only: split large text blocks into smaller natural segments for lower TTS latency
+      if (isMalayalamBlock && text.length > 140) {
+        const subPieces = splitMalayalamText(text, 160);
+        if (subPieces.length > 1) {
+          subPieces.forEach((subText, subIdx) => {
+            segments.push({
+              id: `${segId}-${subIdx}`,
+              selector: `[data-thunai-seg="${segId}"]`,
+              text: subText,
+              mlText: subText,
+              enText: '',
+              type: tagType,
+              tag: `${pageTitle.slice(0, 24)} (${tagType})`,
+              durationMs: Math.max(2500, subText.length * 65)
+            });
+          });
+          return;
+        }
+      }
+
+      // Default single segment (English, short Malayalam blocks, headings, etc.)
+      segments.push({
         id: segId,
         selector: `[data-thunai-seg="${segId}"]`,
         text: text,
-        mlText: isMalayalam ? text : '',
-        enText: !isMalayalam ? text : '',
+        mlText: isMalayalamPage ? text : '',
+        enText: !isMalayalamPage ? text : '',
         type: tagType,
         tag: `${pageTitle.slice(0, 24)} (${tagType})`,
         durationMs: Math.max(3000, text.length * 65)
-      };
+      });
     });
 
-    let fullOriginalText = segments.map(s => s.text).join('\n\n').trim();
-    if (!fullOriginalText || fullOriginalText.length < 30) {
-      const fallbackText = (mainContainer.innerText || document.body?.innerText || '')
-        .split('\n')
-        .map(l => l.trim())
-        .filter(l => l.length > 10 && !l.includes('function(') && !l.includes('addEventListener'))
-        .slice(0, 30)
-        .join('\n\n');
-      if (fallbackText) fullOriginalText = fallbackText;
-    }
+    const fullOriginalText = candidateElements.map(el => (el.innerText || '').trim()).join('\n\n');
 
-    const words = fullOriginalText.trim().split(/\s+/).filter(w => w.length > 0);
-    const wordCount = words.length;
-    const readingTimeMinutes = Math.max(1, Math.ceil(wordCount / 180));
-
-    // Extract Headings structure
-    const headingElements = Array.from(mainContainer.querySelectorAll('h1, h2, h3, h4, h5, h6'))
-      .concat(Array.from(document.querySelectorAll('h1, h2, h3')))
-      .filter((h, idx, arr) => arr.indexOf(h) === idx);
-
-    const headings = headingElements
-      .filter(h => (h.innerText || h.textContent || '').trim().length > 0)
-      .slice(0, 20)
-      .map(h => ({
-        tag: h.tagName.toUpperCase(),
-        text: (h.innerText || h.textContent || '').trim()
-      }));
-
-    // Extract Forms & Inputs summary
-    const forms = Array.from(document.querySelectorAll('form'));
-    const formsSummary = forms.map((f, fIdx) => {
-      const formInputs = Array.from(f.querySelectorAll('input:not([type="hidden"]), select, textarea'));
-      const inputNames = formInputs.map(inp => inp.placeholder || inp.getAttribute('aria-label') || inp.name || inp.id || 'Field').slice(0, 8);
-      const hasSubmit = !!f.querySelector('button[type="submit"], input[type="submit"], button:not([type="button"])');
-      return {
-        id: f.id || `form-${fIdx + 1}`,
-        inputCount: formInputs.length,
-        inputs: inputNames,
-        hasSubmit
-      };
-    });
-
-    // Extract Element Counts
-    const stats = {
-      wordCount,
-      readingTimeMinutes,
-      headingsCount: headings.length,
-      paragraphsCount: segments.filter(s => s.type === 'PARAGRAPH').length || Math.max(1, Math.floor(wordCount / 40)),
-      formsCount: forms.length,
-      buttonsCount: document.querySelectorAll('button, input[type="submit"], input[type="button"], [role="button"]').length,
-      linksCount: document.querySelectorAll('a[href]').length,
-      imagesCount: document.querySelectorAll('img').length
-    };
+    const rootTag = mainEl.tagName ? mainEl.tagName.toLowerCase() : 'body';
+    const rootId = mainEl.id ? `#${mainEl.id}` : '';
+    const rootClass = mainEl.className && typeof mainEl.className === 'string' ? `.${mainEl.className.trim().split(/\s+/)[0]}` : '';
 
     // -------------------------------------------------------------
     // Multi-Area Detection for Targeted Translation & Simplification
     // -------------------------------------------------------------
     const areas = [];
     const wholePageSnippet = fullOriginalText.slice(0, 160).replace(/\s+/g, ' ').trim() + (fullOriginalText.length > 160 ? '...' : '');
+    const wordCount = fullOriginalText.trim().split(/\s+/).filter(Boolean).length;
 
     // Area 0: Whole Page (always first option)
     areas.push({
@@ -746,7 +731,7 @@
       selector: 'body',
       text: fullOriginalText,
       wordCount,
-      snippet: wholePageSnippet || 'മുഴുവൻ വെബ്‌പേജ് ഉള്ളടക്കവും'
+      snippet: wholePageSnippet || 'മുഴുവൻ പേജിലെ ഉള്ളടക്കം'
     });
 
     // Strategy 1: Group candidateElements by heading or distinct sections
@@ -796,9 +781,9 @@
       detectedGroups = rawHeadingGroups;
     } else {
       // Strategy 2: Distinct semantic containers (<article>, <section>, <form>, etc.)
-      const semanticContainers = Array.from(mainContainer.querySelectorAll('article, section, form, [role="region"], [role="article"], .card, .content-section'))
+      const semanticContainers = Array.from(mainEl.querySelectorAll('article, section, form, [role="region"], [role="article"], .card, .content-section'))
         .concat(Array.from(document.querySelectorAll('article, section, form')))
-        .filter((c, idx, arr) => arr.indexOf(c) === idx && !c.closest(excludeSelector));
+        .filter((c, idx, arr) => arr.indexOf(c) === idx && !c.closest('header, nav, footer, aside, .nav, .navbar, .menu, .sidebar, script, style, noscript, svg, #thunai-inpage-styles, .thunai-inspect-box'));
 
       const containerGroups = [];
       semanticContainers.forEach((container, cIdx) => {
@@ -815,75 +800,63 @@
           });
         }
       });
+      detectedGroups = containerGroups;
+    }
 
-      if (containerGroups.length >= 2) {
-        detectedGroups = containerGroups;
+    // Build unique area entries (max 6 targeted areas)
+    detectedGroups.slice(0, 6).forEach((group, gIdx) => {
+      const areaId = `area-${gIdx + 1}`;
+      const groupText = group.elements.map(e => (e.innerText || e.textContent || '').trim()).filter(Boolean).join('\n\n');
+      if (groupText.length < 25) return;
+
+      const groupSnippet = groupText.slice(0, 140).replace(/\s+/g, ' ').trim() + (groupText.length > 140 ? '...' : '');
+
+      let areaSelector = '';
+      if (group.container && group.container !== document.body && group.container !== mainEl) {
+        group.container.setAttribute('data-thunai-area', areaId);
+        areaSelector = `[data-thunai-area="${areaId}"]`;
+      } else if (group.elements[0]) {
+        group.elements[0].setAttribute('data-thunai-area', areaId);
+        areaSelector = `[data-thunai-area="${areaId}"]`;
       }
-    }
 
-    // Stamp detected groups and build areas list
-    if (detectedGroups.length >= 2) {
-      detectedGroups.forEach((grp, idx) => {
-        const areaId = `area-${idx + 1}`;
-        const selector = `[data-thunai-area="${areaId}"]`;
+      const cleanTitle = group.title.replace(/\s+/g, ' ').slice(0, 45).trim() || `ഭാഗം ${gIdx + 1}`;
 
-        // Stamp elements
-        grp.elements.forEach(el => {
-          el.setAttribute('data-thunai-area', areaId);
-        });
-        if (grp.container && grp.container !== document.body && grp.container !== mainContainer) {
-          grp.container.setAttribute('data-thunai-area', areaId);
-        }
-
-        const areaText = grp.elements.map(e => (e.innerText || e.textContent || '').trim()).filter(Boolean).join('\n\n');
-        const areaWords = areaText.split(/\s+/).filter(Boolean).length;
-        const areaSnippet = areaText.slice(0, 160).replace(/\s+/g, ' ').trim() + (areaText.length > 160 ? '...' : '');
-
-        areas.push({
-          id: areaId,
-          name: grp.title || `ഭാഗം ${idx + 1}`,
-          nameEn: grp.title || `Area ${idx + 1}`,
-          selector: selector,
-          text: areaText,
-          wordCount: areaWords,
-          snippet: areaSnippet
-        });
+      areas.push({
+        id: areaId,
+        name: cleanTitle,
+        nameEn: cleanTitle,
+        selector: areaSelector || `[data-thunai-area="${areaId}"]`,
+        text: groupText,
+        wordCount: groupText.split(/\s+/).filter(Boolean).length,
+        snippet: groupSnippet
       });
-    }
-
-    const keyParagraphs = segments
-      .filter(s => s.type === 'PARAGRAPH' && s.text.length > 30)
-      .slice(0, 6)
-      .map(s => s.text);
+    });
 
     return {
       title: pageTitle,
       url: rawUrl,
-      fullText: fullOriginalText,
-      wordCount,
-      readingTimeMinutes,
-      headings,
-      formsSummary,
-      forms: formsSummary,
-      stats,
-      areas,
-      keyParagraphs: keyParagraphs.length > 0 ? keyParagraphs : [fullOriginalText.slice(0, 300)],
+      langCode: langCode,
+      rootSelector: `${rootTag}${rootId}${rootClass}`,
+      fullText: fullOriginalText || (document.body ? document.body.innerText : ''),
       segments: segments.length > 0 ? segments : [
         {
           id: 'seg-0',
           selector: 'body',
-          text: fullOriginalText.slice(0, 300) || 'Webpage content extracted.',
-          mlText: '',
+          text: (document.body ? document.body.innerText : '') || 'Webpage content extracted.',
+          mlText: isMalayalamPage ? (document.body ? document.body.innerText : '') : '',
+          enText: !isMalayalamPage ? (document.body ? document.body.innerText : '') : '',
           type: 'PARAGRAPH',
           tag: pageTitle,
           durationMs: 4000
         }
-      ]
+      ],
+      areas
     };
   }
 
   /**
-   * Helper: Stopwords list for English, Hindi, and Malayalam
+   * Helper: Stopwords list for English and Malayalam
    */
   const STOP_WORDS = new Set([
     // English
@@ -923,10 +896,6 @@
     'where', 'whether', 'which', 'while', 'who', 'whole', 'whose', 'why', 'will', 'with', 'within',
     'without', 'work', 'worked', 'working', 'works', 'would', 'year', 'years', 'yet', 'you', 'young',
     'younger', 'youngest', 'your', 'yours',
-    // Hindi
-    'और', 'का', 'के', 'की', 'है', 'हैं', 'से', 'में', 'को', 'पर', 'यह', 'वह', 'तो', 'भी', 'ही', 'किया',
-    'लिये', 'लिए', 'था', 'थे', 'थी', 'गया', 'गए', 'गई', 'होता', 'होती', 'होते', 'इस', 'उस', 'एक', 'ने',
-    'या', 'द्वारा', 'तक', 'साथ', 'बाद', 'पहले', 'सब', 'कुछ', 'अपने', 'अपनी', 'अपना',
     // Malayalam
     'എന്നാൽ', 'ആണ്', 'ഒരു', 'ഈ', 'ആയ', 'എന്ന്', 'കൂടി', 'മറ്റ്', 'ഉള്ള', 'ഈയൊരു',
     'അത്', 'ഇത്', 'അവൻ', 'അവൾ', 'അവർ', 'ഉണ്ടായിരുന്നു', 'വേണ്ടി', 'പോലെ', 'ചെയ്യുക',
@@ -956,7 +925,7 @@
       id: seg.id || `seg-${idx}`,
       selector: seg.selector || `[data-thunai-seg="seg-${idx}"]`,
       text: seg.text || '',
-      mlText: '',
+      mlText: seg.mlText || '',
       type: seg.type || 'PARAGRAPH',
       tag: seg.tag || pageTitle,
       durationMs: seg.durationMs || 3500
@@ -1309,11 +1278,11 @@
   // Active Pointer & Spotlight State
   let activeSpotlightEl = null;
   let activePointerCardEl = null;
-  let activeAreaSpotlightEl = null;
-  let activeAreaCardEl = null;
   let isPickerActive = false;
   let pickerBannerEl = null;
   let lastHoveredEl = null;
+  let activeAreaSpotlightEl = null;
+  let activeAreaCardEl = null;
 
   function clearActivePointer() {
     if (activeSpotlightEl && activeSpotlightEl.parentNode) activeSpotlightEl.remove();
@@ -1331,6 +1300,9 @@
     activeAreaCardEl = null;
   }
 
+  /**
+   * Visual Pointer pointing directly to broken / non-working area on the webpage
+   */
   /**
    * Visual Pointer pointing directly to broken / non-working area on the webpage
    */
@@ -1719,7 +1691,7 @@
 
     // 1. Check if disabled or aria-disabled
     const isDisabled = el.disabled || el.getAttribute('aria-disabled') === 'true' || computed.pointerEvents === 'none';
-
+    
     // 2. Check if inside a form with empty required fields
     const form = el.closest('form') || el.closest('[role="form"]');
     let emptyRequired = [];
@@ -1854,16 +1826,15 @@
       fixType = 'none';
     }
 
-    // Generate unique selector
-    let selector = tag;
-    if (el.id) selector = `#${el.id}`;
-    else if (el.className && typeof el.className === 'string') {
-      const cls = el.className.trim().split(/\s+/).filter(c => !c.startsWith('thunai-')).slice(0, 2).join('.');
-      if (cls) selector = `${tag}.${cls}`;
-    }
+    // Generate a stable, page-local selector so Point on Page always targets
+    // the exact element that was diagnosed. Class-only selectors can match a
+    // different element when a page contains repeated controls.
+    const diagId = el.getAttribute('data-thunai-diag-id') || `diag-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    el.setAttribute('data-thunai-diag-id', diagId);
+    const selector = `[data-thunai-diag-id="${diagId}"]`;
 
     return {
-      id: `diag-item-${Date.now()}`,
+      id: diagId,
       tag: tag,
       text: text.slice(0, 40) || 'Interactive element',
       selector: selector,
@@ -2124,8 +2095,9 @@
       const thunaiId = `thunai-bid-${idx}`;
       el.setAttribute('data-thunai-bid', thunaiId);
 
-      // Build selector: prefer id, then data-thunai-bid (always unique)
-      let selector = el.id ? `#${el.id}` : `[data-thunai-bid="${thunaiId}"]`;
+      // Always use the generated per-scan ID. This avoids duplicate-ID pages
+      // and guarantees Point on Page targets the exact element diagnosed.
+      let selector = `[data-thunai-bid="${thunaiId}"]`;
       seenSelectors.add(selector);
 
       const computed = window.getComputedStyle(el);
@@ -2294,55 +2266,121 @@
   function scanPageFunctionalitiesDOM() {
     const buttonAudit = auditAllButtonsDOM();
     const barrierAudit = diagnoseLivePageBarriers();
-
-    const barriers = [...barrierAudit.barriers];
+    const barriers = [...(barrierAudit.barriers || [])];
     const seenSelectors = new Set(barriers.map(b => b.selector));
 
-    // Incorporate any broken button from buttonAudit
-    buttonAudit.buttons.filter(b => b.isBroken).forEach(b => {
+    const addIssue = (el, titleEn, titleMl, reasonEn, reasonMl, fixEn, fixMl, type = 'structure') => {
+      if (!el || barriers.length >= 25) return;
+      const diagId = el.getAttribute('data-thunai-diag-id') || `structure-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      el.setAttribute('data-thunai-diag-id', diagId);
+      const selector = `[data-thunai-diag-id="${diagId}"]`;
+      if (seenSelectors.has(selector)) return;
+      seenSelectors.add(selector);
+      barriers.push({
+        id: diagId,
+        tag: el.tagName.toLowerCase(),
+        text: (el.innerText || el.getAttribute('alt') || el.getAttribute('aria-label') || el.getAttribute('title') || '').trim().slice(0, 80) || 'Webpage element',
+        selector,
+        barrierType: type,
+        title: titleMl,
+        titleEn,
+        reason: reasonMl,
+        reasonEn,
+        fix: fixMl,
+        solution: fixMl,
+        fixEn,
+        solutionEn: fixEn,
+        steps: [fixMl],
+        stepsEn: [fixEn],
+        isFunctioning: false,
+        canAutoFix: false,
+        fixType: 'none',
+        severity: 'SERIOUS'
+      });
+    };
+
+    // Add broken button findings from the button audit without duplicating issues.
+    (buttonAudit.buttons || []).filter(b => b.isBroken).forEach(b => {
       if (!seenSelectors.has(b.selector)) {
         seenSelectors.add(b.selector);
         barriers.push({
-          id: b.id,
-          tag: b.tag,
-          text: b.text,
-          selector: b.selector,
-          barrierType: b.status,
-          title: b.statusTextMl,
-          titleEn: b.statusTextEn,
-          reason: b.reasonMl,
-          reasonEn: b.reasonEn,
-          feature: b.feature,
-          featureMl: b.featureMl,
-          functionality: b.functionality,
-          functionalityMl: b.functionalityMl,
-          purpose: b.purpose,
-          purposeMl: b.purposeMl,
+          id: b.id, tag: b.tag, text: b.text, selector: b.selector,
+          barrierType: b.status, title: b.statusTextMl, titleEn: b.statusTextEn,
+          reason: b.reasonMl, reasonEn: b.reasonEn,
+          feature: b.feature, featureMl: b.featureMl,
+          functionality: b.functionality, functionalityMl: b.functionalityMl,
+          purpose: b.purpose, purposeMl: b.purposeMl,
           isFunctioning: b.isFunctioning,
-          errorDetails: b.errorDetails,
-          errorDetailsMl: b.errorDetailsMl,
-          solution: b.fixMl,
-          fix: b.fixMl,
-          steps: [b.fixMl],
-          stepsEn: [b.fixEn],
-          canAutoFix: b.canAutoFix,
-          fixType: b.fixType,
-          severity: b.status === 'disabled' || b.status === 'overlay' ? 'CRITICAL' : 'SERIOUS'
+          errorDetails: b.errorDetails, errorDetailsMl: b.errorDetailsMl,
+          solution: b.fixMl, solutionEn: b.fixEn, fix: b.fixMl, fixEn: b.fixEn,
+          steps: [b.fixMl], stepsEn: [b.fixEn], canAutoFix: b.canAutoFix,
+          fixType: b.fixType, severity: 'SERIOUS'
         });
       }
     });
 
-    const hasMisfunctionalities = barriers.length > 0;
-    const everythingFunctionsProperly = !hasMisfunctionalities;
+    // Page structure checks that can be determined without pretending to execute arbitrary site code.
+    if (!document.title || !document.title.trim()) {
+      addIssue(document.documentElement, 'Missing page title', 'പേജ് ശീർഷകം ഇല്ല',
+        'The current webpage does not have a document title.', 'ഈ വെബ്‌പേജിന് വ്യക്തമായ title ഇല്ല.',
+        'The website owner should provide a meaningful page title.', 'വെബ്‌സൈറ്റ് ഉടമ വ്യക്തമായ page title നൽകണം.', 'structure');
+    }
 
+    const duplicateIds = new Set();
+    const idMap = new Map();
+    document.querySelectorAll('[id]').forEach(el => {
+      const id = el.id;
+      if (!id) return;
+      const list = idMap.get(id) || [];
+      list.push(el); idMap.set(id, list);
+    });
+    idMap.forEach((els, id) => {
+      if (els.length > 1) {
+        duplicateIds.add(id);
+        els.slice(0, 1).forEach(el => addIssue(el, 'Duplicate element ID', 'ഒരേ ID ഒന്നിലധികം ഘടകങ്ങളിൽ',
+          `The ID "${id}" is used by more than one element, which can cause scripts and navigation to target the wrong element.`,
+          `"${id}" എന്ന ID ഒന്നിലധികം ഘടകങ്ങളിൽ ഉപയോഗിച്ചിരിക്കുന്നു. ഇത് തെറ്റായ ഘടകം തിരഞ്ഞെടുക്കാൻ കാരണമാകാം.`,
+          'The website should give each element a unique ID.', 'ഓരോ ഘടകത്തിനും പ്രത്യേക ID നൽകണം.', 'duplicate_id'));
+      }
+    });
+
+    document.querySelectorAll('img').forEach(img => {
+      if (barriers.length >= 25) return;
+      if (img.complete && img.naturalWidth === 0 && img.getAttribute('src')) {
+        addIssue(img, 'Image failed to load', 'ചിത്രം ലോഡ് ആയില്ല',
+          'This image has a source but the browser could not load it.', 'ചിത്രത്തിന് source ഉണ്ടെങ്കിലും അത് ലോഡ് ചെയ്യാൻ കഴിഞ്ഞില്ല.',
+          'Check the image URL or the website server.', 'ചിത്രത്തിന്റെ URL അല്ലെങ്കിൽ വെബ്‌സൈറ്റ് സെർവർ പരിശോധിക്കണം.', 'broken_image');
+      }
+    });
+
+    document.querySelectorAll('form').forEach(form => {
+      if (barriers.length >= 25) return;
+      const controls = Array.from(form.querySelectorAll('input:not([type="hidden"]), select, textarea'));
+      controls.forEach(control => {
+        const type = (control.getAttribute('type') || '').toLowerCase();
+        if (type === 'submit' || type === 'button' || type === 'reset') return;
+        const id = control.id;
+        const labelled = (id && form.querySelector(`label[for="${CSS.escape(id)}"]`)) || control.closest('label') || control.getAttribute('aria-label') || control.getAttribute('aria-labelledby') || control.getAttribute('title');
+        if (!labelled) {
+          addIssue(control, 'Form field has no accessible label', 'ഫോം ഫീൽഡിന് വ്യക്തമായ ലേബൽ ഇല്ല',
+            'This form field does not have a detectable label or accessible name, so users may not know what to enter.',
+            'ഈ ഫീൽഡിന് വ്യക്തമായ label ഇല്ലാത്തതിനാൽ എന്ത് നൽകണമെന്ന് ഉപയോക്താവിന് മനസ്സിലാകാതിരിക്കാൻ സാധ്യതയുണ്ട്.',
+            'Add a visible label, placeholder, or accessible aria-label.', 'വ്യക്തമായ label, placeholder, അല്ലെങ്കിൽ aria-label നൽകണം.', 'missing_label');
+        }
+      });
+    });
+
+    const hasMisfunctionalities = barriers.length > 0;
     return {
       success: true,
       pageTitle: document.title || 'Current Webpage',
       url: window.location.href,
-      everythingFunctionsProperly,
+      everythingFunctionsProperly: !hasMisfunctionalities,
       hasMisfunctionalities,
       totalIssues: barriers.length,
       barriers,
+      checksPerformed: ['interactive controls', 'links', 'forms', 'labels', 'duplicate IDs', 'images', 'page title'],
+      note: 'This is a live DOM check. It cannot guarantee the correctness of arbitrary server-side or JavaScript behaviour without executing potentially destructive actions.',
       buttonStats: {
         totalButtons: buttonAudit.totalButtons,
         brokenCount: buttonAudit.brokenCount,
@@ -2521,51 +2559,27 @@
     }
   }
 
-  // Cross-browser runtime resolution
-  const runtimeApi = (typeof browser !== 'undefined' && browser.runtime)
-    ? browser.runtime
-    : ((typeof chrome !== 'undefined' && chrome.runtime) ? chrome.runtime : null);
-
-  // In-Page SPA Navigation Observer
-  function notifySPANavigation() {
-    if (runtimeApi && runtimeApi.sendMessage) {
-      try {
-        const p = runtimeApi.sendMessage({
-          type: 'SPA_NAVIGATED',
-          url: window.location.href,
-          title: document.title || 'Active Webpage'
-        });
-        if (p && typeof p.catch === 'function') {
-          p.catch(() => {});
-        }
-      } catch (_) {}
-    }
+  function resetAllPageOverlays() {
+    try {
+      clearActivePointer();
+      if (typeof clearAreaSpotlight === 'function') clearAreaSpotlight();
+      if (typeof stopElementPicker === 'function') stopElementPicker();
+      if (typeof toggleHeatmap === 'function') toggleHeatmap(false);
+      document.querySelectorAll('.thunai-pointer-arrow-card, .thunai-area-spotlight, .thunai-area-spotlight-card, .thunai-picker-banner, .thunai-heatmap-pin').forEach(el => el.remove());
+      return true;
+    } catch (_) { return false; }
   }
 
-  window.addEventListener('popstate', notifySPANavigation);
-  window.addEventListener('hashchange', notifySPANavigation);
-  try {
-    const origPushState = history.pushState;
-    if (origPushState) {
-      history.pushState = function () {
-        const ret = origPushState.apply(this, arguments);
-        setTimeout(notifySPANavigation, 60);
-        return ret;
-      };
-    }
-    const origReplaceState = history.replaceState;
-    if (origReplaceState) {
-      history.replaceState = function () {
-        const ret = origReplaceState.apply(this, arguments);
-        setTimeout(notifySPANavigation, 60);
-        return ret;
-      };
-    }
-  } catch (_) {}
+  const runtimeApi = (typeof browser !== 'undefined' && browser.runtime) 
+    ? browser.runtime 
+    : ((typeof chrome !== 'undefined' && chrome.runtime) ? chrome.runtime : null);
 
   if (runtimeApi && runtimeApi.onMessage) {
     runtimeApi.onMessage.addListener((message, sender, sendResponse) => {
-      if (message.action === 'SEARCH_KEYWORD') {
+      if (message.action === 'PING') {
+        sendResponse({ success: true, pong: true });
+        return;
+      } else if (message.action === 'SEARCH_KEYWORD') {
         const matches = searchInPage(
           Array.isArray(message.keywords)
             ? message.keywords
@@ -2573,10 +2587,7 @@
         );
         sendResponse({ success: true, matches });
       } else if (message.action === 'JUMP_TO_KEYWORD_MATCH') {
-        scrollToKeywordMatch(message.matchIndex, false);
-        sendResponse({ success: true });
-      } else if (message.action === 'POINT_TO_KEYWORD_MATCH') {
-        scrollToKeywordMatch(message.matchIndex, true);
+        scrollToKeywordMatch(message.matchIndex);
         sendResponse({ success: true });
       } else if (message.action === 'CLEAR_SEARCH_HIGHLIGHTS') {
         clearSearchHighlights();
@@ -2623,38 +2634,13 @@
       } else if (message.action === 'APPLY_FIX') {
         const result = applyLiveFixToPage(message.fix);
         sendResponse(result);
+      } else if (message.action === 'RESET_ALL_PAGE_OVERLAYS') {
+        sendResponse({ success: resetAllPageOverlays() });
       } else if (message.action === 'UPDATE_SETTINGS') {
         applyUserSettings(message.settings);
         sendResponse({ success: true });
-      } else if (message.action === 'RESET_ALL_PAGE_OVERLAYS') {
-        resetAllPageOverlays();
-        sendResponse({ success: true });
       }
     });
-  }
-
-  function resetAllPageOverlays() {
-    try {
-      clearSearchHighlights();
-      clearActivePointer();
-      clearAreaSpotlight();
-      toggleHeatmap(false);
-      stopElementPicker();
-      document.querySelectorAll('.thunai-reading-highlight').forEach(el => {
-        el.classList.remove('thunai-reading-highlight');
-      });
-      if (readingRulerEl) {
-        readingRulerEl.style.display = 'none';
-      }
-      if (liveStyleEl) {
-        liveStyleEl.textContent = '';
-      }
-      document.querySelectorAll('.thunai-inpage-spotlight-focus').forEach(el => el.remove());
-      document.querySelectorAll('.thunai-pointer-arrow-card').forEach(el => el.remove());
-      document.querySelectorAll('.thunai-area-spotlight-ring').forEach(el => el.remove());
-      document.querySelectorAll('.thunai-area-pointer-card').forEach(el => el.remove());
-    } catch (_) {}
-    return true;
   }
 
   window.ThunaiContentScript = {
@@ -2676,9 +2662,9 @@
     diagnoseElementDOM,
     tryAutoFixElement,
     toggleHeatmap,
+    resetAllPageOverlays,
     highlightSegment,
     applyLiveFixToPage,
-    applyUserSettings,
-    resetAllPageOverlays
+    applyUserSettings
   };
 })();

@@ -18,18 +18,12 @@ async function runButtonAudit() {
   const tEn = getT('en');
   console.log(`✓ 1-Click Language Switcher: ML (${tMl.langCode}) <-> EN (${tEn.langCode})`);
 
-  // 2. Test Keyword Search Service & Point on Page
+  // 2. Test Keyword Search Service
   const searchResults = await searchService.searchPage('അപേക്ഷ');
-  searchService.pointToMatch(0);
-  console.log(`✓ Search Keyword Engine & Point on Page: Query 'അപേക്ഷ' -> Total occurrences found = ${searchService.getState().totalMatches}.`);
+  console.log(`✓ Search Keyword Button & Engine: Query 'അപേക്ഷ' -> ${searchResults.length} matches found.`);
 
   // 3. Test Translation CTA & Simplify Toggle
-  let transRes;
-  try {
-    transRes = await translateText('Testing live webpage translation');
-  } catch (e) {
-    transRes = { translated: 'തത്സമയ വെബ്‌പേജ് വിവർത്തനം പരീക്ഷിക്കുന്നു', wordCount: 4 };
-  }
+  const transRes = await translateText('Testing live webpage translation');
   const simpRes = await simplifyText(transRes.translated);
   console.log(`✓ Translate CTA & Simplify Toggle: Translated ${transRes.wordCount} words, Simplified -${simpRes.reductionPercent}%.`);
 

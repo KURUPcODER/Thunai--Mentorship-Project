@@ -1,0 +1,46 @@
+
+--- Wikipedia Malayalam ---
+{
+  "extractedSegsCount": 734,
+  "countImmediate": 734,
+  "sampleTagNames": [
+    "DIV",
+    "P",
+    "P"
+  ],
+  "sampleSegIds": [
+    "seg-0",
+    "seg-1",
+    "seg-2"
+  ],
+  "countDelayed": 734,
+  "nodeReplaced": false,
+  "attrRemoved": false,
+  "selectorToHighlight": "[data-thunai-seg=\"seg-0\"]",
+  "elFoundBeforeHighlight": true,
+  "highlightedTagName": "DIV",
+  "isFallbackP": false
+}
+
+--- News18 Malayalam ---
+{
+  "extractedSegsCount": 49,
+  "countImmediate": 49,
+  "sampleTagNames": [
+    "LI",
+    "LI",
+    "LI"
+  ],
+  "sampleSegIds": [
+    "seg-0",
+    "seg-1",
+    "seg-2"
+  ],
+  "countDelayed": 0,
+  "nodeReplaced": true,
+  "attrRemoved": false,
+  "selectorToHighlight": "[data-thunai-seg=\"seg-0\"]",
+  "elFoundBeforeHighlight": false,
+  "highlightedTagName": "P",
+  "isFallbackP": true
+}

@@ -1,0 +1,72 @@
+
+--- Wikipedia Malayalam ---
+{
+  "totalSegsFound": 510,
+  "countImmediate": 734,
+  "countDelayed": 734,
+  "highlights": [
+    {
+      "id": "seg-1",
+      "originalMarkerGone": false,
+      "structuralSelectorSuccess": true,
+      "textFallbackActivated": false,
+      "finalElementTagSelected": "P",
+      "innerTextMatchesSegmenttext": true,
+      "intendedArticleSegmentFound": true
+    },
+    {
+      "id": "seg-301",
+      "originalMarkerGone": false,
+      "structuralSelectorSuccess": true,
+      "textFallbackActivated": false,
+      "finalElementTagSelected": "P",
+      "innerTextMatchesSegmenttext": true,
+      "intendedArticleSegmentFound": true
+    },
+    {
+      "id": "seg-621",
+      "originalMarkerGone": false,
+      "structuralSelectorSuccess": true,
+      "textFallbackActivated": false,
+      "finalElementTagSelected": "LI",
+      "innerTextMatchesSegmenttext": true,
+      "intendedArticleSegmentFound": true
+    }
+  ]
+}
+
+--- News18 Malayalam ---
+{
+  "totalSegsFound": 30,
+  "countImmediate": 49,
+  "countDelayed": 0,
+  "highlights": [
+    {
+      "id": "seg-9",
+      "originalMarkerGone": true,
+      "structuralSelectorSuccess": true,
+      "textFallbackActivated": false,
+      "finalElementTagSelected": "H1",
+      "innerTextMatchesSegmenttext": true,
+      "intendedArticleSegmentFound": true
+    },
+    {
+      "id": "seg-29",
+      "originalMarkerGone": true,
+      "structuralSelectorSuccess": true,
+      "textFallbackActivated": false,
+      "finalElementTagSelected": "DIV",
+      "innerTextMatchesSegmenttext": true,
+      "intendedArticleSegmentFound": true
+    },
+    {
+      "id": "seg-43",
+      "originalMarkerGone": true,
+      "structuralSelectorSuccess": true,
+      "textFallbackActivated": false,
+      "finalElementTagSelected": "DIV",
+      "innerTextMatchesSegmenttext": true,
+      "intendedArticleSegmentFound": true
+    }
+  ]
+}
